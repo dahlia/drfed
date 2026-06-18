@@ -1,0 +1,29 @@
+[tools]
+"aqua:dahlia/hongdown" = "0.4.3"
+
+[hooks]
+postinstall = "mise generate git-pre-commit --task check --write"
+
+[tasks.check]
+description = "Check all"
+depends = ["check:*"]
+
+[tasks."check:fmt:docs"]
+description = "Check Markdown formatting"
+run = "hongdown --check"
+
+[tasks."check:fmt:mise"]
+description = "Check mise.toml formatting"
+run = "mise fmt --check"
+
+[tasks.fmt]
+description = "Format files"
+depends = ["fmt:*"]
+
+[tasks."fmt:docs"]
+description = "Format Markdown documents"
+run = "hongdown --write"
+
+[tasks."fmt:mise"]
+description = "Format mise.toml"
+run = "mise fmt"
