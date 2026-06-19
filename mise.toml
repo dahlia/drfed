@@ -1,8 +1,13 @@
 [tools]
 "aqua:dahlia/hongdown" = "0.4.3"
+node = "26"
+pnpm = "11"
+
+[deps.pnpm]
+auto = true
 
 [hooks]
-postinstall = "mise generate git-pre-commit --task check --write"
+postinstall = ["mise deps", "mise generate git-pre-commit --task check --write"]
 
 [tasks.check]
 description = "Check all"

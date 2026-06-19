@@ -1,0 +1,46 @@
+{
+  "name": "@drfed/graphql",
+  "version": "0.1.0",
+  "description": "A GraphQL server for DrFed.",
+  "keywords": [
+    "ActivityPub",
+    "fediverse",
+    "federation",
+    "debugger"
+  ],
+  "author": {
+    "name": "DrFed team",
+    "url": "https://drfed.org/"
+  },
+  "maintainers": [
+    {
+      "name": "ChanHaeng Lee",
+      "email": "2chanhaeng@gmail.com",
+      "url": "https://chomu.dev/"
+    },
+    {
+      "name": "Hong Minhee",
+      "email": "hong@minhee.org",
+      "url": "https://hongminhee.org/"
+    },
+    {
+      "name": "Hyeonseo Kim",
+      "email": "dodok8@gmail.com",
+      "url": "https://hackers.pub/@gaebalgom"
+    },
+    {
+      "name": "Jiwon Kwon",
+      "email": "me@kwonjiwon.org",
+      "url": "https://kwonjiwon.org/"
+    }
+  ],
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "main": "dist/index.mjs",
+  "scripts": {
+    "build": "tsdown"
+  },
+  "devDependencies": {
+    "tsdown": "catalog:"
+  }
+}

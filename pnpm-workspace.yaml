@@ -1,0 +1,5 @@
+packages:
+  - packages/*
+
+catalog:
+  tsdown: ^0.22.3
