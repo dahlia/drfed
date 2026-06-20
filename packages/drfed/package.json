@@ -1,7 +1,7 @@
 {
-  "name": "@drfed/graphql",
+  "name": "@drfed/drfed",
   "version": "0.1.0",
-  "description": "A GraphQL server for DrFed.",
+  "description": "The main entrypoint program for DrFed.",
   "keywords": [
     "ActivityPub",
     "fediverse",
@@ -41,6 +41,9 @@
   "type": "module",
   "main": "dist/index.mjs",
   "types": "dist/index.d.mts",
+  "bin": {
+    "drfed-server": "bin/drfed-server.mjs"
+  },
   "tsdown": {
     "dts": true,
     "sourcemap": true
@@ -49,15 +52,18 @@
     "build": "tsdown"
   },
   "devDependencies": {
+    "@types/pg": "^8.20.0",
     "tsdown": "catalog:",
     "typescript": "catalog:"
   },
   "dependencies": {
+    "@drfed/graphql": "workspace:*",
     "@drfed/models": "workspace:*",
-    "@pothos/core": "^4.13.0",
-    "@pothos/plugin-drizzle": "^0.17.4",
+    "@electric-sql/pglite": "^0.5.3",
+    "@optique/core": "^1.1.0",
+    "@optique/run": "^1.1.0",
     "drizzle-orm": "catalog:",
-    "graphql": "^16.14.2",
-    "graphql-yoga": "^5.21.2"
+    "pg": "^8.21.0",
+    "srvx": "^0.11.16"
   }
 }

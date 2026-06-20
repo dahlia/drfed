@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // DrFed: A web-based platform for developing and debugging ActivityPub apps
 // Copyright (C) 2026 DrFed team
 //
@@ -13,30 +14,6 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import type { Database } from "@drfed/models";
-import {
-  createYoga,
-  useExecutionCancellation,
-  YogaServerInstance,
-} from "graphql-yoga";
+import { main } from "../dist/index.mjs";
 
-import type { ServerContext, UserContext } from "./builder.ts";
-import { schema } from "./schema.ts";
-
-/**
- * Creates a Yoga server instance with the provided schema and context.
- * @param db The database instance.
- * @returns A `YogaServerInstance` configured with the schema and context for
- *          handling GraphQL requests.
- */
-export function createYogaServer(
-  db: Database,
-): YogaServerInstance<ServerContext, UserContext> {
-  return createYoga({
-    plugins: [useExecutionCancellation()],
-    schema,
-    async context(ctx) {
-      return { request: ctx.request, db };
-    },
-  });
-}
+await main();

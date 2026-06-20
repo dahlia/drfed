@@ -1,6 +1,9 @@
 [tools]
 "aqua:dahlia/hongdown" = "0.4.3"
+"aqua:oxc-project/oxc/oxfmt" = "1.70.0"
+"github:nushell/nushell" = "latest"
 node = "26"
+"npm:pglite-cli" = "latest"
 pnpm = "11"
 
 [deps.pnpm]
@@ -13,6 +16,10 @@ postinstall = ["mise deps", "mise generate git-pre-commit --task check --write"]
 description = "Check all"
 depends = ["check:*"]
 
+[tasks."check:fmt"]
+description = "Check formatting"
+run = "oxfmt --check"
+
 [tasks."check:fmt:docs"]
 description = "Check Markdown formatting"
 run = "hongdown --check"
@@ -24,6 +31,7 @@ run = "mise fmt --check"
 [tasks.fmt]
 description = "Format files"
 depends = ["fmt:*"]
+run = "oxfmt --write"
 
 [tasks."fmt:docs"]
 description = "Format Markdown documents"
@@ -32,3 +40,40 @@ run = "hongdown --write"
 [tasks."fmt:mise"]
 description = "Format mise.toml"
 run = "mise fmt"
+
+[tasks.build]
+description = "Build the project"
+run = "pnpm run --recursive build"
+
+[tasks."generate:migrate"]
+description = "Generate database migration files"
+usage = """
+flag "--name <name>" help="Migration file name"
+flag "--custom" help="Prepare empty migration file for custom SQL"
+"""
+dir = "packages/models"
+run = """
+#!/usr/bin/env nu
+let name = (if "usage_name" in $env { ["--name" $env.usage_name] } else { [] })
+let custom = (if "usage_custom" in $env { ["--custom"] } else { [] })
+pnpm exec drizzle-kit generate ...$name ...$custom
+"""
+
+[tasks.dev]
+description = "Run the development server"
+run = """
+#!/usr/bin/env nu
+rm -rf packages/*/dist/
+job spawn { pnpm --parallel --recursive exec tsdown --watch --no-clean }
+loop {
+  let $allGenerated = ls packages
+    | each { |entry|
+        not ($entry.name | path join dist | path exists) or (
+          ls ($entry.name | path join dist) | is-empty)
+      }
+    | all { |empty| not $empty }
+  if $allGenerated { break }
+}
+cd packages/drfed/
+node --watch bin/drfed-server.mjs --pglite-data-path ../../.pgdata
+"""

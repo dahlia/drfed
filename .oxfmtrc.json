@@ -1,0 +1,10 @@
+{
+  "printWidth": 80,
+  "sortImports": true,
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    "*.md",
+    "**/*.md",
+    "**/dist/*.{cjs,d.cts,d.mts,d.ts,js,mjs}"
+  ]
+}

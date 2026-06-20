@@ -13,30 +13,18 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import type { Database } from "@drfed/models";
-import {
-  createYoga,
-  useExecutionCancellation,
-  YogaServerInstance,
-} from "graphql-yoga";
+import { message } from "@optique/core/message";
+import type { InferValue } from "@optique/core/parser";
+import type { Program } from "@optique/core/program";
 
-import type { ServerContext, UserContext } from "./builder.ts";
-import { schema } from "./schema.ts";
+import parser from "./parser.ts";
 
-/**
- * Creates a Yoga server instance with the provided schema and context.
- * @param db The database instance.
- * @returns A `YogaServerInstance` configured with the schema and context for
- *          handling GraphQL requests.
- */
-export function createYogaServer(
-  db: Database,
-): YogaServerInstance<ServerContext, UserContext> {
-  return createYoga({
-    plugins: [useExecutionCancellation()],
-    schema,
-    async context(ctx) {
-      return { request: ctx.request, db };
-    },
-  });
-}
+const program: Program<"sync", InferValue<typeof parser>> = {
+  parser,
+  metadata: {
+    name: "drfed-server",
+    description: message`Run a DrFed server.`,
+  },
+};
+
+export default program;
