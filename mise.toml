@@ -1,3 +1,5 @@
+min_version = "2026.6.10"
+
 [tools]
 "aqua:dahlia/hongdown" = "0.4.3"
 "aqua:oxc-project/oxc/oxfmt" = "1.70.0"

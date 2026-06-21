@@ -40,7 +40,8 @@ mise install
 
 The repository currently assumes:
 
- -  Node.js 26 or newer.
+ -  mise 2026.6.10 or newer.
+ -  Node.js 26 or newer, managed through mise.
  -  pnpm 11, managed through mise.
  -  mise tasks for checks, formatting, builds, migrations, and development.
  -  Node.js as the only supported runtime.  Do not add Deno or Bun support
