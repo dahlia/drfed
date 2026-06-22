@@ -13,9 +13,9 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import builder from "./builder.ts";
+import builder, { type DrFedObjectRef } from "./builder.ts";
 
-export const Account = builder.drizzleNode("accounts", {
+const AccountRef = builder.drizzleNode("accounts", {
   description:
     "Represents an `Account` in the DrFed platform.  " +
     "Note that it differs from the ActivityPub `Actor`s that belong to `Instance`s.",
@@ -42,6 +42,8 @@ export const Account = builder.drizzleNode("accounts", {
   name: "Account",
 });
 
+export const Account: DrFedObjectRef = AccountRef;
+
 builder.queryFields((t) => ({
   accountByUuid: t.drizzleField({
     args: {
@@ -56,6 +58,6 @@ builder.queryFields((t) => ({
     resolve(query, _, { uuid }, ctx) {
       return ctx.db.query.accounts.findFirst(query({ where: { id: uuid } }));
     },
-    type: Account,
+    type: AccountRef,
   }),
 }));

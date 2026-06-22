@@ -41,16 +41,48 @@
   "type": "module",
   "main": "dist/index.mjs",
   "types": "dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./account": {
+      "types": "./dist/account.d.mts",
+      "default": "./dist/account.mjs"
+    },
+    "./builder": {
+      "types": "./dist/builder.d.mts",
+      "default": "./dist/builder.mjs"
+    },
+    "./instance": {
+      "types": "./dist/instance.d.mts",
+      "default": "./dist/instance.mjs"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.mts",
+      "default": "./dist/schema.mjs"
+    }
+  },
   "files": [
     "dist/",
     "README.md"
   ],
   "tsdown": {
-    "dts": true,
+    "entry": [
+      "src/index.ts",
+      "src/account.ts",
+      "src/builder.ts",
+      "src/instance.ts",
+      "src/schema.ts"
+    ],
+    "dts": {
+      "sourcemap": true
+    },
     "sourcemap": true
   },
   "scripts": {
-    "build": "tsdown"
+    "build": "tsdown",
+    "test": "node --test"
   },
   "devDependencies": {
     "@types/node": "catalog:",

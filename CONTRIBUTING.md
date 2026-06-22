@@ -95,6 +95,7 @@ Use mise tasks from the repository root:
 mise run check
 mise run fmt
 mise run build
+mise run test
 mise run dev
 ~~~~
 
@@ -238,6 +239,69 @@ way that fights those tools.
 [Hongdown]: https://github.com/dahlia/hongdown
 
 
+Unit tests
+----------
+
+Test files live in the same package *src/* directory as the source they test
+and follow the `*.test.ts` naming convention.
+
+Use the built-in `node:test` runner and import `node:assert/strict` under the
+name `assert`:
+
+~~~~ ts
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+~~~~
+
+Import the module under test through its package subpath export, not through a
+relative source path:
+
+~~~~ ts
+// correct
+import { normalizeEmail } from "@drfed/models/email";
+
+// wrong — do not do this
+import { normalizeEmail } from "./email.ts";
+~~~~
+
+Using the package import exercises the built *dist/* output and catches
+discrepancies between source and what consumers actually receive.  Build the
+package before running tests (`pnpm --filter <package> run build` or
+`mise run build`).
+
+If the module under test is not yet listed as a subpath export, add it to the
+`exports` field in the package's *package.json* and to the `entry` array in
+the `tsdown` configuration before writing tests:
+
+~~~~ json
+"exports": {
+  "./email": {
+    "types": "./dist/email.d.mts",
+    "default": "./dist/email.mjs"
+  }
+},
+"tsdown": {
+  "entry": ["src/index.ts", "src/email.ts"]
+}
+~~~~
+
+Each package with tests exposes a `test` npm script that runs Node.js's
+built-in test runner:
+
+~~~~ json
+"scripts": {
+  "test": "node --test"
+}
+~~~~
+
+Run all tests across the monorepo from the repository root (builds first
+automatically):
+
+~~~~ sh
+mise run test
+~~~~
+
+
 Database changes
 ----------------
 
@@ -308,15 +372,13 @@ Before sending a pull request, run:
 ~~~~ sh
 mise run check
 mise run build
+mise run test
 ~~~~
 
 Run `mise run dev` for changes that affect startup, CLI parsing, migration
 execution, the GraphQL server, or package build output.  Manually verify the
 installed CLI behavior when changing package metadata, `bin` entries, build
 configuration, or files published to npm.
-
-There is no dedicated test suite in this repository yet.  When adding tests,
-keep them runnable from mise and make the command visible in *mise.toml*.
 
 
 Documentation guidance

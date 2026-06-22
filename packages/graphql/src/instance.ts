@@ -13,9 +13,9 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import builder from "./builder.ts";
+import builder, { type DrFedObjectRef } from "./builder.ts";
 
-export const Instance = builder.drizzleNode("instances", {
+const InstanceRef = builder.drizzleNode("instances", {
   description: "Represents an `Instance` in the DrFed platform.",
   fields: (t) => ({
     created: t.expose("created", {
@@ -36,3 +36,5 @@ export const Instance = builder.drizzleNode("instances", {
   },
   name: "Instance",
 });
+
+export const Instance: DrFedObjectRef = InstanceRef;

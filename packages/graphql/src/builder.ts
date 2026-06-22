@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import { type Database, normalizeEmail, relations } from "@drfed/models";
-import SchemaBuilder from "@pothos/core";
+import SchemaBuilder, { type ObjectRef } from "@pothos/core";
 import DrizzlePlugin from "@pothos/plugin-drizzle";
 import RelayPlugin from "@pothos/plugin-relay";
 import { getTableConfig } from "drizzle-orm/pg-core";
@@ -62,6 +62,15 @@ export interface SchemaTypes {
   DefaultFieldNullability: false;
   DrizzleRelations: typeof relations;
 }
+
+export type DrFedSchemaTypes =
+  PothosSchemaTypes.ExtendDefaultTypes<SchemaTypes>;
+
+export type DrFedObjectRef<Shape = unknown, Parent = Shape> = ObjectRef<
+  DrFedSchemaTypes,
+  Shape,
+  Parent
+>;
 
 /**
  * The GraphQL schema builder.

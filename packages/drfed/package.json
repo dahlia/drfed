@@ -50,7 +50,9 @@
     "drfed-server": "bin/drfed-server.mjs"
   },
   "tsdown": {
-    "dts": true,
+    "dts": {
+      "sourcemap": true
+    },
     "sourcemap": true
   },
   "scripts": {
