@@ -16,23 +16,23 @@
 import builder from "./builder.ts";
 
 export const Instance = builder.drizzleNode("instances", {
-  name: "Instance",
   description: "Represents an `Instance` in the DrFed platform.",
+  fields: (t) => ({
+    created: t.expose("created", {
+      type: "DateTime",
+      description: "The creation date/time of the `Instance`.",
+    }),
+    expires: t.expose("expires", {
+      type: "DateTime",
+      description: "The expiration date/time of the `Instance`.",
+    }),
+    slug: t.exposeString("slug"),
+  }),
   id: {
     column(instance) {
       return instance.id;
     },
     description: "The unique identifier of the `Instance`.",
   },
-  fields: (t) => ({
-    slug: t.exposeString("slug"),
-    expires: t.expose("expires", {
-      type: "DateTime",
-      description: "The expiration date/time of the `Instance`.",
-    }),
-    created: t.expose("created", {
-      type: "DateTime",
-      description: "The creation date/time of the `Instance`.",
-    }),
-  }),
+  name: "Instance",
 });

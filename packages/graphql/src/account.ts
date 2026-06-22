@@ -16,46 +16,46 @@
 import builder from "./builder.ts";
 
 export const Account = builder.drizzleNode("accounts", {
-  name: "Account",
   description:
     "Represents an `Account` in the DrFed platform.  " +
     "Note that it differs from the ActivityPub `Actor`s that belong to `Instance`s.",
+  fields: (t) => ({
+    created: t.expose("created", {
+      type: "DateTime",
+      description: "The date/time when the `Account` was created.",
+    }),
+    email: t.expose("email", {
+      type: "Email",
+      description: "The email address of the `Account`.",
+    }),
+    uuid: t.expose("id", {
+      type: "UUID",
+      description: "The UUID of the `Account`.",
+    }),
+  }),
   id: {
     column(account) {
       return account.id;
     },
     description: "The unique identifier of the `Account`.",
   },
-  fields: (t) => ({
-    uuid: t.expose("id", {
-      type: "UUID",
-      description: "The UUID of the `Account`.",
-    }),
-    email: t.expose("email", {
-      type: "Email",
-      description: "The email address of the `Account`.",
-    }),
-    created: t.expose("created", {
-      type: "DateTime",
-      description: "The date/time when the `Account` was created.",
-    }),
-  }),
+  name: "Account",
 });
 
 builder.queryFields((t) => ({
   accountByUuid: t.drizzleField({
-    type: Account,
-    description: "Get an `Account` by its UUID.",
     args: {
       uuid: t.arg({
-        type: "UUID",
-        required: true,
         description: "The UUID of the `Account` to retrieve.",
+        required: true,
+        type: "UUID",
       }),
     },
+    description: "Get an `Account` by its UUID.",
     nullable: true,
     resolve(query, _, { uuid }, ctx) {
       return ctx.db.query.accounts.findFirst(query({ where: { id: uuid } }));
     },
+    type: Account,
   }),
 }));

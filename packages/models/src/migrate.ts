@@ -86,12 +86,12 @@ export async function migrate(options: MigrateOptions): Promise<void> {
 
   const config = {
     migrationsFolder,
+    migrationsSchema:
+      options.migrationsSchema ?? options.migrations?.schema ?? "drizzle",
     migrationsTable:
       options.migrationsTable ??
       options.migrations?.table ??
       "__drizzle_migrations",
-    migrationsSchema:
-      options.migrationsSchema ?? options.migrations?.schema ?? "drizzle",
   };
 
   if (isPGliteMigrateCredentials(options.credentials)) {
@@ -101,11 +101,14 @@ export async function migrate(options: MigrateOptions): Promise<void> {
   }
 }
 
-function assertV3MigrationsFolder(migrationsFolder: string): void {
-  if (!existsSync(join(migrationsFolder, "meta", "_journal.json"))) return;
+function assertV3MigrationsFolder(migrationsDir: string): void {
+  // oxlint-disable-next-line node/no-sync
+  if (!existsSync(join(migrationsDir, "meta", "_journal.json"))) {
+    return;
+  }
 
   throw new Error(
-    `The migrations folder format is outdated: ${migrationsFolder}. ` +
+    `The migrations folder format is outdated: ${migrationsDir}. ` +
       "Run `drizzle-kit up` before using migrate().",
   );
 }
@@ -130,7 +133,9 @@ async function migratePGliteDatabase(
     await client.waitReady;
     await migratePglite(drizzlePglite({ client }), config);
   } finally {
-    if (shouldCloseClient) await client.close();
+    if (shouldCloseClient) {
+      await client.close();
+    }
   }
 }
 
@@ -158,7 +163,9 @@ async function migratePostgresDatabase(
 }
 
 function normalizePGliteUrl(url: string): string {
-  if (url.startsWith("file:")) return url.slice("file:".length);
+  if (url.startsWith("file:")) {
+    return url.slice("file:".length);
+  }
   return url;
 }
 

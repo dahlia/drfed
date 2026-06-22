@@ -1,0 +1,63 @@
+{
+  "options": {
+    "typeAware": true,
+    "typeCheck": true
+  },
+  "env": {
+    "browser": true,
+    "es2026": true,
+    "es6": true,
+    "node": true
+  },
+  "plugins": ["import", "jsdoc", "jsx-a11y", "node", "promise"],
+  "rules": {
+    "eslint/capitalized-comments": [
+      "warn",
+      "always",
+      { "ignoreConsecutiveComments": true }
+    ],
+    "eslint/eqeqeq": ["off", "smart"],
+    "eslint/func-style": ["warn", "declaration"],
+    "eslint/id-length": ["warn", { "exceptionPatterns": ["^_", "^[Trtv]$"] }],
+    "eslint/init-declarations": "off",
+    "eslint/max-params": ["warn", { "max": 4 }],
+    "eslint/max-statements": ["warn", { "max": 20 }],
+    "eslint/no-console": "warn",
+    "eslint/no-use-before-define": "off",
+    "eslint/prefer-destructuring": ["warn", { "object": true, "array": false }],
+    "eslint/no-continue": "off",
+    "eslint/no-eq-null": "off",
+    "eslint/no-magic-numbers": "warn",
+    "eslint/no-ternary": "off",
+    "eslint/no-undefined": "off",
+    "eslint/no-void": "off",
+    "eslint/sort-keys": "off",
+    "eslint/sort-imports": [
+      "error",
+      { "allowSeparatedGroups": true, "ignoreDeclarationSort": true }
+    ],
+    "import/consistent-type-specifier-style": "off",
+    "import/exports-last": "off",
+    "import/group-exports": "off",
+    "import/no-default-export": "off",
+    "import/no-named-export": "off",
+    "import/no-namespace": [
+      "error",
+      { "ignore": ["@fedify/vocab", "./schema.ts"] }
+    ],
+    "import/no-nodejs-modules": "off",
+    "import/prefer-default-export": "off",
+    "jsdoc/require-param-type": "off",
+    "jsdoc/require-returns-type": "off",
+    "promise/avoid-new": "warn"
+  },
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "pedantic": "error",
+    "perf": "error",
+    "style": "error",
+    "restriction": "error",
+    "nursery": "error"
+  }
+}

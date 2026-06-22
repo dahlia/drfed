@@ -15,12 +15,12 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import { sql } from "drizzle-orm";
 import {
+  check,
+  pgTable,
+  primaryKey,
+  timestamp,
   uuid,
   varchar,
-  pgTable,
-  check,
-  timestamp,
-  primaryKey,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -29,11 +29,11 @@ import {
 export const accounts = pgTable(
   "accounts",
   {
-    id: uuid().primaryKey(),
-    email: varchar({ length: 255 }).notNull().unique(),
     created: timestamp({ withTimezone: true })
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
+    email: varchar({ length: 255 }).notNull().unique(),
+    id: uuid().primaryKey(),
   },
   (table) => [
     check(
@@ -52,12 +52,12 @@ export type NewAccount = typeof accounts.$inferInsert;
 export const instances = pgTable(
   "instances",
   {
-    id: uuid().primaryKey(),
-    slug: varchar({ length: 100 }).notNull().unique(),
-    expires: timestamp({ withTimezone: true }).notNull(),
     created: timestamp({ withTimezone: true })
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
+    expires: timestamp({ withTimezone: true }).notNull(),
+    id: uuid().primaryKey(),
+    slug: varchar({ length: 100 }).notNull().unique(),
   },
   (table) => [
     check("instances_slug_check", sql`${table.slug} ~ '^[a-z0-9-]{4,100}$'`),
@@ -77,15 +77,15 @@ export type NewInstance = typeof instances.$inferInsert;
 export const instanceMembers = pgTable(
   "instance_members",
   {
-    instanceId: uuid()
-      .notNull()
-      .references(() => instances.id),
     accountId: uuid()
       .notNull()
       .references(() => accounts.id),
     created: timestamp({ withTimezone: true })
       .notNull()
       .default(sql`CURRENT_TIMESTAMP`),
+    instanceId: uuid()
+      .notNull()
+      .references(() => instances.id),
   },
   (table) => [primaryKey({ columns: [table.instanceId, table.accountId] })],
 );

@@ -13,7 +13,8 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import { spawn, type ChildProcess } from "node:child_process";
+// oxlint-disable no-console no-magic-numbers
+import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -34,43 +35,6 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const packagesDir = join(root, "packages");
 const isWindows = process.platform === "win32";
 const pnpm = isWindows ? "pnpm.cmd" : "pnpm";
-
-let buildProcess: ChildProcess | undefined;
-let serverProcess: ChildProcess | undefined;
-let shuttingDown = false;
-
-process.on("SIGINT", () => {
-  void shutdown(0, "SIGINT");
-});
-process.on("SIGTERM", () => {
-  void shutdown(143, "SIGTERM");
-});
-
-try {
-  await removeDistDirs();
-
-  buildProcess = spawnManaged(
-    pnpm,
-    ["--parallel", "--recursive", "exec", "tsdown", "--watch", "--no-clean"],
-    root,
-  );
-  const buildExit = waitForExit(buildProcess);
-
-  await waitForBuilds(buildExit);
-
-  serverProcess = spawnManaged(
-    process.execPath,
-    ["--watch", "bin/drfed-server.mjs", "--pglite-data-path", "../../.pgdata"],
-    join(root, "packages", "drfed"),
-  );
-  const serverExit = await waitForExit(serverProcess);
-  if (serverExit.error != null) throw serverExit.error;
-  const exitCode = serverExit.code ?? signalExitCode(serverExit.signal) ?? 1;
-  await shutdown(exitCode, "SIGTERM", { skipServer: true });
-} catch (error) {
-  console.error(error instanceof Error ? error.message : error);
-  await shutdown(1, "SIGTERM");
-}
 
 async function removeDistDirs() {
   const packages = await readdir(packagesDir, { withFileTypes: true });
@@ -102,13 +66,16 @@ function spawnManaged(
 
 async function waitForBuilds(buildExit: Promise<ExitResult>): Promise<void> {
   let buildExitResult: ExitResult | undefined;
+  // oxlint-disable-next-line promise/prefer-await-to-then promise/catch-or-return promise/always-return
   buildExit.then((result) => {
     buildExitResult = result;
   });
 
   while (true) {
     if (buildExitResult != null) {
-      if (buildExitResult.error != null) throw buildExitResult.error;
+      if (buildExitResult.error != null) {
+        throw buildExitResult.error;
+      }
       const exitCode =
         buildExitResult.code ?? signalExitCode(buildExitResult.signal);
       throw new Error(
@@ -116,19 +83,26 @@ async function waitForBuilds(buildExit: Promise<ExitResult>): Promise<void> {
       );
     }
 
+    // oxlint-disable-next-line no-await-in-loop
     const packages = await readdir(packagesDir, { withFileTypes: true });
+    // oxlint-disable-next-line no-await-in-loop
     const allGenerated = await Promise.all(
       packages
         .filter((entry) => entry.isDirectory())
         .map(async (entry) => {
           const distDir = join(packagesDir, entry.name, "dist");
-          if (!existsSync(distDir)) return false;
+          if (!existsSync(distDir)) {
+            return false;
+          }
           const entries = await readdir(distDir);
           return entries.length > 0;
         }),
     );
-    if (allGenerated.every(Boolean)) return;
+    if (allGenerated.every(Boolean)) {
+      return;
+    }
 
+    // oxlint-disable-next-line no-await-in-loop
     await sleep(100);
   }
 }
@@ -155,9 +129,10 @@ async function shutdown(
 }
 
 function waitForExit(child: ChildProcess): Promise<ExitResult> {
+  // oxlint-disable-next-line promise/avoid-new
   return new Promise((resolve) => {
     child.once("exit", (code, signal) => resolve({ code, signal }));
-    child.once("error", (error) => resolve({ code: 1, signal: null, error }));
+    child.once("error", (error) => resolve({ code: 1, error, signal: null }));
   });
 }
 
@@ -169,6 +144,7 @@ function terminate(
     return Promise.resolve();
   }
 
+  // oxlint-disable-next-line promise/avoid-new
   return new Promise((resolve) => {
     const timeout = setTimeout(() => {
       forceKill(child);
@@ -176,6 +152,7 @@ function terminate(
 
     child.once("exit", () => {
       clearTimeout(timeout);
+      // oxlint-disable-next-line promise/no-multiple-resolved
       resolve();
     });
     killTree(child, signal);
@@ -186,17 +163,20 @@ function killTree(child: ChildProcess, signal: NodeJS.Signals): void {
   try {
     if (isWindows) {
       child.kill(signal);
-    } else {
-      if (child.pid != null) process.kill(-child.pid, signal);
+    } else if (child.pid != null) {
+      process.kill(-child.pid, signal);
     }
   } catch (error) {
-    if (!isProcessLookupError(error)) child.kill(signal);
+    if (!isProcessLookupError(error)) {
+      child.kill(signal);
+    }
   }
 }
 
 function forceKill(child: ChildProcess | undefined): void {
-  if (child == null || child.exitCode != null || child.signalCode != null)
+  if (child == null || child.exitCode != null || child.signalCode != null) {
     return;
+  }
 
   if (isWindows) {
     spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
@@ -207,9 +187,13 @@ function forceKill(child: ChildProcess | undefined): void {
   }
 
   try {
-    if (child.pid != null) process.kill(-child.pid, "SIGKILL");
+    if (child.pid != null) {
+      process.kill(-child.pid, "SIGKILL");
+    }
   } catch (error) {
-    if (!isProcessLookupError(error)) child.kill("SIGKILL");
+    if (!isProcessLookupError(error)) {
+      child.kill("SIGKILL");
+    }
   }
 }
 
@@ -223,13 +207,57 @@ function isProcessLookupError(error: unknown): boolean {
 }
 
 function signalExitCode(signal: NodeJS.Signals | null): number | undefined {
-  if (signal === "SIGINT") return 130;
-  if (signal === "SIGTERM") return 143;
+  if (signal === "SIGINT") {
+    return 130;
+  }
+  if (signal === "SIGTERM") {
+    return 143;
+  }
   return undefined;
 }
 
 function sleep(ms: number): Promise<void> {
+  // oxlint-disable-next-line promise/avoid-new
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+let buildProcess: ChildProcess | undefined;
+let serverProcess: ChildProcess | undefined;
+let shuttingDown = false;
+
+process.on("SIGINT", () => {
+  void shutdown(0, "SIGINT");
+});
+process.on("SIGTERM", () => {
+  void shutdown(143, "SIGTERM");
+});
+
+try {
+  await removeDistDirs();
+
+  buildProcess = spawnManaged(
+    pnpm,
+    ["--parallel", "--recursive", "exec", "tsdown", "--watch", "--no-clean"],
+    root,
+  );
+  const buildExit = waitForExit(buildProcess);
+
+  await waitForBuilds(buildExit);
+
+  serverProcess = spawnManaged(
+    process.execPath,
+    ["--watch", "bin/drfed-server.mjs", "--pglite-data-path", "../../.pgdata"],
+    join(root, "packages", "drfed"),
+  );
+  const serverExit = await waitForExit(serverProcess);
+  if (serverExit.error != null) {
+    throw serverExit.error;
+  }
+  const exitCode = serverExit.code ?? signalExitCode(serverExit.signal) ?? 1;
+  await shutdown(exitCode, "SIGTERM", { skipServer: true });
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error);
+  await shutdown(1, "SIGTERM");
 }

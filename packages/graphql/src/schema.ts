@@ -13,11 +13,12 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// oxlint-disable import/no-unassigned-import
 import "./account.ts";
 import "./instance.ts";
 import builder from "./builder.ts";
 
 builder.queryType({});
-// builder.mutationType({});
+// Builder.mutationType({});
 
 export const schema = builder.toSchema();

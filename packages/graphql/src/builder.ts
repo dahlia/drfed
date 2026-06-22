@@ -67,7 +67,6 @@ export interface SchemaTypes {
  * The GraphQL schema builder.
  */
 export const builder = new SchemaBuilder<SchemaTypes>({
-  plugins: [DrizzlePlugin, RelayPlugin],
   defaultFieldNullability: false,
   drizzle: {
     client(ctx) {
@@ -76,13 +75,14 @@ export const builder = new SchemaBuilder<SchemaTypes>({
     getTableConfig,
     relations,
   },
+  plugins: [DrizzlePlugin, RelayPlugin],
 });
 
 builder.addScalarType("DateTime", DateTimeResolver);
 
 builder.scalarType("Email", {
-  serialize: (v) => normalizeEmail(v),
   parseValue: (v) => normalizeEmail(String(v)),
+  serialize: (v) => normalizeEmail(v),
 });
 
 builder.addScalarType("UUID", UUIDResolver);

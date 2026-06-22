@@ -13,7 +13,8 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import { readdir, readFile, writeFile } from "node:fs/promises";
+// oxlint-disable no-console no-magic-numbers
+import { readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -28,6 +29,24 @@ if (version == null) {
   process.exit(1);
 }
 
+async function findPackageJsonPaths(): Promise<string[]> {
+  const entries = await readdir(packagesDir, { withFileTypes: true });
+  const paths: string[] = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    paths.push(join(packagesDir, entry.name, "package.json"));
+  }
+  return paths;
+}
+
+function isSemver(verStr: string): boolean {
+  return /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/u.test(
+    verStr,
+  );
+}
+
 if (!isSemver(version)) {
   console.error(`Invalid semver version: ${version}`);
   process.exit(1);
@@ -39,33 +58,19 @@ if (packageJsonPaths.length === 0) {
   process.exit(1);
 }
 
-for (const path of packageJsonPaths) {
-  const content = await readFile(path, "utf8");
-  const data = JSON.parse(content) as { name: string; version: string };
-  const oldVersion = data.version;
-  data.version = version;
-  const updated = `${JSON.stringify(data, null, 2)}\n`;
-  await writeFile(path, updated, "utf8");
-  console.log(`${data.name}: ${oldVersion} -> ${version}`);
-}
+await Promise.all(
+  packageJsonPaths.map(async (path) => {
+    const content = await readFile(path, "utf8");
+    const data = JSON.parse(content) as { name: string; version: string };
+    const oldVersion = data.version;
+    data.version = version;
+    const updated = `${JSON.stringify(data, null, 2)}\n`;
+    await writeFile(path, updated, "utf8");
+    console.log(`${data.name}: ${oldVersion} -> ${version}`);
+  }),
+);
 
 const count = packageJsonPaths.length;
 console.log(
   `\nBumped ${count} package${count === 1 ? "" : "s"} to ${version}.`,
 );
-
-async function findPackageJsonPaths(): Promise<string[]> {
-  const entries = await readdir(packagesDir, { withFileTypes: true });
-  const paths: string[] = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    paths.push(join(packagesDir, entry.name, "package.json"));
-  }
-  return paths;
-}
-
-function isSemver(version: string): boolean {
-  return /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.test(
-    version,
-  );
-}

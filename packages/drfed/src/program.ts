@@ -20,11 +20,11 @@ import type { Program } from "@optique/core/program";
 import parser from "./parser.ts";
 
 const program: Program<"sync", InferValue<typeof parser>> = {
-  parser,
   metadata: {
-    name: "drfed-server",
     description: message`Run a DrFed server.`,
+    name: "drfed-server",
   },
+  parser,
 };
 
 export default program;

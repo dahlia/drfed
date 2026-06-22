@@ -34,16 +34,16 @@ const pgliteParser = map(
       description: message`The path to the directory where the PGlite database files will be stored.  Mutually exclusive with ${optionNames(["--postgres-url", "--database-url", "-D"])}.`,
     },
   ),
-  (path) => ({
-    db: drizzlePglite({
-      schema,
-      relations,
-      connection: { dataDir: path },
-    }),
+  (dbPath) => ({
     credentials: {
       driver: "pglite" as const,
-      url: path,
+      url: dbPath,
     },
+    db: drizzlePglite({
+      connection: { dataDir: dbPath },
+      relations,
+      schema,
+    }),
   }),
 );
 
@@ -57,17 +57,17 @@ const postgresParser = map(
       description: message`The URL of the PostgreSQL database to connect to.  Mutually exclusive with ${optionNames(["--pglite-data-path", "--data-path", "-d"])}.`,
     },
   ),
-  (url) => ({
-    db: drizzlePostgres({
-      schema,
-      relations,
-      connection: {
-        connectionString: url.href,
-      },
-    }),
+  (dbUrl) => ({
     credentials: {
-      url: url.href,
+      url: dbUrl.href,
     },
+    db: drizzlePostgres({
+      connection: {
+        connectionString: dbUrl.href,
+      },
+      relations,
+      schema,
+    }),
   }),
 );
 
@@ -88,7 +88,7 @@ export const parser = object({
         option("--no-migrate", "-M", {
           description: message`Disable automatic database migrations.`,
         }),
-        (m) => !m,
+        (noMigrate) => !noMigrate,
       ),
     }),
   ),

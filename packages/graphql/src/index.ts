@@ -14,8 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import type { Database } from "@drfed/models";
-import { createYoga, useExecutionCancellation } from "graphql-yoga";
-import type { YogaServerInstance } from "graphql-yoga";
+import {
+  type YogaServerInstance,
+  createYoga,
+  useExecutionCancellation,
+} from "graphql-yoga";
 
 import type { ServerContext, UserContext } from "./builder.ts";
 import { schema } from "./schema.ts";
@@ -30,10 +33,11 @@ export function createYogaServer(
   db: Database,
 ): YogaServerInstance<ServerContext, UserContext> {
   return createYoga({
+    // oxlint-disable-next-line require-await
+    async context(ctx) {
+      return { db, request: ctx.request };
+    },
     plugins: [useExecutionCancellation()],
     schema,
-    async context(ctx) {
-      return { request: ctx.request, db };
-    },
   });
 }

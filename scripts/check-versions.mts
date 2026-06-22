@@ -13,7 +13,8 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import { readdir, readFile } from "node:fs/promises";
+// oxlint-disable no-console no-magic-numbers
+import { readFile, readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -43,7 +44,7 @@ for (const pkg of packages) {
 }
 
 if (versions.size === 1) {
-  const [version, names] = [...versions.entries()][0];
+  const [version, names] = [...versions.entries()][0]!;
   const count = names.length;
   console.log(
     `All ${count} package${count === 1 ? "" : "s"} ${count === 1 ? "is" : "are"} at version ${version}.`,
@@ -59,13 +60,16 @@ process.exit(1);
 
 async function loadPackages(): Promise<Package[]> {
   const entries = await readdir(packagesDir, { withFileTypes: true });
-  const packages: Package[] = [];
+  const loadedPackages: Package[] = [];
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
+    if (!entry.isDirectory()) {
+      continue;
+    }
     const packageJsonPath = join(packagesDir, entry.name, "package.json");
+    // oxlint-disable-next-line no-await-in-loop
     const content = await readFile(packageJsonPath, "utf8");
     const data = JSON.parse(content) as { name: string; version: string };
-    packages.push({ name: data.name, version: data.version });
+    loadedPackages.push({ name: data.name, version: data.version });
   }
-  return packages;
+  return loadedPackages;
 }

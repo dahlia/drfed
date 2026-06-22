@@ -24,20 +24,20 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.instances.id.through(r.instanceMembers.instanceId),
     }),
   },
-  instances: {
-    members: r.many.accounts({
-      from: r.instances.id.through(r.instanceMembers.instanceId),
-      to: r.accounts.id.through(r.instanceMembers.accountId),
-    }),
-  },
   instanceMembers: {
+    account: r.one.accounts({
+      from: r.instanceMembers.accountId,
+      to: r.accounts.id,
+    }),
     instance: r.one.instances({
       from: r.instanceMembers.instanceId,
       to: r.instances.id,
     }),
-    account: r.one.accounts({
-      from: r.instanceMembers.accountId,
-      to: r.accounts.id,
+  },
+  instances: {
+    members: r.many.accounts({
+      from: r.instances.id.through(r.instanceMembers.instanceId),
+      to: r.accounts.id.through(r.instanceMembers.accountId),
     }),
   },
 }));

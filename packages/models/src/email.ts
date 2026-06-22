@@ -58,8 +58,11 @@ export function normalizeEmail(
 export function normalizeEmail(
   email: string | null | undefined,
 ): string | null | undefined {
-  if (typeof email === "undefined") return undefined;
-  else if (email == null) return null;
+  if (typeof email === "undefined") {
+    return undefined;
+  } else if (email == null) {
+    return null;
+  }
   const [local, host, shouldNotExist] = email.trim().split("@");
   if (
     local == null ||
