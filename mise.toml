@@ -1,8 +1,5 @@
 min_version = "2026.6.10"
 
-[settings.npm]
-package_manager = "pnpm"
-
 [tools]
 "aqua:dahlia/hongdown" = "0.4.3"
 "github:nushell/nushell" = "latest"

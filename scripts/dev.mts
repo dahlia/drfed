@@ -91,6 +91,7 @@ async function waitForBuilds(buildExit: Promise<ExitResult>): Promise<void> {
         .filter((entry) => entry.isDirectory())
         .map(async (entry) => {
           const distDir = join(packagesDir, entry.name, "dist");
+          // oxlint-disable-next-line no-sync
           if (!existsSync(distDir)) {
             return false;
           }
