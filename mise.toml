@@ -63,7 +63,12 @@ run = "mise fmt"
 
 [tasks.build]
 description = "Build the project"
-run = "pnpm run --recursive build"
+run = "pnpm run --parallel --recursive build"
+
+[tasks.test]
+description = "Run tests"
+depends = ["build"]
+run = "pnpm run --parallel --recursive test"
 
 [tasks.bump]
 description = "Bump all package versions"

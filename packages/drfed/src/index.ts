@@ -25,7 +25,7 @@ import metadata from "../package.json" with { type: "json" };
 import type { Options } from "./parser.ts";
 import program from "./program.ts";
 
-export async function main() {
+export async function main(): Promise<void> {
   const options: Options = run(program, {
     help: "option",
     showChoices: true,

@@ -41,17 +41,54 @@
   "type": "module",
   "main": "dist/index.mjs",
   "types": "dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./db": {
+      "types": "./dist/db.d.mts",
+      "default": "./dist/db.mjs"
+    },
+    "./email": {
+      "types": "./dist/email.d.mts",
+      "default": "./dist/email.mjs"
+    },
+    "./migrate": {
+      "types": "./dist/migrate.d.mts",
+      "default": "./dist/migrate.mjs"
+    },
+    "./relations": {
+      "types": "./dist/relations.d.mts",
+      "default": "./dist/relations.mjs"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.mts",
+      "default": "./dist/schema.mjs"
+    }
+  },
   "files": [
     "dist/",
     "drizzle/",
     "README.md"
   ],
   "tsdown": {
-    "dts": true,
+    "entry": [
+      "src/index.ts",
+      "src/db.ts",
+      "src/email.ts",
+      "src/migrate.ts",
+      "src/relations.ts",
+      "src/schema.ts"
+    ],
+    "dts": {
+      "sourcemap": true
+    },
     "sourcemap": true
   },
   "scripts": {
-    "build": "tsdown"
+    "build": "tsdown",
+    "test": "node --test"
   },
   "devDependencies": {
     "@types/node": "catalog:",

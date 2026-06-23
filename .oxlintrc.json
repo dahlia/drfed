@@ -18,7 +18,7 @@
     ],
     "eslint/eqeqeq": ["off", "smart"],
     "eslint/func-style": ["warn", "declaration"],
-    "eslint/id-length": ["warn", { "exceptionPatterns": ["^_", "^[Trtv]$"] }],
+    "eslint/id-length": ["warn", { "exceptionPatterns": ["^_", "^[Tertv]$"] }],
     "eslint/init-declarations": "off",
     "eslint/max-params": ["warn", { "max": 4 }],
     "eslint/max-statements": ["warn", { "max": 20 }],
@@ -41,10 +41,7 @@
     "import/group-exports": "off",
     "import/no-default-export": "off",
     "import/no-named-export": "off",
-    "import/no-namespace": [
-      "error",
-      { "ignore": ["@fedify/vocab", "./schema.ts"] }
-    ],
+    "import/no-namespace": "off",
     "import/no-nodejs-modules": "off",
     "import/prefer-default-export": "off",
     "jsdoc/require-param-type": "off",
