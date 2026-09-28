@@ -83,18 +83,23 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
   font-size: 0.9rem;
   overflow-wrap: anywhere;
 }
-.fields a {
-  color: var(--ink);
-  text-underline-offset: 0.2rem;
-}
 .endpoint {
   display: flex;
   align-items: baseline;
   gap: 0.75rem;
 }
-.endpoint > a {
+.endpointText {
   flex: 1;
   min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  user-select: text;
+  cursor: text;
 }
 .endpoint > :last-child {
   flex-shrink: 0;
@@ -102,6 +107,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
   max-width: 40%;
   margin-top: 0;
 }
+.endpointText:focus-visible,
 .page a:focus-visible {
   outline: 3px solid var(--accent-soft);
   outline-offset: 0.2rem;

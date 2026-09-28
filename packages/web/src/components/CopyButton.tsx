@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { createSignal } from "solid-js";
+import { Show, createSignal, onCleanup } from "solid-js";
 
 import styles from "~/styles/buttons.module.css";
 
@@ -24,11 +24,25 @@ import styles from "~/styles/buttons.module.css";
  */
 export function CopyButton(props: { value: string; label: string }) {
   const [message, setMessage] = createSignal("");
+  let resetTimer: ReturnType<typeof setTimeout> | undefined;
+  let request = 0;
+  const feedbackDuration = 2000;
+  onCleanup(() => {
+    request += 1;
+    clearTimeout(resetTimer);
+  });
   async function copy() {
+    request += 1;
+    const currentRequest = request;
+    clearTimeout(resetTimer);
+    setMessage("");
     try {
       await navigator.clipboard.writeText(props.value);
+      if (currentRequest !== request) return;
       setMessage("Copied.");
+      resetTimer = setTimeout(() => setMessage(""), feedbackDuration);
     } catch {
+      if (currentRequest !== request) return;
       setMessage("Could not copy. Select and copy the text manually.");
     }
   }
@@ -41,9 +55,35 @@ export function CopyButton(props: { value: string; label: string }) {
         }}
         aria-label={`Copy ${props.label}`}
       >
-        Copy
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          aria-hidden="true"
+        >
+          <Show
+            when={message() === "Copied."}
+            fallback={
+              <>
+                <rect x="8" y="8" width="12" height="12" rx="2" />
+                <path d="M16 8V4H4v12h4" />
+              </>
+            }
+          >
+            <path d="m5 12 4 4L19 6" />
+          </Show>
+        </svg>
       </button>
-      <output>{message()}</output>
+      <output
+        class={
+          !message() || message() === "Copied." ? styles.srOnly : undefined
+        }
+      >
+        {message()}
+      </output>
     </span>
   );
 }

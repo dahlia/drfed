@@ -127,7 +127,20 @@ export function ActorDetail(props: { $actor: ActorDetail_actor$key }) {
                         <div>
                           <dt>{endpoint().label}</dt>
                           <dd class={styles.endpoint}>
-                            <a href={httpUrl(url())}>{url()}</a>
+                            <button
+                              type="button"
+                              class={styles.endpointText}
+                              aria-label={`Select ${endpoint().label} URL`}
+                              onClick={(event) => {
+                                const selection = globalThis.getSelection();
+                                const range = document.createRange();
+                                range.selectNodeContents(event.currentTarget);
+                                selection?.removeAllRanges();
+                                selection?.addRange(range);
+                              }}
+                            >
+                              {url()}
+                            </button>
                             <CopyButton
                               value={url()}
                               label={endpoint().label}
@@ -145,16 +158,4 @@ export function ActorDetail(props: { $actor: ActorDetail_actor$key }) {
       }}
     </Show>
   );
-}
-
-// Stored remote URLs are data, not trusted navigation targets.
-function httpUrl(value: string): string | undefined {
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:"
-      ? url.href
-      : undefined;
-  } catch {
-    return undefined;
-  }
 }
