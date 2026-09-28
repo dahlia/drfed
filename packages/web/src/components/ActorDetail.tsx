@@ -16,7 +16,7 @@
 
 import { Title } from "@solidjs/meta";
 import { graphql } from "relay-runtime";
-import { For, Show } from "solid-js";
+import { Index, Show } from "solid-js";
 import { createFragment } from "solid-relay";
 
 import type { ActorDetail_actor$key } from "./__generated__/ActorDetail_actor.graphql.ts";
@@ -120,21 +120,24 @@ export function ActorDetail(props: { $actor: ActorDetail_actor$key }) {
             <section class={styles.panel} aria-labelledby="endpoints-title">
               <h2 id="endpoints-title">Federation endpoints</h2>
               <dl class={styles.fields}>
-                <For each={endpoints()}>
+                <Index each={endpoints()}>
                   {(endpoint) => (
-                    <Show when={endpoint.url}>
+                    <Show when={endpoint().url}>
                       {(url) => (
                         <div>
-                          <dt>{endpoint.label}</dt>
+                          <dt>{endpoint().label}</dt>
                           <dd class={styles.endpoint}>
                             <a href={httpUrl(url())}>{url()}</a>
-                            <CopyButton value={url()} label={endpoint.label} />
+                            <CopyButton
+                              value={url()}
+                              label={endpoint().label}
+                            />
                           </dd>
                         </div>
                       )}
                     </Show>
                   )}
-                </For>
+                </Index>
               </dl>
             </section>
           </>
