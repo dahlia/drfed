@@ -34,6 +34,8 @@ import {
 } from "solid-relay";
 import * as v from "valibot";
 
+import { showToast } from "~/components/Toast.tsx";
+
 import type { CreateObjectMutation } from "./__generated__/CreateObjectMutation.graphql.ts";
 import type { InstanceActorListQuery } from "./__generated__/InstanceActorListQuery.graphql.ts";
 
@@ -145,13 +147,11 @@ export default function CreateObjectsPage(props: RouteSectionProps<RouteData>) {
 
   const [commitCreateObject, isCreating] =
     createMutation<CreateObjectMutation>(createObjectMutation);
-  const [errorMessage, setErrorMessage] = createSignal<string>();
-  const [successMessage, setSuccessMessage] = createSignal<string>();
+  const [message, setMessage] = createSignal<string>("");
 
   const submit = (form: HTMLFormElement) => {
     if (isCreating()) return;
-    setErrorMessage(undefined);
-    setSuccessMessage(undefined);
+    setMessage("");
     const formData = new FormData(form);
     const addressingText = formData.get("addressing");
     let addressing: unknown;
@@ -162,7 +162,8 @@ export default function CreateObjectsPage(props: RouteSectionProps<RouteData>) {
         typeof addressingText === "string" ? addressingText : "{}",
       );
     } catch {
-      setErrorMessage("Addressing must be valid JSON.");
+      setMessage("Addressing must be valid JSON.");
+      showToast(message(), "fail");
       return;
     }
     const input = v.safeParse(createObjectSchema, {
@@ -173,29 +174,37 @@ export default function CreateObjectsPage(props: RouteSectionProps<RouteData>) {
       addressing,
     });
     if (!input.success) {
-      setErrorMessage(input.issues.map((issue) => issue.message).join("\n"));
+      setMessage(input.issues.map((issue) => issue.message).join("\n"));
+      showToast(message(), "fail");
       return;
     }
     commitCreateObject({
       variables: input.output,
       onCompleted(response, errors) {
         if (errors != null && errors.length > 0) {
-          setErrorMessage(errors.map((error) => error.message).join("\n"));
+          setMessage(errors.map((error) => error.message).join("\n"));
+          showToast(message(), "fail");
+
           return;
         }
         const result = response.createObject;
         if (result.resultType === "Object") {
           form.reset();
-          setSuccessMessage("Object created successfully.");
+          setMessage("Object created successfully.");
+          showToast(message(), "success");
         } else {
-          setErrorMessage(
+          setMessage(
             result.resultType === "CreateObjectError"
               ? result.message
               : "Unable to create the object.",
           );
+          showToast(message(), "fail");
         }
       },
-      onError: (error) => setErrorMessage(error.message),
+      onError: (error) => {
+        setMessage(error.message);
+        showToast(message(), "fail");
+      },
     });
   };
 
@@ -229,8 +238,7 @@ export default function CreateObjectsPage(props: RouteSectionProps<RouteData>) {
               }}
               onReset={() => {
                 setCurrentActor(null);
-                setErrorMessage(undefined);
-                setSuccessMessage(undefined);
+                setMessage("");
               }}
             >
               <fieldset class={objectStyles.fields} disabled={isCreating()}>
@@ -350,26 +358,6 @@ export default function CreateObjectsPage(props: RouteSectionProps<RouteData>) {
                   </button>
                 </div>
               </fieldset>
-              <Show when={errorMessage()}>
-                {(message) => (
-                  <p
-                    class={`${styles.notice} ${styles.error} ${objectStyles.message}`}
-                    role="alert"
-                  >
-                    {message()}
-                  </p>
-                )}
-              </Show>
-              <Show when={successMessage()}>
-                {(message) => (
-                  <output
-                    class={`${styles.notice} ${styles.success}`}
-                    aria-live="polite"
-                  >
-                    {message()}
-                  </output>
-                )}
-              </Show>
             </form>
           </section>
         </main>
