@@ -37,6 +37,9 @@ import * as v from "valibot";
 import type { CreateObjectMutation } from "./__generated__/CreateObjectMutation.graphql.ts";
 import type { InstanceActorListQuery } from "./__generated__/InstanceActorListQuery.graphql.ts";
 
+import styles from "~/styles/form.module.css";
+import objectStyles from "~/styles/object.module.css";
+
 const instanceActorListQuery = graphql`
   query InstanceActorListQuery($instanceId: ID!) {
     instance: node(id: $instanceId) {
@@ -197,93 +200,178 @@ export default function CreateObjectsPage(props: RouteSectionProps<RouteData>) {
   };
 
   return (
-    <Show when={actors()} fallback={<main>Instance not found.</main>}>
+    <Show
+      when={actors()}
+      fallback={
+        <main class={styles.page}>
+          <p role="alert">Instance not found.</p>
+        </main>
+      }
+    >
       {(actorList) => (
-        <main>
+        <main class={styles.page}>
           <Title>Create Object</Title>
-
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              submit(event.currentTarget);
-            }}
-            onReset={() => {
-              setCurrentActor(null);
-              setErrorMessage(undefined);
-              setSuccessMessage(undefined);
-            }}
+          <section
+            class={`${styles.panel} ${objectStyles.panel}`}
+            aria-labelledby="create-object-title"
           >
-            <fieldset disabled={isCreating()}>
-              <Select<ActorOption>
-                disabled={isCreating()}
-                value={currentActor() ?? actorList()[0]?.node ?? null}
-                onChange={setCurrentActor}
-                optionValue="id"
-                optionTextValue="handle"
-                placeholder="Select Handle"
-                options={actorList().map((actor) => actor.node)}
-                itemComponent={(itemProps) => (
-                  <Select.Item item={itemProps.item}>
-                    <Select.ItemLabel>
-                      {itemProps.item.rawValue.handle}
-                    </Select.ItemLabel>
-                    <Select.ItemIndicator>V</Select.ItemIndicator>
-                  </Select.Item>
-                )}
-              >
-                <Select.Label>Actor</Select.Label>
-                <Select.Trigger type="button">
-                  <Select.Value<ActorOption>>
-                    {(state) => state.selectedOption().handle}
-                  </Select.Value>
-                  <Select.Icon>▾</Select.Icon>
-                </Select.Trigger>
-                <Select.Portal>
-                  <Select.Content>
-                    <Select.Listbox />
-                  </Select.Content>
-                </Select.Portal>
-              </Select>
+            <header class={styles.header}>
+              <h1 id="create-object-title">Create Object</h1>
+              <p>Selected Instance: {data()?.instance?.host}</p>
+            </header>
 
-              <label>
-                Type
-                <select name="type">
-                  <option value="Note" selected>
-                    Note
-                  </option>
-                  <option value="Article">Article</option>
-                </select>
-              </label>
+            <form
+              class={styles.form}
+              aria-busy={isCreating()}
+              onSubmit={(event) => {
+                event.preventDefault();
+                submit(event.currentTarget);
+              }}
+              onReset={() => {
+                setCurrentActor(null);
+                setErrorMessage(undefined);
+                setSuccessMessage(undefined);
+              }}
+            >
+              <fieldset class={objectStyles.fields} disabled={isCreating()}>
+                <div class={objectStyles.identity}>
+                  <Select<ActorOption>
+                    class={styles.field}
+                    disabled={isCreating()}
+                    value={currentActor() ?? actorList()[0]?.node ?? null}
+                    onChange={setCurrentActor}
+                    optionValue="id"
+                    optionTextValue="handle"
+                    placeholder="Select Handle"
+                    options={actorList().map((actor) => actor.node)}
+                    itemComponent={(itemProps) => (
+                      <Select.Item
+                        class={objectStyles.option}
+                        item={itemProps.item}
+                      >
+                        <Select.ItemLabel>
+                          {itemProps.item.rawValue.handle}
+                        </Select.ItemLabel>
+                        <Select.ItemIndicator aria-hidden="true">
+                          ✓
+                        </Select.ItemIndicator>
+                      </Select.Item>
+                    )}
+                  >
+                    <Select.Label class={objectStyles.label}>
+                      Actor
+                    </Select.Label>
+                    <Select.Trigger
+                      class={`${styles.input} ${objectStyles.control} ${objectStyles.trigger}`}
+                      type="button"
+                    >
+                      <Select.Value<ActorOption>>
+                        {(state) => state.selectedOption().handle}
+                      </Select.Value>
+                      <Select.Icon aria-hidden="true">▾</Select.Icon>
+                    </Select.Trigger>
+                    <Select.Portal>
+                      <Select.Content class={objectStyles.selectContent}>
+                        <Select.Listbox class={objectStyles.listbox} />
+                      </Select.Content>
+                    </Select.Portal>
+                  </Select>
 
-              <TextField name="content" required>
-                <TextField.Label>Content</TextField.Label>
-                <TextField.TextArea />
-              </TextField>
-              <TextField name="name" defaultValue="">
-                <TextField.Label>Name</TextField.Label>
-                <TextField.Input />
-              </TextField>
-              <TextField name="addressing" defaultValue="{}">
-                <TextField.Label>Addressing</TextField.Label>
-                <TextField.Input />
-              </TextField>
-              <div>
-                <button type="reset">Reset</button>
-                <button
-                  type="submit"
-                  disabled={isCreating() || (actors()?.length ?? 0) === 0}
+                  <label class={styles.field}>
+                    <span class={objectStyles.label}>Type</span>
+                    <select
+                      class={`${styles.input} ${objectStyles.control}`}
+                      name="type"
+                    >
+                      <option value="Note" selected>
+                        Note
+                      </option>
+                      <option value="Article">Article</option>
+                    </select>
+                  </label>
+                </div>
+
+                <TextField class={styles.field} name="name" defaultValue="">
+                  <TextField.Label class={styles.fieldHeading}>
+                    Name <span class={styles.fieldStatus}>Optional</span>
+                  </TextField.Label>
+                  <TextField.Input
+                    class={styles.input}
+                    placeholder="Object title"
+                  />
+                </TextField>
+                <TextField class={styles.field} name="content" required>
+                  <TextField.Label class={styles.fieldHeading}>
+                    Content <span class={styles.required}>Required</span>
+                  </TextField.Label>
+                  <TextField.TextArea
+                    class={`${styles.input} ${objectStyles.content}`}
+                    rows={8}
+                    placeholder="<p>Write your content here.</p>"
+                  />
+                  <TextField.Description class={styles.hint}>
+                    HTML content is stored as entered. This object will not be
+                    delivered to remote servers.
+                  </TextField.Description>
+                </TextField>
+                <TextField
+                  class={styles.field}
+                  name="addressing"
+                  defaultValue="{}"
                 >
-                  {isCreating() ? "Creating…" : "Submit"}
-                </button>
-              </div>
-            </fieldset>
-            <Show when={errorMessage()}>
-              {(message) => <p role="alert">{message()}</p>}
-            </Show>
-            <Show when={successMessage()}>
-              {(message) => <output>{message()}</output>}
-            </Show>
-          </form>
+                  <TextField.Label class={styles.fieldHeading}>
+                    Addressing <span class={styles.fieldStatus}>JSON</span>
+                  </TextField.Label>
+                  <TextField.TextArea
+                    class={`${styles.input} ${objectStyles.addressing}`}
+                    rows={4}
+                    spellcheck={false}
+                  />
+                  <TextField.Description class={styles.hint}>
+                    Use to, cc, bto, bcc, or audience with arrays of recipient
+                    URLs. Leave {"{}"} for no recipients.
+                  </TextField.Description>
+                </TextField>
+                <Show when={actorList().length === 0}>
+                  <p class={styles.hint}>
+                    Create an actor in this instance before creating an object.
+                  </p>
+                </Show>
+                <div class={objectStyles.actions}>
+                  <button class={objectStyles.reset} type="reset">
+                    Reset
+                  </button>
+                  <button
+                    class={styles.button}
+                    type="submit"
+                    disabled={isCreating() || (actors()?.length ?? 0) === 0}
+                  >
+                    {isCreating() ? "Creating…" : "Create Object"}
+                  </button>
+                </div>
+              </fieldset>
+              <Show when={errorMessage()}>
+                {(message) => (
+                  <p
+                    class={`${styles.notice} ${styles.error} ${objectStyles.message}`}
+                    role="alert"
+                  >
+                    {message()}
+                  </p>
+                )}
+              </Show>
+              <Show when={successMessage()}>
+                {(message) => (
+                  <output
+                    class={`${styles.notice} ${styles.success}`}
+                    aria-live="polite"
+                  >
+                    {message()}
+                  </output>
+                )}
+              </Show>
+            </form>
+          </section>
         </main>
       )}
     </Show>
