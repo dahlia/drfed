@@ -186,6 +186,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
   outline-offset: 0.2rem;
 }
 
+.toolbar {
+  display: flex;
+  flex-direction: row-reverse;
+  gap: 10px;
+}
+
 @media (max-width: 520px) {
   .header {
     align-items: start;

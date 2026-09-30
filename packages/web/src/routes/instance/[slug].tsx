@@ -127,14 +127,24 @@ export default function InstanceDetailPage(
 
           <header class={styles.header}>
             <h1>{instance().host}</h1>
+          </header>
+
+          <section class={styles.toolbar}>
+            <A
+              class={styles.createButton}
+              href={`/workspace/create/${instance().id}/objects`}
+            >
+              <span aria-hidden="true">＋</span>
+              Object
+            </A>
             <A
               class={styles.createButton}
               href={`/workspace/create/${instance().id}/actors`}
             >
               <span aria-hidden="true">＋</span>
-              Create actor
+              Actor
             </A>
-          </header>
+          </section>
 
           <section class={styles.details} aria-labelledby="connection-title">
             <div>
