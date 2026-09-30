@@ -64,12 +64,14 @@ const createObjectMutation = graphql`
     $contentHtml: String!
     $type: ObjectType!
     $addressing: AddressingInput!
+    $name: String
   ) {
     createObject(
       actor: $actor
       contentHtml: $contentHtml
       type: $type
       addressing: $addressing
+      name: $name
     ) {
       resultType: __typename
       ... on Object {
@@ -86,6 +88,7 @@ const recipientSchema = v.pipe(v.string(), v.url());
 const recipientsSchema = v.optional(v.array(recipientSchema), []);
 const createObjectSchema = v.object({
   actor: v.pipe(v.string("Select an actor."), v.nonEmpty("Select an actor.")),
+  name: v.string(),
   contentHtml: v.pipe(
     v.string(),
     v.check((content) => content.trim() !== "", "Enter content."),
@@ -149,6 +152,8 @@ export default function CreateObjectsPage(props: RouteSectionProps<RouteData>) {
     const formData = new FormData(form);
     const addressingText = formData.get("addressing");
     let addressing: unknown;
+    const nameText = formData.get("name");
+    const name = typeof nameText === "string" ? nameText : "";
     try {
       addressing = JSON.parse(
         typeof addressingText === "string" ? addressingText : "{}",
@@ -159,6 +164,7 @@ export default function CreateObjectsPage(props: RouteSectionProps<RouteData>) {
     }
     const input = v.safeParse(createObjectSchema, {
       actor: (currentActor() ?? actors()?.[0]?.node)?.id,
+      name,
       contentHtml: formData.get("content"),
       type: formData.get("type"),
       addressing,
@@ -252,6 +258,10 @@ export default function CreateObjectsPage(props: RouteSectionProps<RouteData>) {
               <TextField name="content" required>
                 <TextField.Label>Content</TextField.Label>
                 <TextField.TextArea />
+              </TextField>
+              <TextField name="name" defaultValue="">
+                <TextField.Label>Name</TextField.Label>
+                <TextField.Input />
               </TextField>
               <TextField name="addressing" defaultValue="{}">
                 <TextField.Label>Addressing</TextField.Label>
