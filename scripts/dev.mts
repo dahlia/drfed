@@ -34,15 +34,14 @@ interface ShutdownOptions {
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const packagesDir = join(root, "packages");
 
-// The server itself is started with `--env-file`, but the root origin has to
-// be known here, to be passed as a command-line option.  Loading the same file
-// keeps the two in one place.  It is not committed, so tolerate its absence.
+// Load development origins from .env and pass them as --root-origin and
+// repeated --login-origin options.  The file is not committed, so tolerate
+// its absence.
 const envFile = join(packagesDir, "drfed", ".env");
 try {
   process.loadEnvFile(envFile);
 } catch {
-  // Left to `drfed-server` to complain about, since it needs
-  // `DRFED_LOGIN_ORIGINS` from the same file anyway.
+  // Use development defaults when the file is unavailable.
 }
 
 // Any subdomain of `localhost` resolves to the loopback address without any

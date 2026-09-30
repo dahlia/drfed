@@ -12,8 +12,10 @@ Usage
 -----
 
 ~~~~ sh
-drfed-server --root-origin https://drfed.example.com --data-path .pgdata
 drfed-server --root-origin https://drfed.example.com \
+  --login-origin https://drfed.example.com --data-path .pgdata
+drfed-server --root-origin https://drfed.example.com \
+  --login-origin https://drfed.example.com \
   --database-url postgres://localhost/drfed
 ~~~~
 
@@ -33,7 +35,8 @@ and is carried into every instance, which is what makes a development
 deployment work:
 
 ~~~~ sh
-drfed-server --root-origin http://drfed.localhost:8888 --data-path .pgdata
+drfed-server --root-origin http://drfed.localhost:8888 \
+  --login-origin http://localhost:3000 --data-path .pgdata
 ~~~~
 
 Requests are routed by the authority they arrive on:
@@ -71,15 +74,16 @@ names are already part of the actor URIs the rest of the fediverse has stored,
 so the server only warns at startup about instances it can no longer reach.
 
 
-Environment
------------
+Login origins
+-------------
 
-`DRFED_LOGIN_ORIGINS` is required and accepts a comma-separated list of HTTP
-or HTTPS origins allowed in email login links:
+`--login-origin` specifies an HTTP or HTTPS origin allowed in email login
+links.  At least one is required; repeat the option to allow multiple origins:
 
 ~~~~ sh
-DRFED_LOGIN_ORIGINS=https://drfed.example.com,http://localhost:3000 \
-  drfed-server --root-origin https://drfed.example.com --data-path .pgdata
+drfed-server --root-origin https://drfed.example.com --data-path .pgdata \
+  --login-origin https://drfed.example.com \
+  --login-origin http://localhost:3000
 ~~~~
 
 For repository development, create the environment file loaded by
@@ -88,6 +92,11 @@ For repository development, create the environment file loaded by
 ~~~~ sh
 cp packages/drfed/.env.example packages/drfed/.env
 ~~~~
+
+`mise run dev` reads `DRFED_LOGIN_ORIGINS` as a comma-separated list and passes
+each value as a `--login-origin` option.  If unset, it defaults to
+`http://localhost:3000`.  The installed CLI does not read this variable;
+pass `--login-origin` explicitly.
 
 That file also carries `DRFED_ROOT_ORIGIN`, which `mise run dev` passes as
 `--root-origin`.  It defaults to `http://drfed.localhost:8888`; every subdomain
@@ -101,6 +110,7 @@ Options
 | Option                    | Short | Description                                                          |
 | ------------------------- | ----- | -------------------------------------------------------------------- |
 | `--root-origin ORIGIN`    | `-r`  | Origin instances are subdomains of (required)                        |
+| `--login-origin ORIGIN`   |       | Origin allowed in login links (required; may be repeated)            |
 | `--listen HOST:PORT`      | `-l`  | Address to listen on (default: `localhost:8888`)                     |
 | `--pglite-data-path PATH` | `-d`  | Directory for PGlite storage                                         |
 | `--postgres-url URL`      | `-D`  | PostgreSQL connection URL                                            |
