@@ -182,7 +182,7 @@ describe("createYogaServer()", () => {
       assert.doesNotThrow(() =>
         createYogaServer(db, federation, {
           mailer,
-          loginOrigin: new URL("https://drfed.test"),
+          loginOrigins: new Set(["https://drfed.test"]),
           rootOrigin: new URL("https://drfed.test"),
         }),
       );

@@ -62,9 +62,9 @@ export interface ServerContext {
   readonly emailFrom: string;
 
   /**
-   * Origin for login.
+   * Origins for login.
    */
-  readonly loginOrigin: URL;
+  readonly loginOrigins: ReadonlySet<string>;
 
   /**
    * The root origin of this deployment, which every instance's subdomain is

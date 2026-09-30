@@ -65,7 +65,7 @@ builder.mutationFields((t) => ({
       const loginUrl = expandVerifyUrl({
         challengeId,
         code,
-        loginOrigin: ctx.loginOrigin.origin,
+        loginOrigins: ctx.loginOrigins,
         template: verifyUrl,
       });
       const account = await findAccount(email, ctx);

@@ -49,13 +49,13 @@ async function runServer(options: ServerOptions) {
       ? new PgliteKvStore(credentials.client)
       : new PostgresKvStore(credentials.client);
   const federation = await createFederation(options.drizzle.db, { kv });
-  const { emailFrom, mailer, rootOrigin, loginOrigin } = options;
+  const { emailFrom, mailer, rootOrigin, loginOrigins } = options;
 
   const yogaServer = createYogaServer(options.drizzle.db, federation, {
     rootOrigin,
     emailFrom,
     mailer,
-    loginOrigin,
+    loginOrigins,
   });
   await warnAboutStrandedInstances(options.drizzle.db, rootOrigin);
   const server = serve({

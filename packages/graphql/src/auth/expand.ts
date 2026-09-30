@@ -21,14 +21,14 @@ export interface ExpandVerifyUrlParams {
   template: Template;
   challengeId: `${string}-${string}-${string}-${string}-${string}`;
   code: string;
-  loginOrigin: string;
+  loginOrigins: ReadonlySet<string>;
 }
 
 export default function expandVerifyUrl({
   template,
   challengeId,
   code,
-  loginOrigin,
+  loginOrigins,
 }: ExpandVerifyUrlParams): string {
   assertVariable(template, "challengeId");
   assertVariable(template, "code");
@@ -45,7 +45,7 @@ export default function expandVerifyUrl({
   if (url.protocol !== "https:" && url.protocol !== "http:") {
     throw invalidVerifyUrl("Verify URL must use HTTP or HTTPS.");
   }
-  if (loginOrigin !== url.origin) {
+  if (!loginOrigins.has(url.origin)) {
     throw invalidVerifyUrl(`Verify URL origin is not allowed: ${url.origin}.`);
   }
   return url.href;

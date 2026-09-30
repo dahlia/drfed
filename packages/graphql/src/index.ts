@@ -46,9 +46,9 @@ export interface YogaServerOptions {
   emailFrom?: string | undefined;
 
   /**
-   * Origin for login.
+   * Origins for login.
    */
-  loginOrigin: URL;
+  loginOrigins: ReadonlySet<string>;
 
   /**
    * The root origin of this deployment.  Every instance is served from a
@@ -110,8 +110,13 @@ function mockTransport() {
 const fillOptions = (
   opt: YogaServerOptions,
 ): Omit<ServerContext, "db" | "request" | "federation"> => {
-  const loginOrigin = new URL(opt.loginOrigin);
-  loginOrigin.hostname = canonicalHostname(loginOrigin);
+  const loginOrigins = new Set<string>();
+
+  for (const loginOrigin of opt.loginOrigins) {
+    const url = new URL(loginOrigin);
+    url.hostname = canonicalHostname(url);
+    loginOrigins.add(url.origin);
+  }
 
   return {
     mailer: opt.mailer ?? mockTransport(),
@@ -120,7 +125,7 @@ const fillOptions = (
     // at drfed.org would fail the SPF and DMARC checks of every deployment but
     // the project's own, and the login mail would be rejected or junked.
     emailFrom: opt.emailFrom ?? `noreply@${canonicalHostname(opt.rootOrigin)}`,
-    loginOrigin,
+    loginOrigins,
     rootOrigin: opt.rootOrigin,
   };
 };

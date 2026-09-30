@@ -197,7 +197,7 @@ describe("email authentication", () => {
         equal(message.sender.address, "postmaster@mail.example");
       },
       new URL("https://drfed.example"),
-      new URL("https://drfed.test"),
+      new Set(["https://drfed.test"]),
       "postmaster@mail.example",
     );
   });
@@ -552,7 +552,7 @@ describe("email authentication", () => {
           ok(message.content.text?.includes(`${linkOrigin}/verify?`));
         },
         new URL("https://drfed.org"),
-        new URL(configuredOrigin),
+        new Set([configuredOrigin]),
       );
     });
   }

@@ -19,7 +19,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { getLogger } from "@logtape/drizzle-orm";
 import { merge, object, or } from "@optique/core/constructs";
 import { message, optionNames } from "@optique/core/message";
-import { map, optional, withDefault } from "@optique/core/modifiers";
+import { map, multiple, optional, withDefault } from "@optique/core/modifiers";
 import type { InferValue } from "@optique/core/parser";
 import { flag, option } from "@optique/core/primitives";
 import { email, origin, socketAddress, url } from "@optique/core/valueparser";
@@ -124,12 +124,18 @@ const emailFromParser = optional(
   }),
 );
 
-const loginOriginParser = option(
-  "--login-origin",
-  origin({ allowedProtocols: ["http:", "https:"] }),
-  {
-    description: message`The frontend origin allowed in email login links.`,
-  },
+const loginOriginParser = map(
+  multiple(
+    option(
+      "--login-origin",
+      origin({ allowedProtocols: ["http:", "https:"] }),
+      {
+        description: message`The frontend origin allowed in email login links.`,
+      },
+    ),
+    { min: 1 },
+  ),
+  (values) => new Set(values.map((value) => value.origin)),
 );
 
 const serverParser = object("DrFed server", {
@@ -154,7 +160,7 @@ const serverParser = object("DrFed server", {
     }),
   ),
   rootOrigin: rootOriginParser,
-  loginOrigin: loginOriginParser,
+  loginOrigins: loginOriginParser,
   emailFrom: emailFromParser,
   mailer: smtpParser,
   seed: seedParser,
