@@ -197,6 +197,7 @@ describe("email authentication", () => {
         equal(message.sender.address, "postmaster@mail.example");
       },
       new URL("https://drfed.example"),
+      new Set(["https://drfed.test"]),
       "postmaster@mail.example",
     );
   });
@@ -513,4 +514,46 @@ describe("email authentication", () => {
       equal(error?.path[0], "revokeSession");
     });
   });
+
+  for (const [configuredOrigin, linkOrigin] of [
+    ["https://app.example.", "https://app.example"],
+    ["http://127.0.0.1:3000", "http://127.0.0.1:3000"],
+    ["http://[::1]:3000", "http://[::1]:3000"],
+  ] as const) {
+    it(`accepts login links on ${linkOrigin} with ${configuredOrigin} configured`, async () => {
+      await withTestHarness(
+        async ({ db, mailer, post }) => {
+          await db.insert(schema.accounts).values({
+            id: accountId,
+            email,
+            name: "Tachibana Sherry",
+          });
+
+          const response = await post({
+            query: loginMutation,
+            variables: {
+              email,
+              verifyUrl:
+                `${linkOrigin}/verify` +
+                "?challengeId={challengeId}&code={code}",
+            },
+          });
+
+          equal(response.status, okStatus);
+          const body = await response.json();
+          equal(body.errors, undefined);
+          ok(body.data.loginByEmail.challengeId);
+
+          const messages = mailer.getSentMessages();
+          equal(messages.length, 1);
+
+          const [message] = messages;
+          ok(message);
+          ok(message.content.text?.includes(`${linkOrigin}/verify?`));
+        },
+        new URL("https://drfed.org"),
+        new Set([configuredOrigin]),
+      );
+    });
+  }
 });

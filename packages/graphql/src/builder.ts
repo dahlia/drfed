@@ -62,7 +62,7 @@ export interface ServerContext {
   readonly emailFrom: string;
 
   /**
-   * Origin list for login.
+   * Origins for login.
    */
   readonly loginOrigins: ReadonlySet<string>;
 

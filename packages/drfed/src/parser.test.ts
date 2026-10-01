@@ -32,9 +32,7 @@ const commandTimeout = 30_000;
 // The binary rather than the parser module, because what matters here is the
 // contract the installed command exposes.  Parsing `--pglite-data-path` opens
 // a database as a side effect, so every case below either fails during parsing
-// or takes the schema-generation branch, which needs no database at all.  That
-// is also why none of them need `DRFED_LOGIN_ORIGINS`: the server never gets
-// far enough to read it.
+// or takes the schema-generation branch, which needs no database at all.
 const binary = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -50,10 +48,8 @@ async function run(
       process.execPath,
       [binary, ...args],
       {
-        // A deliberately minimal environment.  Leaving `DRFED_LOGIN_ORIGINS`
-        // out means that a command line which parses successfully still stops
-        // immediately instead of starting a server, whatever the developer
-        // happens to have exported.
+        // A deliberately minimal environment, independent of what the
+        // developer happens to have exported.
         env: { PATH: process.env.PATH ?? "" },
         timeout: commandTimeout,
       },
@@ -86,10 +82,8 @@ describe("drfed-server", () => {
   });
 
   it("no longer accepts the old --root-domain option", async () => {
-    // Everything else on this command line is valid, so the only thing that
-    // can go wrong is the retired option.  If it were reinstated, parsing
-    // would succeed and the run would instead stop on the missing
-    // `DRFED_LOGIN_ORIGINS`, which says something else entirely.
+    // If the retired option were reinstated, parsing would instead stop on
+    // the missing --login-origin, which says something else entirely.
     const dataPath = await mkdtemp(join(tmpdir(), "drfed-parser-test-"));
     try {
       const { code, stderr } = await run([
@@ -121,7 +115,7 @@ describe("drfed-server", () => {
     const dataPath = await mkdtemp(join(tmpdir(), "drfed-parser-test-"));
     try {
       // Valid: parsing gets past the option and stops only on the missing
-      // login origins, which is the next thing the server reads.
+      // required --login-origin option.
       const accepted = await run([
         "--data-path",
         dataPath,
@@ -129,16 +123,20 @@ describe("drfed-server", () => {
         "--email-from=postmaster@mail.example",
       ]);
       assert.notEqual(accepted.code, 0);
-      assert.match(accepted.stderr, /DRFED_LOGIN_ORIGINS/u);
+      assert.match(
+        accepted.stderr,
+        /Expected at least 1 values, but got only 0\./u,
+      );
 
       const rejected = await run([
         "--data-path",
         dataPath,
         "--root-origin=https://drfed.net",
+        "--login-origin=https://drfed.net",
         "--email-from=not-an-address",
       ]);
       assert.notEqual(rejected.code, 0);
-      assert.doesNotMatch(rejected.stderr, /DRFED_LOGIN_ORIGINS/u);
+      assert.match(rejected.stderr, /Expected a valid email address/u);
     } finally {
       await rm(dataPath, { force: true, recursive: true });
     }
