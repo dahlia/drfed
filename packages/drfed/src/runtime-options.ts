@@ -24,6 +24,7 @@ import postgres from "postgres";
 
 import type { ServerOptions } from "./parser.ts";
 import { privateKeySafeLogger } from "./query-logger.ts";
+import type { ResourceOwner } from "./resources.ts";
 
 interface DatabaseRuntime {
   readonly credentials:
@@ -39,9 +40,14 @@ interface ServerRuntime extends Omit<ServerOptions, "drizzle"> {
 
 function createDatabase(
   configuration: ServerOptions["drizzle"],
+  owner: ResourceOwner,
 ): DatabaseRuntime {
   if (configuration.driver === "pglite") {
-    const client = new PGlite(configuration.dataPath);
+    const client = owner.register(
+      new PGlite(configuration.dataPath),
+      (resource) => resource.close(),
+      { owned: true },
+    );
     return {
       credentials: { driver: "pglite" as const, client },
       db: drizzlePglite({
@@ -52,7 +58,11 @@ function createDatabase(
       }),
     };
   }
-  const client = postgres(configuration.databaseUrl.href);
+  const client = owner.register(
+    postgres(configuration.databaseUrl.href),
+    (resource) => resource.end(),
+    { owned: true },
+  );
   return {
     credentials: { client },
     db: drizzlePostgres({
@@ -68,8 +78,11 @@ function createDatabase(
  * Create resources only after the server command has been parsed successfully.
  * @returns Runtime resources owned by the selected server command.
  */
-export function createServerRuntime(options: ServerOptions): ServerRuntime {
-  const database = createDatabase(options.drizzle);
+export function createServerRuntime(
+  options: ServerOptions,
+  owner: ResourceOwner,
+): ServerRuntime {
+  const database = createDatabase(options.drizzle, owner);
   const mailer =
     options.smtpUrl == null
       ? new LogTapeTransport({ recordMessage: "inline" })
@@ -78,6 +91,9 @@ export function createServerRuntime(options: ServerOptions): ServerRuntime {
           port: options.smtpUrl.port === "" ? 25 : Number(options.smtpUrl.port),
           secure: false,
         });
+  owner.register(mailer, (transport) => transport[Symbol.asyncDispose](), {
+    owned: true,
+  });
   return {
     ...options,
     drizzle: { ...database, migrate: options.drizzle.migrate },

@@ -215,3 +215,16 @@ creating a dependency cycle.  Omitting `--output-file` writes to stdout.
 
 The installed `drfed-server --generate-graphql-schema` option remains available
 for users who need the schema from their installed version.
+
+
+Runtime ownership
+-----------------
+
+`createYogaServer()` accepts an optional `trackOperation` callback.  Supply a
+callback that registers and returns each operation's completion promise when
+the runtime closes database or mail resources on shutdown.  It tracks context
+loading and complete field and type resolvers, including work still running
+after [Yoga cancels execution].  The CLI supplies its operation registry;
+callers that omit the callback retain the existing behavior.
+
+[Yoga cancels execution]: https://the-guild.dev/graphql/yoga-server/docs/features/execution-cancellation

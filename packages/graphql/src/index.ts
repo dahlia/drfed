@@ -29,11 +29,20 @@ import {
 
 import { hashSecret } from "./auth/hash.ts";
 import type { ServerContext, UserContext } from "./builder.ts";
+import type { OperationTracker } from "./operations.ts";
 import { schema } from "./schema.ts";
+
+export type { OperationTracker } from "./operations.ts";
 /**
  * Options for Yoga server.
  */
 export interface YogaServerOptions {
+  /**
+   * Track context loading and field resolvers until their actual work settles,
+   * including resolvers still running after Yoga cancels the HTTP response.
+   */
+  trackOperation?: OperationTracker | undefined;
+
   /**
    * Email sending services.
    */
@@ -81,17 +90,22 @@ export function createYogaServer(
   return createYoga({
     cors: false,
     async context(ctx) {
-      const anonymous = { db, federation, request: ctx.request, ...options };
-      const accessToken = getAccessToken(ctx.request.headers);
-      if (accessToken == null) {
-        return anonymous;
-      }
-      const authenticated = await findSession(accessToken, db);
-      if (authenticated == null) {
-        return anonymous;
-      }
-      const { account, ...session } = authenticated;
-      return { ...anonymous, session, account };
+      const loadContext = async () => {
+        const anonymous = { db, federation, request: ctx.request, ...options };
+        const accessToken = getAccessToken(ctx.request.headers);
+        if (accessToken == null) {
+          return anonymous;
+        }
+        const authenticated = await findSession(accessToken, db);
+        if (authenticated == null) {
+          return anonymous;
+        }
+        const { account, ...session } = authenticated;
+        return { ...anonymous, session, account };
+      };
+      return rawOptions.trackOperation == null
+        ? await loadContext()
+        : await rawOptions.trackOperation(loadContext);
     },
     plugins: [useExecutionCancellation()],
     schema,
@@ -119,6 +133,7 @@ const fillOptions = (
   }
 
   return {
+    trackOperation: opt.trackOperation,
     mailer: opt.mailer ?? mockTransport(),
     // Derived from the deployment's own domain rather than the project's, so
     // that the operator's mail server is authorized to send it.  A From address

@@ -150,3 +150,32 @@ the temporary installations and databases after stopping their servers.
 All four backend tarballs are supplied to each install together so unpublished
 workspace versions can be tested.  This baseline does not cover installing only
 the facade from the registry, the frontend, or upgrading an older release.
+
+
+Resource ownership
+------------------
+
+Server startup registers each resource as it is acquired.  Startup failures and
+shutdown stop new work, drain active requests, GraphQL resolvers and the task
+worker, then close
+owned resources in reverse order.  Cleanup continues if one resource fails;
+startup errors retain their original cause.  SIGTERM allows ten seconds for
+shutdown and force-closes stalled HTTP connections after five seconds.
+
+The `@drfed/drfed/resources` and `@drfed/drfed/operations` subpaths export
+`ResourceOwner` and `OperationRegistry` for code that manages its own runtime.
+Register borrowed resources with `owned: false`; the owner leaves them open.
+Operations receive a shared abort signal and remain tracked until their
+promises settle.  HTTP response streams in the CLI remain drained by srvx.
+
+The CLI also tracks GraphQL context loading and field/type resolvers separately
+from the HTTP handler.  [Yoga execution cancellation] stops further execution
+when a client disconnects, but a resolver already waiting on a database or mail
+operation can still be running.  Its resources remain open until it settles.
+
+Use `run()` to admit new work and `track()` only for continuations of requests
+already accepted.  Stop admitting requests and stop background producers before
+calling `drain()`.  Draining also waits for continuations registered during
+shutdown, so an accepted GraphQL response can finish during the grace period.
+
+[Yoga execution cancellation]: https://the-guild.dev/graphql/yoga-server/docs/features/execution-cancellation
