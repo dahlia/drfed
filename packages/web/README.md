@@ -45,3 +45,23 @@ HOST=127.0.0.1 PORT=4000 node .output/server/index.mjs \
 This project was created with the [Solid CLI]
 
 [Solid CLI]: https://github.com/solidjs-community/solid-cli
+
+
+Embedded runtime probe
+----------------------
+
+From the repository root, run:
+
+~~~~ sh
+mise run probe:web-runtime
+~~~~
+
+The probe builds a temporary copy of this app with a custom Nitro Node entry
+and verifies SSR, static assets, an external shared binding, and a close hook.
+It rejects HTTP listener creation and changes to process error or signal
+handlers.  GraphQL responses come from a local stub, without a backend server.
+Temporary files are removed when the probe finishes.
+
+This checks the build boundary for future embedding; it does not change the
+published server or verify authentication, server-function security, HMR, or
+the final runtime binding API.

@@ -41,6 +41,11 @@ depends = [
 dir = "./packages/web"
 run = "pnpm exec relay-compiler --noWatchman && pnpm run build"
 
+[tasks."probe:web-runtime"]
+description = "Probe an embedded SolidStart runtime without an HTTP listener"
+depends = ["build:web"]
+run = "node scripts/probe-web-runtime.mts"
+
 [tasks.check]
 description = "Check all"
 depends = ["check:*"]
