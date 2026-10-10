@@ -30,6 +30,9 @@ catalogs:
     '@logtape/drizzle-orm':
       specifier: ^2.2.2
       version: 2.2.2
+    '@logtape/file':
+      specifier: 2.3.0-dev.840
+      version: 2.3.0-dev.840
     '@logtape/graphql-yoga':
       specifier: 2.3.0-dev.840
       version: 2.3.0-dev.840
@@ -143,6 +146,9 @@ importers:
       '@logtape/drizzle-orm':
         specifier: 'catalog:'
         version: 2.2.2(@logtape/logtape@2.3.0-dev.840)
+      '@logtape/file':
+        specifier: 'catalog:'
+        version: 2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840)
       '@logtape/logtape':
         specifier: 'catalog:'
         version: 2.3.0-dev.840
@@ -157,7 +163,7 @@ importers:
         version: 1.3.0
       '@optique/logtape':
         specifier: 'catalog:'
-        version: 1.3.0(@logtape/logtape@2.3.0-dev.840)
+        version: 1.3.0(@logtape/file@2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840))(@logtape/logtape@2.3.0-dev.840)
       '@optique/run':
         specifier: 'catalog:'
         version: 1.3.0
@@ -1085,6 +1091,11 @@ packages:
     resolution: {integrity: sha512-Z/TrI5BbOCSJPmoyogy9RERtAxs/hlyI+e/uay1PSY68/ZddPqfudbS6MGgFylAiACprJ0d0zEiGeysUQUcQ2A==}
     peerDependencies:
       '@logtape/logtape': ^2.2.2
+
+  '@logtape/file@2.3.0-dev.840':
+    resolution: {integrity: sha512-ArKFoFIE897AoHAJc3BAthQipdRUMa89ie40S85lvkn3xMlJNacKniK+j3mwsj6vBKSbb9+l8cPIsQivK4+v7Q==}
+    peerDependencies:
+      '@logtape/logtape': ^2.3.0-dev.840+34e837bf
 
   '@logtape/graphql-yoga@2.3.0-dev.840':
     resolution: {integrity: sha512-zL+RIlG5TPwC8iAWeW8Lh49rA6VUw9fYSFcXLvWIrTJ56xQPX0TzFQ6MMzAMMjw4GlSz8cs0HsHlI/rsHUT02w==}
@@ -4657,6 +4668,10 @@ snapshots:
     dependencies:
       '@logtape/logtape': 2.3.0-dev.840
 
+  '@logtape/file@2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840)':
+    dependencies:
+      '@logtape/logtape': 2.3.0-dev.840
+
   '@logtape/graphql-yoga@2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840)(graphql-yoga@5.21.2(graphql@16.14.2))(graphql@16.14.2)':
     dependencies:
       '@logtape/logtape': 2.3.0-dev.840
@@ -4764,10 +4779,12 @@ snapshots:
     dependencies:
       '@optique/core': 1.3.0
 
-  '@optique/logtape@1.3.0(@logtape/logtape@2.3.0-dev.840)':
+  '@optique/logtape@1.3.0(@logtape/file@2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840))(@logtape/logtape@2.3.0-dev.840)':
     dependencies:
       '@logtape/logtape': 2.3.0-dev.840
       '@optique/core': 1.3.0
+    optionalDependencies:
+      '@logtape/file': 2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840)
 
   '@optique/run@1.3.0':
     dependencies:

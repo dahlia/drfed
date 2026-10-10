@@ -17,14 +17,24 @@ import { message } from "@optique/core/message";
 import type { InferValue } from "@optique/core/parser";
 import type { Program } from "@optique/core/program";
 
-import parser from "./parser.ts";
+import { createConfigurationBindings } from "./configuration.ts";
+import { createParser } from "./parser.ts";
 
-const program: Program<"sync", InferValue<typeof parser>> = {
-  metadata: {
-    description: message`Run a DrFed server.`,
-    name: "drfed-server",
-  },
-  parser,
-};
-
-export default program;
+/**
+ * Create independent CLI bindings for one invocation.
+ * @returns The program, its source contexts and explicit configuration loader.
+ */
+export function createProgram(
+  options: Parameters<typeof createConfigurationBindings>[0] = {},
+) {
+  const bindings = createConfigurationBindings(options);
+  const parser = createParser(bindings);
+  const program: Program<"sync", InferValue<typeof parser>> = {
+    metadata: {
+      description: message`Run a DrFed server.`,
+      name: "drfed-server",
+    },
+    parser,
+  };
+  return { program, contexts: bindings.contexts, load: bindings.load };
+}

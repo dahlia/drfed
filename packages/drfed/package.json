@@ -69,6 +69,10 @@
     "./configuration": {
       "types": "./dist/configuration.d.mts",
       "default": "./dist/configuration.mjs"
+    },
+    "./database-settings": {
+      "types": "./dist/database-settings.d.mts",
+      "default": "./dist/database-settings.mjs"
     }
   },
   "files": [
@@ -87,7 +91,8 @@
       "src/query-logger.ts",
       "src/resources.ts",
       "src/operations.ts",
-      "src/configuration.ts"
+      "src/configuration.ts",
+      "src/database-settings.ts"
     ],
     "dts": {
       "sourcemap": true,
@@ -114,6 +119,7 @@
     "@fedify/pglite": "catalog:",
     "@fedify/postgres": "catalog:",
     "@logtape/drizzle-orm": "catalog:",
+    "@logtape/file": "catalog:",
     "@logtape/logtape": "catalog:",
     "@optique/config": "catalog:",
     "@optique/core": "catalog:",

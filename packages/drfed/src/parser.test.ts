@@ -41,6 +41,7 @@ const binary = join(
 async function run(
   args: readonly string[],
   preload?: string,
+  environment: Record<string, string> = {},
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   try {
     const { stdout, stderr } = await execFileAsync(
@@ -53,7 +54,7 @@ async function run(
       {
         // A deliberately minimal environment, independent of what the
         // developer happens to have exported.
-        env: { PATH: process.env.PATH ?? "" },
+        env: { PATH: process.env.PATH ?? "", ...environment },
         timeout: commandTimeout,
       },
     );
@@ -76,12 +77,13 @@ describe("drfed-server", () => {
     assert.match(stderr, /Missing option .*--root-origin/u);
   });
 
-  it("advertises --root-origin as required in its help", async () => {
+  it("documents --root-origin as configurable in its help", async () => {
     const { code, stdout } = await run(["--help"]);
     assert.equal(code, 0);
-    // Optional options are bracketed in the usage line; this one must not be.
+    // The value is required, but its CLI spelling is optional because it
+    // can be supplied by the shared file or environment.
     assert.match(stdout, /--root-origin\/-r ORIGIN/u);
-    assert.doesNotMatch(stdout, /\[--root-origin/u);
+    assert.match(stdout, /\[--root-origin/u);
   });
 
   it("no longer accepts the old --root-domain option", async () => {
@@ -219,6 +221,71 @@ describe("drfed-server", () => {
       const schema = await run(["--generate-graphql-schema"], preload);
       assert.equal(schema.code, 0, schema.stderr);
       assert.match(schema.stdout, /type Query/u);
+      const configPath = join(parent, "drfed.toml");
+      await writeFile(
+        configPath,
+        [
+          "[server]",
+          'root_origin = "http://drfed.test"',
+          'login_origins = ["http://drfed.test"]',
+          "[database]",
+          `data_path = ${JSON.stringify(dataPath.replaceAll("\\", "/"))}`,
+        ].join("\n"),
+      );
+      for (const [args, environment] of [
+        [
+          ["--config", configPath],
+          { DRFED_CONFIG: join(parent, "absent.toml") },
+        ],
+        [[], { DRFED_CONFIG: configPath }],
+      ] as const) {
+        // oxlint-disable-next-line no-await-in-loop
+        const configured = await run(args, preload, environment);
+        assert.equal(configured.code, 1, configured.stderr);
+        assert.match(configured.stderr, /EARLY_RESOURCE_CONSTRUCTION/u);
+        // oxlint-disable-next-line no-await-in-loop
+        await assert.rejects(access(dataPath), { code: "ENOENT" });
+      }
+      for (const early of [
+        "--help",
+        "--version",
+        "--generate-graphql-schema",
+      ]) {
+        // oxlint-disable-next-line no-await-in-loop
+        const result = await run(
+          [early, "--config", join(parent, "absent.toml")],
+          preload,
+        );
+        assert.equal(result.code, 0, result.stderr);
+        assert.doesNotMatch(result.stderr, /EARLY_RESOURCE_CONSTRUCTION/u);
+      }
+      await writeFile(configPath, '[server]\nroot_orgin = "SECRET_VALUE"');
+      const invalidConfig = await run(["--config", configPath], preload);
+      assert.equal(invalidConfig.code, 1);
+      assert.doesNotMatch(
+        invalidConfig.stderr,
+        /EARLY_RESOURCE_CONSTRUCTION|SECRET_VALUE/u,
+      );
+      await assert.rejects(access(dataPath), { code: "ENOENT" });
+      const logPath = join(parent, "must-not-exist.log");
+      const schemaWithLog = await run(
+        ["--generate-graphql-schema", "--log-output", logPath],
+        preload,
+      );
+      assert.equal(schemaWithLog.code, 0, schemaWithLog.stderr);
+      await assert.rejects(access(logPath), { code: "ENOENT" });
+      const badLogPath = join(parent, "absent-directory", "output.log");
+      const loggingFailure = await run(
+        [...base, `--data-path=${dataPath}`, "--log-output", badLogPath],
+        preload,
+      );
+      assert.equal(loggingFailure.code, 1);
+      assert.match(loggingFailure.stderr, /Could not initialize logging/u);
+      assert.doesNotMatch(
+        loggingFailure.stderr,
+        /EARLY_RESOURCE_CONSTRUCTION|at .*index.mjs/u,
+      );
+      await assert.rejects(access(dataPath), { code: "ENOENT" });
       const startup = await run([...base, `--data-path=${dataPath}`], preload);
       assert.equal(startup.code, 1);
       assert.match(startup.stderr, /EARLY_RESOURCE_CONSTRUCTION/u);

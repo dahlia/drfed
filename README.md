@@ -20,3 +20,41 @@ broke, whether that's DNS, TLS, HTTP, signatures, or JSON-LD processing.
 [AGPLv3]: https://www.gnu.org/licenses/agpl-3.0.html
 [ActivityPub]: https://www.w3.org/TR/activitypub/
 [Fedify]: https://fedify.dev/
+
+
+Installation and server usage
+-----------------------------
+
+Install the CLI through npm:
+
+~~~~ sh
+npm install --global @drfed/drfed
+drfed-server --root-origin http://drfed.localhost:8888 \
+  --login-origin http://localhost:3000 --data-path .pgdata
+~~~~
+
+The command currently serves the GraphQL and ActivityPub backend. Run the
+frontend separately during repository development with `mise run dev`.
+
+For a service deployment, select a TOML file with `--config` or `DRFED_CONFIG`.
+CLI settings override `DRFED_*` environment variables, which override TOML
+and defaults. No configuration files or *.env* files are searched automatically.
+
+~~~~ toml
+[server]
+root_origin = "https://drfed.example.com"
+login_origins = ["https://frontend.example.com"]
+
+[database]
+data_path = "data"
+~~~~
+
+~~~~ sh
+drfed-server --config drfed.toml
+drfed-server --config drfed.toml --no-migrate
+~~~~
+
+TOML paths are relative to that file. See the [CLI package documentation]
+for the environment variable names, PostgreSQL selection and mail settings.
+
+[CLI package documentation]: ./packages/drfed/README.md

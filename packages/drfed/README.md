@@ -32,8 +32,9 @@ the server; invalid options also exit before creating those resources.
 Root origin
 -----------
 
-`--root-origin` is required, and everything else follows from it.  Each
-instance is served from its own subdomain of that origin, so with
+A root origin is required through `--root-origin`, `DRFED_ROOT_ORIGIN`, or
+`server.root_origin` in the selected TOML file. Everything else follows from
+it.  Each instance is served from its own subdomain of that origin, so with
 `https://drfed.example.com` the instance `foo-bar` lives at
 `https://foo-bar.drfed.example.com`.  A non-default port belongs in the value
 and is carried into every instance, which is what makes a development
@@ -98,10 +99,10 @@ For repository development, create the environment file loaded by
 cp packages/drfed/.env.example packages/drfed/.env
 ~~~~
 
-`mise run dev` reads `DRFED_LOGIN_ORIGINS` as a comma-separated list and passes
-each value as a `--login-origin` option.  If unset, it defaults to
-`http://localhost:3000`.  The installed CLI does not read this variable;
-pass `--login-origin` explicitly.
+`mise run dev` reads `DRFED_LOGIN_ORIGINS` as a JSON string array and passes
+each value as a `--login-origin` option. If unset, it defaults to
+`["http://localhost:3000"]`. The installed CLI reads the same variable.
+Convert older comma-separated development values to JSON arrays.
 
 That file also carries `DRFED_ROOT_ORIGIN`, which `mise run dev` passes as
 `--root-origin`.  It defaults to `http://drfed.localhost:8888`; every subdomain
@@ -114,6 +115,10 @@ Options
 
 | Option                    | Short | Description                                                          |
 | ------------------------- | ----- | -------------------------------------------------------------------- |
+| `--config FILE`           |       | Explicit TOML configuration file                                     |
+| `--database-driver KIND`  |       | Select `pglite` or `postgres`                                        |
+| `--migrate`               |       | Enable automatic migrations                                          |
+| `--mail-transport KIND`   |       | Select `logtape` or `smtp`                                           |
 | `--root-origin ORIGIN`    | `-r`  | Origin instances are subdomains of (required)                        |
 | `--login-origin ORIGIN`   |       | Origin allowed in login links (required; may be repeated)            |
 | `--listen HOST:PORT`      | `-l`  | Address to listen on (default: `localhost:8888`)                     |
@@ -125,8 +130,9 @@ Options
 | `--help`                  |       | Show help                                                            |
 | `--version`               |       | Show version                                                         |
 
-`--pglite-data-path` and `--postgres-url` are mutually exclusive.  One of them
-must be provided.
+`--pglite-data-path` and `--postgres-url` conflict at the winning input source.
+Provide the path or URL for the selected database through CLI, environment or
+TOML; the source selection rules are described below.
 
 Without `--smtp-url`, mail is written to the log instead of being delivered,
 which is why a development server can sign you in without a mail server.
@@ -201,8 +207,71 @@ against the supplied working directory and TOML paths against the file's
 directory. The loader reads only an explicitly selected file and fails if
 that file is missing. It neither searches for configuration nor loads *.env*.
 
-These bindings are not yet connected to `drfed-server`; the CLI usage above
-continues to apply.
+The server CLI uses these bindings. Set `DRFED_CONFIG` or pass `--config`
+to select one TOML file; explicit CLI settings take priority over environment
+variables and that file. Help and version requests do not read operational
+configuration. Schema output does not read the TOML file.
+
+~~~~ toml
+[server]
+root_origin = "https://drfed.example.com"
+listen = "localhost:8888"
+login_origins = ["https://drfed.example.com"]
+
+[database]
+driver = "pglite"
+data_path = "data"
+migrate = true
+
+[mail]
+transport = "logtape"
+
+[telemetry]
+log_level = "info"
+~~~~
+
+~~~~ sh
+drfed-server --config /etc/drfed/drfed.toml
+DRFED_CONFIG=/etc/drfed/drfed.toml drfed-server --no-migrate
+DRFED_LOGIN_ORIGINS='["https://frontend.example.com"]' \
+  drfed-server --config /etc/drfed/drfed.toml
+~~~~
+
+The example stores PGlite data at */etc/drfed/data*, relative to the file.
+Environment and CLI paths are relative to the command's working directory.
+A data directory or PostgreSQL URL is still required.
+
+| Setting              | Environment variable    | TOML                   |
+| -------------------- | ----------------------- | ---------------------- |
+| Root origin          | `DRFED_ROOT_ORIGIN`     | `server.root_origin`   |
+| Listen address       | `DRFED_LISTEN`          | `server.listen`        |
+| Login origin array   | `DRFED_LOGIN_ORIGINS`   | `server.login_origins` |
+| Database driver      | `DRFED_DATABASE_DRIVER` | `database.driver`      |
+| PGlite path          | `DRFED_DATA_PATH`       | `database.data_path`   |
+| PostgreSQL URL       | `DRFED_POSTGRES_URL`    | `database.url`         |
+| Automatic migrations | `DRFED_MIGRATE`         | `database.migrate`     |
+| Mail sender          | `DRFED_EMAIL_FROM`      | `mail.from`            |
+| Mail transport       | `DRFED_MAIL_TRANSPORT`  | `mail.transport`       |
+| SMTP URL             | `DRFED_SMTP_URL`        | `mail.smtp.url`        |
+| Log level            | `DRFED_LOG_LEVEL`       | `telemetry.log_level`  |
+| Log formatter        | `DRFED_LOG_FORMAT`      | `telemetry.log_format` |
+| Log output           | `DRFED_LOG_OUTPUT`      | `telemetry.log_output` |
+
+Database selectors at the highest source choose `pglite` or `postgres`;
+selectors at that source must agree. A CLI PostgreSQL URL replaces a TOML
+PGlite path, and a CLI PGlite path replaces a TOML PostgreSQL URL. An explicit
+`--database-driver postgres` requires a PostgreSQL URL; it does not restore
+a PGlite fallback. Same-kind values can be inherited from lower sources.
+Foreign lower-source fields are removed before domain validation.
+
+The mail transport follows the same rule: an SMTP URL selects `smtp`, and
+a higher-source `--mail-transport logtape` disables a configured SMTP URL.
+Only `smtp` and `logtape` are currently available. `--migrate` and
+`--no-migrate` explicitly override the selected migration policy.
+
+`@drfed/drfed/database-settings` exposes `resolveDatabaseSettings()` for the
+same database selection contract, returning plain runtime settings and
+source-only metadata for ignored fields.
 
 [Optique environment]: https://optique.dev/integrations/env.md
 [configuration]: https://optique.dev/integrations/config.md

@@ -15,6 +15,7 @@ catalog:
   "@fedify/vocab": 2.4.3
   "@fedify/vocab-runtime": 2.4.3
   "@logtape/drizzle-orm": ^2.2.2
+  "@logtape/file": 2.3.0-dev.840
   "@logtape/graphql-yoga": 2.3.0-dev.840
   "@logtape/logtape": 2.3.0-dev.840
   "@logtape/testing-node": 2.3.0-dev.840
@@ -46,6 +47,7 @@ minimumReleaseAgeExclude:
   - "@fedify/vocab@2.4.3"
   - "@fedify/webfinger@2.4.3"
   - "@fedify/pglite@2.4.3"
+  - "@logtape/file@2.3.0-dev.840"
   - "@logtape/graphql-yoga@2.3.0-dev.840"
   - "@logtape/logtape@2.3.0-dev.840"
   - "@logtape/testing-node@2.3.0-dev.840"

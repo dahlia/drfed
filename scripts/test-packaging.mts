@@ -30,7 +30,7 @@ import {
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { delimiter, dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, relative, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -50,6 +50,7 @@ const env = Object.fromEntries(
   Object.entries(process.env).filter(
     ([key]) =>
       !/^npm_config_/iu.test(key) &&
+      !/^DRFED_/iu.test(key) &&
       !["NODE_OPTIONS", "NODE_PATH", "TEST"].includes(key),
   ),
 );
@@ -151,20 +152,40 @@ async function smoke(
   const address = socket.address();
   assert.ok(address != null && typeof address !== "string");
   await socket[Symbol.asyncDispose]();
+  const configDirectory = join(cwd, "configuration");
+  await mkdir(configDirectory, { recursive: true });
+  const configFile = join(configDirectory, "drfed.toml");
+  const configuredDatabase = migrate
+    ? `data_path = ${JSON.stringify(relative(configDirectory, dataPath).replaceAll("\\", "/"))}`
+    : 'driver = "postgres"\nurl = "not a URL PRIVATE_TOKEN"';
+  await writeFile(
+    configFile,
+    `[server]
+root_origin = "http://drfed.test"
+listen = "127.0.0.1:1"
+login_origins = ["http://drfed.test"]
+[database]
+${configuredDatabase}
+migrate = false
+[mail]
+transport = "logtape"
+[telemetry]
+log_level = "trace"
+log_output = "server.log"
+`,
+  );
   const child = spawn(
     process.execPath,
-    [
-      binary,
-      `--listen=127.0.0.1:${address.port}`,
-      `--data-path=${dataPath}`,
-      "--root-origin=http://drfed.test",
-      "--login-origin=http://drfed.test",
-      "--log-level=error",
-      ...(migrate ? [] : ["--no-migrate"]),
-    ],
+    [binary, ...(migrate ? ["--config", configFile] : ["--no-migrate"])],
     {
       cwd,
-      env,
+      env: {
+        ...env,
+        DRFED_CONFIG: migrate ? join(cwd, "missing.toml") : configFile,
+        DRFED_LISTEN: `127.0.0.1:${address.port}`,
+        DRFED_MIGRATE: "true",
+        ...(migrate ? {} : { DRFED_DATA_PATH: dataPath }),
+      },
       stdio: ["ignore", "pipe", "pipe"],
       timeout: 120_000,
       killSignal: "SIGKILL",
@@ -223,6 +244,10 @@ async function smoke(
       clearTimeout(timer);
     }
   }
+  assert.match(
+    await readFile(join(configDirectory, "server.log"), "utf8"),
+    /select|insert/iu,
+  );
   if (!windows) assert.deepEqual(result, { code: 0, signal: null }, output);
 }
 

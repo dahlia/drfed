@@ -29,18 +29,20 @@ import {
   getConsoleSink,
   getLogger,
 } from "@logtape/logtape";
+import { text } from "@optique/core/message";
 import { createLoggingConfig } from "@optique/logtape";
-import { run } from "@optique/run";
+import { printError, run } from "@optique/run";
 import { serve } from "srvx";
 
 import metadata from "../package.json" with { type: "json" };
 import { OperationRegistry } from "./operations.ts";
-import type {
-  Options,
-  SchemaGeneratorOptions,
-  ServerOptions,
+import {
+  type Options,
+  type SchemaGeneratorOptions,
+  type ServerOptions,
+  resolveOptions,
 } from "./parser.ts";
-import program from "./program.ts";
+import { createProgram } from "./program.ts";
 import { ResourceOwner } from "./resources.ts";
 import { createServerRuntime } from "./runtime-options.ts";
 import seedData from "./seed.ts";
@@ -227,51 +229,75 @@ async function runSchemaGenerator(
 }
 
 export async function main(): Promise<void> {
-  const options: Options = run(program, {
-    help: "option",
-    showChoices: true,
-    showDefault: true,
-    version: {
-      option: true,
-      value: metadata.version,
-    },
-  });
-  const loggingConfig = await createLoggingConfig(
-    options.logging,
-    {},
-    {
-      contextLocalStorage: new AsyncLocalStorage(),
-      sinks: {
-        stderr: getConsoleSink({
-          levelMap: {
-            trace: "error",
-            debug: "error",
-            info: "error",
-            warning: "error",
-            error: "error",
-            fatal: "error",
-          },
-        }),
+  const invocation = createProgram();
+  let options: Options;
+  try {
+    const raw = await run(invocation.program, {
+      contexts: invocation.contexts,
+      contextOptions: {
+        load: (parsed) =>
+          parsed.mode[0] === "schema" ? undefined : invocation.load(parsed),
       },
-      loggers: [
-        {
-          category: ["logtape", "meta"],
-          lowestLevel: "warning",
-          sinks: ["stderr"],
+      help: "option",
+      showChoices: true,
+      showDefault: true,
+      version: {
+        option: true,
+        value: metadata.version,
+      },
+    });
+    options = resolveOptions(raw);
+  } catch (error) {
+    printError([
+      text(
+        error instanceof Error
+          ? error.message
+          : "Could not resolve configuration.",
+      ),
+    ]);
+    process.exitCode = 1;
+    return;
+  }
+  if ("generateGraphqlSchema" in options) {
+    await runSchemaGenerator(options);
+    return;
+  }
+  let loggingConfig: Awaited<ReturnType<typeof createLoggingConfig>>;
+  try {
+    loggingConfig = await createLoggingConfig(
+      options.logging,
+      {},
+      {
+        contextLocalStorage: new AsyncLocalStorage(),
+        sinks: {
+          stderr: getConsoleSink({
+            levelMap: {
+              trace: "error",
+              debug: "error",
+              info: "error",
+              warning: "error",
+              error: "error",
+              fatal: "error",
+            },
+          }),
         },
-      ],
-    },
-  );
-
+        loggers: [
+          {
+            category: ["logtape", "meta"],
+            lowestLevel: "warning",
+            sinks: ["stderr"],
+          },
+        ],
+      },
+    );
+  } catch {
+    printError([
+      text("Could not initialize logging; check the log output path."),
+    ]);
+    process.exitCode = 1;
+    return;
+  }
   await configure(loggingConfig);
 
-  if ("generateGraphqlSchema" in options) {
-    try {
-      await runSchemaGenerator(options);
-    } finally {
-      await dispose();
-    }
-  } else {
-    await runServer(options);
-  }
+  await runServer(options);
 }

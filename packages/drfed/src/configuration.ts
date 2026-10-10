@@ -71,6 +71,13 @@ export const configurationSchema = table({
       migrate: v.optional(boolean),
     }),
   ),
+  telemetry: v.optional(
+    table({
+      log_level: v.optional(text),
+      log_format: v.optional(text),
+      log_output: v.optional(text),
+    }),
+  ),
   mail: v.optional(
     table({
       from: v.optional(text),
@@ -107,6 +114,27 @@ function setting<T>(
 
 /** One registry shared by all DrFed command projections. */
 export const configurationSettings = {
+  logLevel: setting(
+    "telemetry.log_level",
+    "LOG_LEVEL",
+    ["server", "web"],
+    "Log level",
+    (config) => config.telemetry?.log_level,
+  ),
+  logFormat: setting(
+    "telemetry.log_format",
+    "LOG_FORMAT",
+    ["server", "web"],
+    "Log formatter",
+    (config) => config.telemetry?.log_format,
+  ),
+  logOutput: setting(
+    "telemetry.log_output",
+    "LOG_OUTPUT",
+    ["server", "web"],
+    "Log output file",
+    (config) => config.telemetry?.log_output,
+  ),
   rootOrigin: setting(
     "server.root_origin",
     "ROOT_ORIGIN",
@@ -323,7 +351,7 @@ export function createConfigurationBindings(
           : { ...result, error: message`Invalid setting ${definition.toml}.` };
       };
     }
-    // map() cannot infer how to turn a tagged default back into a CLI value.
+    // Map() cannot infer how to turn a tagged default back into a CLI value.
     // Supply it explicitly; secret defaults never appear in help output.
     tagged.getDocFragments = (state) =>
       cli.getDocFragments(state, definition.secret ? undefined : defaultValue);
@@ -402,7 +430,7 @@ export function createConfigurationBindings(
   }
 
   async function load(parsed: {
-    readonly configPath?: Sourced<string>;
+    readonly configPath?: Sourced<string> | undefined;
   }): Promise<{ config: ConfigurationFile; meta: ConfigMeta } | undefined> {
     if (parsed.configPath === undefined) return undefined;
     const configPath = parsed.configPath.value;
