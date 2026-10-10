@@ -142,6 +142,20 @@ if "usage_debug" in $env {
 pnpm run --parallel --recursive test
 '''
 
+[tasks."test:postgres"]
+description = "Test migration sessions against an isolated PostgreSQL cluster"
+depends = ["build:server"]
+run = """
+#!/usr/bin/env nu
+if "DRFED_TEST_POSTGRES_URL" not-in $env {
+  error make {msg: "Set DRFED_TEST_POSTGRES_URL to an isolated PostgreSQL cluster with CREATEDB and CREATEROLE permissions."}
+}
+if ($env.DRFED_TEST_POSTGRES_URL | str trim | is-empty) {
+  error make {msg: "DRFED_TEST_POSTGRES_URL must not be empty."}
+}
+node --test packages/models/src/migration-session.test.ts
+"""
+
 [tasks.bump]
 description = "Bump all package versions"
 usage = """

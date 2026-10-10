@@ -105,6 +105,10 @@
     "./migration-state": {
       "types": "./dist/migration-state.d.mts",
       "default": "./dist/migration-state.mjs"
+    },
+    "./migration-session": {
+      "types": "./dist/migration-session.d.mts",
+      "default": "./dist/migration-session.mjs"
     }
   },
   "files": [
@@ -129,7 +133,8 @@
       "src/instance.ts",
       "src/text.ts",
       "src/migration-manifest.ts",
-      "src/migration-state.ts"
+      "src/migration-state.ts",
+      "src/migration-session.ts"
     ],
     "dts": {
       "sourcemap": true,
@@ -151,7 +156,9 @@
   "dependencies": {
     "@electric-sql/pglite": "catalog:",
     "@logtape/logtape": "catalog:",
+    "@types/pg": "8.20.0",
     "drizzle-orm": "catalog:",
+    "pg": "catalog:",
     "postgres": "catalog:",
     "uuid": "catalog:"
   }

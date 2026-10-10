@@ -60,8 +60,43 @@ Connections subject to row-level security on migration history are rejected,
 since filtered rows cannot prove that the history is complete.
 These inspection APIs are not yet connected to server startup.
 
+`@drfed/models/migration-session` exposes `preparePostgresDatabase()` for
+PostgreSQL. It verifies bundled SQL, connects a fresh owned [`pg.Client`], takes
+a session advisory lock, inspects history before any metadata DDL, applies
+verified pending SQL or legacy upgrades, and checks exact history afterward.
+The optional client factory must return an unconnected, exclusive client;
+the runner owns `connect()` and `end()` and never reconnects after failure.
+The runner hashes the exact SQL bytes again after acquiring the lock and gives
+Drizzle a private temporary snapshot, so a concurrent installation change cannot
+supply unverified SQL between validation and application.
+
+`lockTimeoutMs` bounds connection and lock acquisition; SQL application is
+not limited by that deadline. `signal` aborts waiting or closes an active
+connection. PostgreSQL can retain an interrupted statement and its lock until
+it observes the disconnect, so another runner continues to wait rather than
+stealing the lock. Migration errors have fixed codes and omit raw DB errors
+and credentials; the `drfed.models.migration` debug category records the
+backend PID after locking. Use a direct database connection or a proxy that
+preserves sessions; transaction pooling is unsupported.
+
+The existing `migrate()` remains a low-level API whose caller must ensure
+exclusive access. Server startup still uses that API; the new PostgreSQL
+preparation API is not yet wired into the CLI.
+
+For contributor tests, point `DRFED_TEST_POSTGRES_URL` at an isolated
+PostgreSQL cluster with `CREATEDB` and `CREATEROLE` permissions, then run:
+
+~~~~ sh
+mise run test:postgres
+~~~~
+
+This task creates and removes unique test databases and roles. Ordinary
+`mise run test` skips the service-dependent cases when that variable is absent.
+
 The *drizzle/* directory is included in the published npm package so that
 installed users can run migrations without access to the repository source.
+
+[`pg.Client`]: https://node-postgres.com/apis/client
 
 
 Activity delivery storage

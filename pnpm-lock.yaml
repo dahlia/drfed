@@ -78,6 +78,9 @@ catalogs:
     graphql:
       specifier: ^16.14.2
       version: 16.14.2
+    pg:
+      specifier: ^8.21.0
+      version: 8.21.0
     postgres:
       specifier: ^3.4.9
       version: 3.4.9
@@ -332,9 +335,15 @@ importers:
       '@logtape/logtape':
         specifier: 'catalog:'
         version: 2.3.0-dev.840
+      '@types/pg':
+        specifier: 8.20.0
+        version: 8.20.0
       drizzle-orm:
         specifier: 'catalog:'
         version: 1.0.0-beta.22(@electric-sql/pglite@0.5.3)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(pg@8.21.0)(postgres@3.4.9)(valibot@1.4.2(typescript@7.0.2))
+      pg:
+        specifier: 'catalog:'
+        version: 8.21.0
       postgres:
         specifier: 'catalog:'
         version: 3.4.9
@@ -5284,7 +5293,6 @@ snapshots:
       '@types/node': 26.0.0
       pg-protocol: 1.14.0
       pg-types: 2.2.0
-    optional: true
 
   '@types/relay-runtime@20.1.1': {}
 
@@ -6496,19 +6504,15 @@ snapshots:
   pg-cloudflare@1.4.0:
     optional: true
 
-  pg-connection-string@2.13.0:
-    optional: true
+  pg-connection-string@2.13.0: {}
 
-  pg-int8@1.0.1:
-    optional: true
+  pg-int8@1.0.1: {}
 
   pg-pool@3.14.0(pg@8.21.0):
     dependencies:
       pg: 8.21.0
-    optional: true
 
-  pg-protocol@1.14.0:
-    optional: true
+  pg-protocol@1.14.0: {}
 
   pg-types@2.2.0:
     dependencies:
@@ -6517,7 +6521,6 @@ snapshots:
       postgres-bytea: 1.0.1
       postgres-date: 1.0.7
       postgres-interval: 1.2.0
-    optional: true
 
   pg@8.21.0:
     dependencies:
@@ -6528,12 +6531,10 @@ snapshots:
       pgpass: 1.0.5
     optionalDependencies:
       pg-cloudflare: 1.4.0
-    optional: true
 
   pgpass@1.0.5:
     dependencies:
       split2: 4.2.0
-    optional: true
 
   picocolors@1.1.1: {}
 
@@ -6556,19 +6557,15 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.2
 
-  postgres-array@2.0.0:
-    optional: true
+  postgres-array@2.0.0: {}
 
-  postgres-bytea@1.0.1:
-    optional: true
+  postgres-bytea@1.0.1: {}
 
-  postgres-date@1.0.7:
-    optional: true
+  postgres-date@1.0.7: {}
 
   postgres-interval@1.2.0:
     dependencies:
       xtend: 4.0.2
-    optional: true
 
   postgres@3.4.9: {}
 
@@ -6817,8 +6814,7 @@ snapshots:
 
   space-separated-tokens@2.0.2: {}
 
-  split2@4.2.0:
-    optional: true
+  split2@4.2.0: {}
 
   sprintf-js@1.0.3: {}
 
@@ -7100,8 +7096,7 @@ snapshots:
 
   xdg-basedir@5.1.0: {}
 
-  xtend@4.0.2:
-    optional: true
+  xtend@4.0.2: {}
 
   yallist@3.1.1: {}
 
