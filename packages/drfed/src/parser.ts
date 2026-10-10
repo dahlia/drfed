@@ -41,6 +41,24 @@ import {
 import { resolveDatabaseSettings } from "./database-settings.ts";
 import { rootOrigin } from "./valueparser.ts";
 
+/** Shared value-option spellings for strict parsing and metadata arity. */
+export const valueOptionNames = {
+  configPath: ["--config"],
+  address: ["--listen", "-l"],
+  rootOrigin: ["--root-origin", "-r"],
+  loginOrigins: ["--login-origin"],
+  emailFrom: ["--email-from", "-f"],
+  databaseDriver: ["--database-driver"],
+  dataPath: ["--pglite-data-path", "--data-path", "-d"],
+  postgresUrl: ["--postgres-url", "--database-url", "-D"],
+  mailTransport: ["--mail-transport"],
+  smtpUrl: ["--smtp-url", "-s"],
+  logLevel: ["--log-level", "-L"],
+  logFormat: ["--log-format"],
+  logOutput: ["--log-output"],
+  outputFile: ["--output-file", "-o"],
+} as const;
+
 type Bindings = ReturnType<typeof createConfigurationBindings>;
 const identity = (value: string) => value;
 
@@ -48,14 +66,47 @@ const identity = (value: string) => value;
  * Construct a fresh parser from shared bindings without creating resources.
  * @returns The server and schema-output parser.
  */
-export function createParser(bindings: Bindings) {
+export function createParser(
+  bindings: Bindings,
+  mode: "server" | "schema" = "server",
+) {
   const { bind } = bindings;
   const address = socketAddress({ requirePort: true });
   const root = rootOrigin({ metavar: "ORIGIN" });
   const sender = email({ lowercase: true });
+  const level = logLevel();
+  const formatter = textFormatter();
+  const logging = object("Logging options", {
+    level: bind(
+      option(...valueOptionNames.logLevel, level, {
+        description: message`The lowest log level to record.`,
+      }),
+      settings.logLevel,
+      level,
+      identity,
+      "info",
+    ),
+    format: bind(
+      option(...valueOptionNames.logFormat, formatter, {
+        description: message`The log formatter.`,
+      }),
+      settings.logFormat,
+      formatter,
+      identity,
+    ),
+    output: bind(
+      option(...valueOptionNames.logOutput, string({ metavar: "FILE" }), {
+        description: message`Log output file. Use - for the console.`,
+      }),
+      settings.logOutput,
+      string(),
+      identity,
+      "-",
+    ),
+  });
   const server = object("DrFed server", {
     address: bind(
-      option("--listen", "-l", address, {
+      option(...valueOptionNames.address, address, {
         description: message`The address to listen on.`,
       }),
       settings.listen,
@@ -64,7 +115,7 @@ export function createParser(bindings: Bindings) {
       { host: "localhost", port: 8888 },
     ),
     rootOrigin: bind(
-      option("--root-origin", "-r", root, {
+      option(...valueOptionNames.rootOrigin, root, {
         description: message`The root origin whose subdomains name instances. Required through CLI, environment or configuration.`,
       }),
       settings.rootOrigin,
@@ -73,9 +124,13 @@ export function createParser(bindings: Bindings) {
     ),
     loginOrigins: bind(
       multiple(
-        option("--login-origin", string({ metavar: "ORIGIN" }), {
-          description: message`An HTTP or HTTPS frontend origin allowed in login links. Repeat to replace the configured list.`,
-        }),
+        option(
+          ...valueOptionNames.loginOrigins,
+          string({ metavar: "ORIGIN" }),
+          {
+            description: message`An HTTP or HTTPS frontend origin allowed in login links. Repeat to replace the configured list.`,
+          },
+        ),
         { min: 1 },
       ),
       settings.loginOrigins,
@@ -83,7 +138,7 @@ export function createParser(bindings: Bindings) {
       JSON.stringify,
     ),
     emailFrom: bind(
-      option("--email-from", "-f", sender, {
+      option(...valueOptionNames.emailFrom, sender, {
         description: message`The login mail sender. Defaults to noreply at the root origin's host name.`,
       }),
       settings.emailFrom,
@@ -91,37 +146,29 @@ export function createParser(bindings: Bindings) {
       identity,
     ),
     databaseDriver: bind(
-      option("--database-driver", string({ metavar: "DRIVER" }), {
-        description: message`Select pglite or postgres. Higher-priority selectors replace the other database kind.`,
-      }),
+      option(
+        ...valueOptionNames.databaseDriver,
+        string({ metavar: "DRIVER" }),
+        {
+          description: message`Select pglite or postgres. Higher-priority selectors replace the other database kind.`,
+        },
+      ),
       settings.databaseDriver,
       string(),
       identity,
     ),
     dataPath: bind(
-      option(
-        "--pglite-data-path",
-        "--data-path",
-        "-d",
-        string({ metavar: "DIRECTORY" }),
-        {
-          description: message`PGlite data directory. Cannot accompany a PostgreSQL selector at the same source.`,
-        },
-      ),
+      option(...valueOptionNames.dataPath, string({ metavar: "DIRECTORY" }), {
+        description: message`PGlite data directory. Cannot accompany a PostgreSQL selector at the same source.`,
+      }),
       settings.dataPath,
       string(),
       identity,
     ),
     postgresUrl: bind(
-      option(
-        "--postgres-url",
-        "--database-url",
-        "-D",
-        string({ metavar: "URL" }),
-        {
-          description: message`PostgreSQL connection URL. Cannot accompany a PGlite selector at the same source.`,
-        },
-      ),
+      option(...valueOptionNames.postgresUrl, string({ metavar: "URL" }), {
+        description: message`PostgreSQL connection URL. Cannot accompany a PGlite selector at the same source.`,
+      }),
       settings.postgresUrl,
       string(),
       identity,
@@ -144,15 +191,19 @@ export function createParser(bindings: Bindings) {
       true,
     ),
     mailTransport: bind(
-      option("--mail-transport", string({ metavar: "TRANSPORT" }), {
-        description: message`Select logtape or smtp. An SMTP URL also selects smtp.`,
-      }),
+      option(
+        ...valueOptionNames.mailTransport,
+        string({ metavar: "TRANSPORT" }),
+        {
+          description: message`Select logtape or smtp. An SMTP URL also selects smtp.`,
+        },
+      ),
       settings.mailTransport,
       string(),
       identity,
     ),
     smtpUrl: bind(
-      option("--smtp-url", "-s", string({ metavar: "URL" }), {
+      option(...valueOptionNames.smtpUrl, string({ metavar: "URL" }), {
         description: message`SMTP connection URL. A higher-priority logtape selector disables it.`,
       }),
       settings.smtpUrl,
@@ -163,66 +214,71 @@ export function createParser(bindings: Bindings) {
       description: message`Seed initial development data.`,
       hidden: true,
     }),
+    logging,
+    printConfig: withDefault(
+      flag("--print-config", {
+        description: message`Print effective settings and their sources, with secrets redacted, then exit without opening runtime resources.`,
+      }),
+      false,
+    ),
   });
   const schema = object("GraphQL schema generation", {
+    // Preserve the historical logging spellings for schema invocations,
+    // but do not bind or validate operational values in this projection.
+    ignoredLogging: object({
+      level: optional(
+        option(...valueOptionNames.logLevel, string(), { hidden: true }),
+      ),
+      format: optional(
+        option(...valueOptionNames.logFormat, string(), { hidden: true }),
+      ),
+      output: optional(
+        option(...valueOptionNames.logOutput, string(), { hidden: true }),
+      ),
+    }),
     outputFile: withDefault(
-      option("--output-file", "-o", path({ type: "file", allowCreate: true }), {
-        description: message`Schema output file. Use - for stdout.`,
-      }),
+      option(
+        ...valueOptionNames.outputFile,
+        path({ type: "file", allowCreate: true }),
+        {
+          description: message`Schema output file. Use - for stdout.`,
+        },
+      ),
       "-",
     ),
   });
-  const level = logLevel();
-  const formatter = textFormatter();
   return merge(
     object({
       configPath: optional(
         bindings.bindConfigPath(
-          option("--config", string({ metavar: "FILE" }), {
+          option(...valueOptionNames.configPath, string({ metavar: "FILE" }), {
             description: message`Read this TOML file. No configuration files are searched automatically.`,
           }),
         ),
       ),
-      logging: object("Logging options", {
-        level: bind(
-          option("--log-level", "-L", level, {
-            description: message`The lowest log level to record.`,
-          }),
-          settings.logLevel,
-          level,
-          identity,
-          "info",
-        ),
-        format: bind(
-          option("--log-format", formatter, {
-            description: message`The log formatter.`,
-          }),
-          settings.logFormat,
-          formatter,
-          identity,
-        ),
-        output: bind(
-          option("--log-output", string({ metavar: "FILE" }), {
-            description: message`Log output file. Use - for the console.`,
-          }),
-          settings.logOutput,
-          string(),
-          identity,
-          "-",
-        ),
-      }),
     }),
     object({
-      mode: conditional(
-        map(
-          flag("--generate-graphql-schema", {
-            description: message`Generate GraphQL schema and exit.`,
-          }),
-          () => "schema" as const,
-        ),
-        { schema },
-        server,
-      ),
+      mode:
+        mode === "schema"
+          ? map(
+              merge(
+                object({
+                  generateGraphqlSchema: flag("--generate-graphql-schema"),
+                }),
+                schema,
+              ),
+              (value) => ["schema", value] as const,
+            )
+          : conditional(
+              map(
+                flag("--generate-graphql-schema", {
+                  description: message`Generate GraphQL schema and exit.`,
+                }),
+                () => "schema" as const,
+              ),
+              { schema },
+              server,
+            ),
     }),
   );
 }
@@ -245,7 +301,7 @@ function required<T>(
   return value.value;
 }
 
-function resolveLogging(raw: RawOptions["logging"], cwd: string) {
+function resolveLogging(raw: RawServerOptions["logging"], cwd: string) {
   const outputSetting = raw.output;
   if (outputSetting?.value === undefined) {
     throw new Error("Missing log output.");
@@ -302,15 +358,15 @@ function resolveMail(options: RawServerOptions) {
  * @returns Plain startup options; no database, mail or log sink is created.
  */
 export function resolveOptions(options: RawOptions, cwd = process.cwd()) {
-  const logging = resolveLogging(options.logging, cwd);
   if (options.mode[0] === "schema") {
-    return {
-      generateGraphqlSchema: true as const,
-      ...options.mode[1],
-      logging,
+    const schema: SchemaGeneratorOptions = {
+      generateGraphqlSchema: true,
+      outputFile: options.mode[1].outputFile,
     };
+    return schema;
   }
   const server = options.mode[1];
+  const logging = resolveLogging(server.logging, cwd);
   const root = required(
     server.rootOrigin,
     "Missing option --root-origin or server.root_origin (DRFED_ROOT_ORIGIN).",
@@ -343,6 +399,7 @@ export function resolveOptions(options: RawOptions, cwd = process.cwd()) {
     cwd,
   );
   return {
+    printConfig: server.printConfig,
     address: required(server.address, "Missing listen address."),
     rootOrigin: root,
     loginOrigins,
@@ -365,9 +422,9 @@ export function resolveOptions(options: RawOptions, cwd = process.cwd()) {
       migrate: server.migrate,
       mailTransport: server.mailTransport,
       smtpUrl: server.smtpUrl,
-      logLevel: options.logging.level,
-      logFormat: options.logging.format,
-      logOutput: options.logging.output,
+      logLevel: server.logging.level,
+      logFormat: server.logging.format,
+      logOutput: server.logging.output,
     }),
     ignored: database.ignored,
   };

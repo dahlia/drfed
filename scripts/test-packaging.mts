@@ -174,6 +174,20 @@ log_level = "trace"
 log_output = "server.log"
 `,
   );
+  const diagnostic = await run(
+    process.execPath,
+    [binary, "--config", configFile, "--print-config", "--data-path", dataPath],
+    cwd,
+  );
+  const printed = JSON.parse(diagnostic.stdout);
+  assert.equal(printed.command, "server");
+  assert.equal(printed.settings["database.driver"].value, "pglite");
+  assert.equal(printed.settings["database.driver"].source, "cli");
+  assert.equal(
+    printed.settings["telemetry.log_output"].value,
+    join(configDirectory, "server.log"),
+  );
+  assert.doesNotMatch(diagnostic.stdout + diagnostic.stderr, /PRIVATE_TOKEN/u);
   const child = spawn(
     process.execPath,
     [binary, ...(migrate ? ["--config", configFile] : ["--no-migrate"])],

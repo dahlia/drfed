@@ -69,6 +69,36 @@ async function run(
   }
 }
 
+async function writeResourceGuard(preload: string): Promise<void> {
+  await writeFile(
+    preload,
+    `
+      import { registerHooks } from "node:module";
+      const constructors = new Map([
+        ["@electric-sql/pglite", "PGlite"],
+        ["postgres", "default"],
+        ["@upyo/smtp", "SmtpTransport"],
+        ["@upyo/logtape", "LogTapeTransport"],
+      ]);
+      registerHooks({
+        resolve(specifier, context, nextResolve) {
+          const resolved = nextResolve(specifier, context);
+          const name = constructors.get(specifier);
+          if (name == null) return resolved;
+          const target = JSON.stringify(resolved.url);
+          const source = name === "default"
+            ? "export * from " + target + "; export default function () { throw new Error('EARLY_RESOURCE_CONSTRUCTION'); }"
+            : "export * from " + target + ";" +
+            "import { " + name + " as Original } from " + target + ";" +
+            "export class " + name + " extends Original {" +
+            "constructor() { throw new Error('EARLY_RESOURCE_CONSTRUCTION'); } }";
+          return { url: "data:text/javascript," + encodeURIComponent(source), shortCircuit: true };
+        },
+      });
+    `,
+  );
+}
+
 describe("drfed-server", () => {
   it("requires --root-origin to serve", async () => {
     const { code, stderr } = await run(["--data-path", "/nonexistent-drfed"]);
@@ -163,33 +193,7 @@ describe("drfed-server", () => {
     const dataPath = join(parent, "must-not-exist");
     const preload = join(parent, "reject-resources.mjs");
     try {
-      await writeFile(
-        preload,
-        `
-      import { registerHooks } from "node:module";
-      const constructors = new Map([
-        ["@electric-sql/pglite", "PGlite"],
-        ["postgres", "default"],
-        ["@upyo/smtp", "SmtpTransport"],
-        ["@upyo/logtape", "LogTapeTransport"],
-      ]);
-      registerHooks({
-        resolve(specifier, context, nextResolve) {
-          const resolved = nextResolve(specifier, context);
-          const name = constructors.get(specifier);
-          if (name == null) return resolved;
-          const target = JSON.stringify(resolved.url);
-          const source = name === "default"
-            ? "export * from " + target + "; export default function () { throw new Error('EARLY_RESOURCE_CONSTRUCTION'); }"
-            : "export * from " + target + ";" +
-            "import { " + name + " as Original } from " + target + ";" +
-            "export class " + name + " extends Original {" +
-            "constructor() { throw new Error('EARLY_RESOURCE_CONSTRUCTION'); } }";
-          return { url: "data:text/javascript," + encodeURIComponent(source), shortCircuit: true };
-        },
-      });
-    `,
-      );
+      await writeResourceGuard(preload);
 
       const base = [
         "--root-origin=http://drfed.test",
@@ -293,5 +297,213 @@ describe("drfed-server", () => {
     } finally {
       await rm(parent, { recursive: true, force: true });
     }
+  });
+  it("prints selected configuration with redacted secrets and no resources", async () => {
+    const parent = await mkdtemp(join(tmpdir(), "drfed-diagnostic-"));
+    const config = join(parent, "drfed.toml");
+    const preload = join(parent, "reject-resources.mjs");
+    const dataPath = join(parent, "must-not-exist");
+    const logPath = join(parent, "must-not-exist.log");
+    try {
+      await writeResourceGuard(preload);
+      await writeFile(
+        config,
+        [
+          "[server]",
+          'root_origin = "http://drfed.test"',
+          'login_origins = ["http://config.test"]',
+          "[database]",
+          'data_path = "must-not-exist"',
+          "[mail]",
+          'transport = "logtape"',
+          "[web]",
+          'backend_url = "invalid but unused"',
+          "[telemetry]",
+          'log_output = "must-not-exist.log"',
+        ].join("\n"),
+      );
+      const result = await run(
+        [
+          "--print-config",
+          "--config",
+          config,
+          "--login-origin",
+          "http://cli.test/",
+          "--postgres-url",
+          "postgres://PRIVATE_USER:PRIVATE_PASSWORD@localhost/drfed",
+          "--smtp-url",
+          "smtp://PRIVATE_USER:SMTP_PASSWORD@localhost:25",
+        ],
+        preload,
+        {
+          DRFED_LOGIN_ORIGINS: '["http://env.test"]',
+          DRFED_BACKEND_URL: "invalid and unused",
+        },
+      );
+      assert.equal(result.code, 0, result.stderr);
+      assert.doesNotMatch(
+        result.stdout + result.stderr,
+        /PRIVATE_USER|PRIVATE_PASSWORD|SMTP_PASSWORD|EARLY_RESOURCE_CONSTRUCTION/u,
+      );
+      const diagnostic = JSON.parse(result.stdout);
+      assert.equal(diagnostic.command, "server");
+      assert.deepEqual(diagnostic.settings["server.login_origins"], {
+        value: ["http://cli.test"],
+        source: "cli",
+      });
+      assert.deepEqual(diagnostic.settings["database.driver"], {
+        value: "postgres",
+        source: "cli",
+      });
+      assert.deepEqual(diagnostic.settings["database.url"], {
+        value: "<redacted>",
+        source: "cli",
+      });
+      assert.deepEqual(diagnostic.settings["mail.transport"], {
+        value: "smtp",
+        source: "cli",
+      });
+      assert.deepEqual(diagnostic.settings["mail.smtp.url"], {
+        value: "<redacted>",
+        source: "cli",
+      });
+      assert.deepEqual(diagnostic.settings["telemetry.log_output"], {
+        value: logPath,
+        source: "config",
+        configPath: config,
+      });
+      assert.equal(diagnostic.settings["database.data_path"], undefined);
+      assert.ok(
+        diagnostic.ignored.some(
+          (entry: { field?: string }) => entry.field === "database.data_path",
+        ),
+      );
+      assert.ok(
+        diagnostic.ignored.some(
+          (entry: { area?: string }) => entry.area === "web",
+        ),
+      );
+      await assert.rejects(access(dataPath), { code: "ENOENT" });
+      await assert.rejects(access(logPath), { code: "ENOENT" });
+      const logOnly = await run(
+        ["--print-config", "--config", config, "--mail-transport", "logtape"],
+        preload,
+        { DRFED_SMTP_URL: "IGNORED_SMTP_SECRET" },
+      );
+      assert.equal(logOnly.code, 0, logOnly.stderr);
+      assert.doesNotMatch(
+        logOnly.stdout + logOnly.stderr,
+        /IGNORED_SMTP_SECRET|EARLY_RESOURCE_CONSTRUCTION/u,
+      );
+      const ignoredMail = JSON.parse(logOnly.stdout);
+      assert.deepEqual(ignoredMail.settings["mail.transport"], {
+        value: "logtape",
+        source: "cli",
+      });
+      assert.ok(
+        ignoredMail.ignored.some(
+          (entry: { field?: string; source?: string }) =>
+            entry.field === "mail.smtp.url" && entry.source === "env",
+        ),
+      );
+      const loggingPrefix = await run(
+        ["--log-level", "debug", "--config", config, "--print-config"],
+        preload,
+      );
+      assert.equal(loggingPrefix.code, 0, loggingPrefix.stderr);
+      assert.deepEqual(
+        JSON.parse(loggingPrefix.stdout).settings["telemetry.log_level"],
+        { value: "debug", source: "cli" },
+      );
+      const invalidLoggingPrefix = await run(
+        ["--log-level", "bad", "--config", config, "--print-config"],
+        preload,
+      );
+      assert.equal(invalidLoggingPrefix.code, 1);
+      assert.doesNotMatch(
+        invalidLoggingPrefix.stderr,
+        /EARLY_RESOURCE_CONSTRUCTION/u,
+      );
+      const optionLookingValue = await run(
+        [
+          "--print-config",
+          "--config",
+          config,
+          "--log-output",
+          "--generate-graphql-schema",
+        ],
+        preload,
+      );
+      assert.equal(optionLookingValue.code, 0, optionLookingValue.stderr);
+      assert.deepEqual(
+        JSON.parse(optionLookingValue.stdout).settings["telemetry.log_output"],
+        {
+          value: join(process.cwd(), "--generate-graphql-schema"),
+          source: "cli",
+        },
+      );
+      const invalid = await run(
+        ["--print-config", "--config", config],
+        preload,
+        { DRFED_LISTEN: "bad address" },
+      );
+      assert.equal(invalid.code, 1);
+      assert.doesNotMatch(invalid.stderr, /EARLY_RESOURCE_CONSTRUCTION/u);
+    } finally {
+      await rm(parent, { recursive: true, force: true });
+    }
+  });
+
+  it("ignores operational environment in schema, help and version projections", async () => {
+    const environment = {
+      DRFED_CONFIG: "/absent-drfed-file.toml",
+      DRFED_LOG_LEVEL: "invalid",
+      DRFED_LOG_FORMAT: "invalid",
+      DRFED_LOG_OUTPUT: "",
+      DRFED_ROOT_ORIGIN: "invalid",
+      DRFED_LOGIN_ORIGINS: "invalid",
+      DRFED_MIGRATE: "invalid",
+      DRFED_POSTGRES_URL: "PRIVATE_PASSWORD",
+      DRFED_SMTP_URL: "SMTP_PASSWORD",
+    };
+    for (const mode of ["--help", "--version", "--generate-graphql-schema"]) {
+      // oxlint-disable-next-line no-await-in-loop
+      const result = await run([mode], undefined, environment);
+      assert.equal(result.code, 0, result.stderr);
+      assert.doesNotMatch(
+        result.stdout + result.stderr,
+        /PRIVATE_PASSWORD|SMTP_PASSWORD/u,
+      );
+      if (mode === "--generate-graphql-schema") {
+        assert.match(result.stdout, /type Query/u);
+      }
+    }
+    for (const logging of [
+      ["--log-level", "ignored-invalid-level"],
+      ["-L", "info"],
+      ["--log-format", "ignored-invalid-format"],
+      ["--log-output", ""],
+    ]) {
+      for (const args of [
+        [...logging, "--generate-graphql-schema"],
+        ["--generate-graphql-schema", ...logging],
+      ]) {
+        // oxlint-disable-next-line no-await-in-loop
+        const result = await run(args, undefined, environment);
+        assert.equal(result.code, 0, result.stderr);
+        assert.match(result.stdout, /type Query/u);
+        assert.doesNotMatch(
+          result.stdout + result.stderr,
+          /PRIVATE_PASSWORD|SMTP_PASSWORD/u,
+        );
+      }
+    }
+    const terminated = await run(
+      ["--", "--generate-graphql-schema"],
+      undefined,
+      environment,
+    );
+    assert.equal(terminated.code, 1);
+    assert.doesNotMatch(terminated.stdout, /type Query/u);
   });
 });

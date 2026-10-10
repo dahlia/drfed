@@ -23,6 +23,7 @@ import { describe, it } from "node:test";
 import {
   configurationBoolean,
   configurationPath,
+  configurationProjection,
   configurationProvenance,
   configurationSettings,
   createConfigurationBindings,
@@ -415,5 +416,30 @@ describe("shared configuration bindings", () => {
         /CLI exit 1/u,
       );
     });
+  });
+});
+
+describe("command configuration projections", () => {
+  it("keeps database-only commands independent of server, mail and telemetry", () => {
+    for (const command of ["migrate", "account"] as const) {
+      const projection = configurationProjection(command);
+      assert.deepEqual(projection.areas, ["database"]);
+      assert.deepEqual(
+        projection.settings.map((entry) => entry.toml),
+        ["database.driver", "database.data_path", "database.url"],
+      );
+      assert.ok(projection.unusedAreas.includes("mail"));
+      assert.ok(projection.unusedAreas.includes("telemetry"));
+    }
+  });
+  it("separates standalone web settings and backend-only mode", () => {
+    const web = configurationProjection("web");
+    assert.deepEqual(new Set(web.areas), new Set(["web", "telemetry"]));
+    assert.ok(web.settings.some((entry) => entry.env === "WEB_LISTEN"));
+    assert.ok(!web.settings.some((entry) => entry.env === "LISTEN"));
+    assert.ok(!web.settings.some((entry) => entry.secret));
+    const backend = configurationProjection("server", ["web"]);
+    assert.ok(backend.unusedAreas.includes("web"));
+    assert.ok(!backend.settings.some((entry) => entry.toml.startsWith("web.")));
   });
 });

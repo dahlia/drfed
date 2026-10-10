@@ -35,6 +35,7 @@ import { printError, run } from "@optique/run";
 import { serve } from "srvx";
 
 import metadata from "../package.json" with { type: "json" };
+import { describeServerConfiguration } from "./diagnostics.ts";
 import { OperationRegistry } from "./operations.ts";
 import {
   type Options,
@@ -42,7 +43,7 @@ import {
   type ServerOptions,
   resolveOptions,
 } from "./parser.ts";
-import { createProgram } from "./program.ts";
+import { createProgram, selectInvocationMode } from "./program.ts";
 import { ResourceOwner } from "./resources.ts";
 import { createServerRuntime } from "./runtime-options.ts";
 import seedData from "./seed.ts";
@@ -229,7 +230,9 @@ async function runSchemaGenerator(
 }
 
 export async function main(): Promise<void> {
-  const invocation = createProgram();
+  const invocation = createProgram({
+    mode: selectInvocationMode(process.argv.slice(2)),
+  });
   let options: Options;
   try {
     const raw = await run(invocation.program, {
@@ -260,6 +263,10 @@ export async function main(): Promise<void> {
   }
   if ("generateGraphqlSchema" in options) {
     await runSchemaGenerator(options);
+    return;
+  }
+  if (options.printConfig) {
+    console.log(JSON.stringify(describeServerConfiguration(options), null, 2));
     return;
   }
   let loggingConfig: Awaited<ReturnType<typeof createLoggingConfig>>;

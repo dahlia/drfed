@@ -73,6 +73,10 @@
     "./database-settings": {
       "types": "./dist/database-settings.d.mts",
       "default": "./dist/database-settings.mjs"
+    },
+    "./diagnostics": {
+      "types": "./dist/diagnostics.d.mts",
+      "default": "./dist/diagnostics.mjs"
     }
   },
   "files": [
@@ -92,7 +96,8 @@
       "src/resources.ts",
       "src/operations.ts",
       "src/configuration.ts",
-      "src/database-settings.ts"
+      "src/database-settings.ts",
+      "src/diagnostics.ts"
     ],
     "dts": {
       "sourcemap": true,

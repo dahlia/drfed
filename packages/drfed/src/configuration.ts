@@ -237,6 +237,38 @@ export const configurationSettings = {
   ),
 } as const;
 
+/** Metadata selected for one command or mode, without reading setting values. */
+export interface ConfigurationProjection {
+  readonly settings: readonly ConfigurationSetting<unknown>[];
+  readonly areas: readonly ConfigurationArea[];
+  readonly unusedAreas: readonly ConfigurationArea[];
+}
+
+/**
+ * List shared settings consumed by a command, without reading their values.
+ * @returns Selected definitions and consumed/unused configuration areas.
+ */
+export function configurationProjection(
+  command: ConfigurationCommand,
+  excludedAreas: readonly ConfigurationArea[] = [],
+): ConfigurationProjection {
+  const settings = Object.values(configurationSettings).filter(
+    (entry) =>
+      entry.commands.includes(command) &&
+      !excludedAreas.includes(entry.toml.split(".")[0] as ConfigurationArea),
+  );
+  const areas = new Set(
+    settings.map((entry) => entry.toml.split(".")[0] as ConfigurationArea),
+  );
+  return {
+    settings,
+    areas: [...areas],
+    unusedAreas: (
+      ["server", "web", "database", "mail", "telemetry"] as const
+    ).filter((area) => !areas.has(area)),
+  };
+}
+
 /**
  * Parse TOML without including its contents or secret values in errors.
  * @returns Structurally valid settings; unused domains remain unparsed.

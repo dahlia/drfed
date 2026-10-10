@@ -115,6 +115,7 @@ Options
 
 | Option                    | Short | Description                                                          |
 | ------------------------- | ----- | -------------------------------------------------------------------- |
+| `--print-config`          |       | Print effective settings and sources with secrets redacted; exit     |
 | `--config FILE`           |       | Explicit TOML configuration file                                     |
 | `--database-driver KIND`  |       | Select `pglite` or `postgres`                                        |
 | `--migrate`               |       | Enable automatic migrations                                          |
@@ -275,3 +276,18 @@ source-only metadata for ignored fields.
 
 [Optique environment]: https://optique.dev/integrations/env.md
 [configuration]: https://optique.dev/integrations/config.md
+
+
+Configuration diagnostics
+-------------------------
+
+`drfed-server --config drfed.toml --print-config` prints JSON containing the
+selected settings and their sources without opening the database, mail
+transport or log file. PostgreSQL and SMTP URLs are printed as `<redacted>`.
+Database and mail selectors report the source that selected the effective kind;
+ignored database fields and the unused web area are listed separately.
+Invalid active settings still fail rather than falling back to another source.
+
+Help, version and GraphQL schema output ignore operational environment values
+and do not read the TOML file. Schema generation still accepts the historical
+logging options, but ignores them and does not create a log file.
