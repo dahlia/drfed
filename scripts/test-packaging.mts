@@ -32,7 +32,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, relative, resolve } from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 const execute = promisify(execFile);
@@ -123,6 +123,7 @@ async function pack(name: string) {
   checkTargets(manifest.bin);
   assert.ok(![...files].some((path) => path.startsWith("src/")));
   if (name === "models") {
+    assert.ok(files.has("dist/migrations-manifest.json"));
     const migrations = await readdir(join(root, "packages/models/drizzle"), {
       recursive: true,
     });
@@ -309,6 +310,16 @@ try {
         );
       }
     }
+    const verification = await run(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `import { verifyMigrationManifest } from ${JSON.stringify(pathToFileURL(join(modules, "@drfed/models/dist/migration-manifest.mjs")).href)}; await verifyMigrationManifest();`,
+      ],
+      prefix,
+    );
+    assert.equal(verification.stderr, "");
     const binary = join(application, "bin/drfed-server.mjs");
     const linked = global
       ? join(prefix, windows ? "drfed-server.cmd" : "bin/drfed-server")

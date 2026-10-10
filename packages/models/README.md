@@ -26,6 +26,25 @@ Generate a migration after changing *src/schema.ts*:
 mise run generate:migrate --name your_migration_name
 ~~~~
 
+After reviewing newly generated SQL, register its identity:
+
+~~~~ sh
+mise run manifest:migrations --append
+~~~~
+
+This appends SHA-256 hashes of raw SQL bytes to *migrations-manifest.json* and
+refuses to rewrite or remove existing entries. Builds verify the SQL against
+this file and copy it to *dist/migrations-manifest.json*. `mise run check`
+checks the same identities, and pull request CI compares the manifest with the
+base commit to catch simultaneous changes to historical SQL and its hash.
+Migration SQL is checked out with LF endings on every platform, so Git's
+`core.autocrlf` setting does not change these raw-byte identities.
+A base commit from before the manifest's introduction starts the baseline.
+
+`@drfed/models/migration-manifest` exposes `verifyMigrationManifest()` for
+installed package checks without connecting to a database. These checks do
+not change the migration runner's database behavior.
+
 The *drizzle/* directory is included in the published npm package so that
 installed users can run migrations without access to the repository source.
 

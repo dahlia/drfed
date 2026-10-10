@@ -1,0 +1,85 @@
+{
+  "formatVersion": 1,
+  "migrations": [
+    {
+      "name": "20260622021748_init",
+      "sha256": "c53c69f3b81ab5c5b862b142101fcfb6e8388aafa238b617e94f158a14ec1b8d"
+    },
+    {
+      "name": "20260623162238_dear_felicia_hardy",
+      "sha256": "06694a869f5eb31a423eec5cf8544a12c5a00bb9305e7abad7798be118679398"
+    },
+    {
+      "name": "20260624094817_lethal_sinister_six",
+      "sha256": "0cb8f1727da4bae40f068928263eb937376fd59109322127c09a15c3e00c1aac"
+    },
+    {
+      "name": "20260716000333_email_auth",
+      "sha256": "5faf2d37d92576c15721581c3833afe15fd24111190af029f218ef099e987688"
+    },
+    {
+      "name": "20260723065002_chief_colleen_wing",
+      "sha256": "e9b0349b322cc70eedc65f4771185b70c0a9878de6955f36981d3a7679364bf8"
+    },
+    {
+      "name": "20260802205417_separate-instance-local-remote",
+      "sha256": "8221217046d163cb9a863f0fa7889a77fe374ea15d8e1e53a99a90de76324bfc"
+    },
+    {
+      "name": "20260804061119_instances-local-remote-constraint",
+      "sha256": "14e73ae74c623f1a940aa0a0ddc9126514008583674a91c295bc1bfb2d93f223"
+    },
+    {
+      "name": "20260818080259_dark_night_thrasher",
+      "sha256": "48af5f9cfce3a328035b4b8c9eb39f39df987208c2947e64223f61fbc862539e"
+    },
+    {
+      "name": "20260821072150_merge_remote_actors",
+      "sha256": "db962e0bc90f64d40d90e90be2debbe8ad73b439db7ea4ea05815b3d95bfbf21"
+    },
+    {
+      "name": "20260906052949_rename_followees_to_following",
+      "sha256": "4f387d028ef48882be0fd8c44cb21e334e046891079ddc7d4e2da791479eeb6e"
+    },
+    {
+      "name": "20260908062446_rename_login_tokens_to_login_challenges",
+      "sha256": "9386fb9587a9640925c9da2cfcbc1d5afe2f142a6514a463c71066b7079564d9"
+    },
+    {
+      "name": "20260908065945_simplify_login_challenges",
+      "sha256": "aa3d935918a64ead17dae7c0d7330dd7677b9a2418d5220641fed1840dc47123"
+    },
+    {
+      "name": "20260915061356_tighten_slug_constraint",
+      "sha256": "8ed9c8c2d7cb7029d5f452df75c7cda7c81713af6fa746bd9568e8134f40a284"
+    },
+    {
+      "name": "20260915063339_widen_instance_host",
+      "sha256": "b390e154c8f6f8ee1789f73e775d5cbcad0d951841ab8a9ebef979ba400d37c6"
+    },
+    {
+      "name": "20260916085902_add_objects_activities_and_resources",
+      "sha256": "51219ac09c7f483fe95ac2dc0a07e6ad0beb5497503f8ffa2b0afa9d04fba01b"
+    },
+    {
+      "name": "20260917163517_order_local_outbox_items",
+      "sha256": "84a20b15ca7579e3c94d05e07c06a6311b2ffea45ec7674c2631b216d41d964b"
+    },
+    {
+      "name": "20260918071839_add_activity_object_index",
+      "sha256": "496cead2a7b9ebb3a82a6c03104b6275246a1b81201266d75d6d771e4385b965"
+    },
+    {
+      "name": "20261006061745_add_activity_deliveries_and_keys",
+      "sha256": "01362db69eacbb398ee6da3a8364e700e583aa23a7008fd5c0fc5ef9baf6ecdd"
+    },
+    {
+      "name": "20261006085045_snake_case_columns",
+      "sha256": "595470797f3ed0c38a1f420660d39a32781d4f9365db8d9e6c1037b5d7738e29"
+    },
+    {
+      "name": "20261006122653_local_actor_keys",
+      "sha256": "f4761a17dda22ffc7a578f9dd55668eee03ff6525707c85df83cbe1706fa9a3d"
+    }
+  ]
+}

@@ -88,6 +88,18 @@ run = """
 node scripts/add-license/main.mts --check
 """
 
+[tasks."check:migrations"]
+description = "Verify immutable migration identities and bundled SQL"
+run = "node scripts/migration-manifest.mts"
+
+[tasks."manifest:migrations"]
+description = "Verify or append immutable migration identities"
+usage = """
+flag "--append" help="Append new migrations without changing historical identities"
+flag "--base <ref>" help="Compare the immutable prefix with a Git commit"
+"""
+run = "node scripts/migration-manifest.mts"
+
 [tasks."check:versions"]
 description = "Check that all package versions are in sync"
 run = "node scripts/check-versions.mts"

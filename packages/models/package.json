@@ -97,6 +97,10 @@
     "./text": {
       "types": "./dist/text.d.mts",
       "default": "./dist/text.mjs"
+    },
+    "./migration-manifest": {
+      "types": "./dist/migration-manifest.d.mts",
+      "default": "./dist/migration-manifest.mjs"
     }
   },
   "files": [
@@ -119,7 +123,8 @@
       "src/key.ts",
       "src/activity-delivery.ts",
       "src/instance.ts",
-      "src/text.ts"
+      "src/text.ts",
+      "src/migration-manifest.ts"
     ],
     "dts": {
       "sourcemap": true,
