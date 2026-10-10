@@ -36,10 +36,12 @@ import type {
   ServerOptions,
 } from "./parser.ts";
 import program from "./program.ts";
+import { createServerRuntime } from "./runtime-options.ts";
 import seedData from "./seed.ts";
 import { createFetchHandler, warnAboutStrandedInstances } from "./serving.ts";
 
-async function runServer(options: ServerOptions) {
+async function runServer(configuration: ServerOptions) {
+  const options = createServerRuntime(configuration);
   const { credentials } = options.drizzle;
   if (options.drizzle.migrate) await migrate({ credentials });
   if (options.seed) await seedData(options.drizzle.db);

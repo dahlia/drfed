@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { relations, schema } from "@drfed/models";
-import { PGlite } from "@electric-sql/pglite";
 import { merge, object, or } from "@optique/core/constructs";
 import { message, optionNames } from "@optique/core/message";
 import { map, multiple, optional, withDefault } from "@optique/core/modifiers";
@@ -24,13 +22,7 @@ import { flag, option } from "@optique/core/primitives";
 import { email, origin, socketAddress, url } from "@optique/core/valueparser";
 import { loggingOptions } from "@optique/logtape";
 import { path } from "@optique/run/valueparser";
-import { LogTapeTransport } from "@upyo/logtape";
-import { SmtpTransport } from "@upyo/smtp";
-import { drizzle as drizzlePglite } from "drizzle-orm/pglite";
-import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 
-import { privateKeySafeLogger } from "./query-logger.ts";
 import { rootOrigin } from "./valueparser.ts";
 
 const pgliteParser = map(
@@ -43,21 +35,7 @@ const pgliteParser = map(
       description: message`The path to the directory where the PGlite database files will be stored.  Mutually exclusive with ${optionNames(["--postgres-url", "--database-url", "-D"])}.`,
     },
   ),
-  (dbPath) => {
-    const client = new PGlite(dbPath);
-    return {
-      credentials: {
-        driver: "pglite" as const,
-        client,
-      },
-      db: drizzlePglite({
-        client,
-        relations,
-        schema,
-        logger: privateKeySafeLogger(),
-      }),
-    };
-  },
+  (dataPath) => ({ driver: "pglite" as const, dataPath }),
 );
 
 const postgresParser = map(
@@ -70,39 +48,14 @@ const postgresParser = map(
       description: message`The URL of the PostgreSQL database to connect to.  Mutually exclusive with ${optionNames(["--pglite-data-path", "--data-path", "-d"])}.`,
     },
   ),
-  (dbUrl) => {
-    const client = postgres(dbUrl.href);
-    return {
-      credentials: {
-        client,
-      },
-      db: drizzlePostgres({
-        client,
-        relations,
-        schema,
-        logger: privateKeySafeLogger(),
-      }),
-    };
-  },
+  (databaseUrl) => ({ driver: "postgres" as const, databaseUrl }),
 );
 
-const smtpParser = map(
-  optional(
-    option("--smtp-url", "-s", url({ allowedProtocols: ["smtp:"] }), {
-      description: message`The URL of the SMTP server to deliver emails through.`,
-    }),
-  ),
-  (smtpUrl: URL | undefined) =>
-    smtpUrl == null
-      ? new LogTapeTransport({ recordMessage: "inline" })
-      : new SmtpTransport({
-          host: smtpUrl.hostname,
-          port: smtpUrl.port === "" ? SMTP_DEFAULT_PORT : Number(smtpUrl.port),
-          // SMTPS for later
-          secure: false,
-        }),
+const smtpParser = optional(
+  option("--smtp-url", "-s", url({ allowedProtocols: ["smtp:"] }), {
+    description: message`The URL of the SMTP server to deliver emails through.`,
+  }),
 );
-const SMTP_DEFAULT_PORT = 25;
 
 const seedParser = option("--dev-seed", {
   description: message`Seeding initial data for dev or test.`,
@@ -162,7 +115,7 @@ const serverParser = object("DrFed server", {
   rootOrigin: rootOriginParser,
   loginOrigins: loginOriginParser,
   emailFrom: emailFromParser,
-  mailer: smtpParser,
+  smtpUrl: smtpParser,
   seed: seedParser,
 });
 

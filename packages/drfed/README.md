@@ -24,6 +24,10 @@ The server listens on `localhost:8888` by default.  Pass `--listen HOST:PORT`
 to override.  Automatic database migrations run on startup unless `--no-migrate`
 is given.
 
+CLI parsing validates settings before opening database or mail resources.
+`--help`, `--version`, and `--generate-graphql-schema` can run without starting
+the server; invalid options also exit before creating those resources.
+
 
 Root origin
 -----------

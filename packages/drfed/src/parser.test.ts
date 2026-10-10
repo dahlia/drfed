@@ -16,11 +16,11 @@
 
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { describe, it } from "@logtape/testing-node/autoload";
@@ -29,10 +29,8 @@ const execFileAsync = promisify(execFile);
 
 const commandTimeout = 30_000;
 
-// The binary rather than the parser module, because what matters here is the
-// contract the installed command exposes.  Parsing `--pglite-data-path` opens
-// a database as a side effect, so every case below either fails during parsing
-// or takes the schema-generation branch, which needs no database at all.
+// Exercise the built command so parser and startup behavior stay aligned with
+// what installed users receive.
 const binary = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -42,11 +40,16 @@ const binary = join(
 
 async function run(
   args: readonly string[],
+  preload?: string,
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   try {
     const { stdout, stderr } = await execFileAsync(
       process.execPath,
-      [binary, ...args],
+      [
+        ...(preload == null ? [] : ["--import", pathToFileURL(preload).href]),
+        binary,
+        ...args,
+      ],
       {
         // A deliberately minimal environment, independent of what the
         // developer happens to have exported.
@@ -152,5 +155,76 @@ describe("drfed-server", () => {
     ]);
     assert.equal(code, 0);
     assert.match(stdout, /type Query/u);
+  });
+  it("keeps help, version, schema and parse failures resource-free", async () => {
+    const parent = await mkdtemp(join(tmpdir(), "drfed-pure-cli-"));
+    const dataPath = join(parent, "must-not-exist");
+    const preload = join(parent, "reject-resources.mjs");
+    try {
+      await writeFile(
+        preload,
+        `
+      import { registerHooks } from "node:module";
+      const constructors = new Map([
+        ["@electric-sql/pglite", "PGlite"],
+        ["postgres", "default"],
+        ["@upyo/smtp", "SmtpTransport"],
+        ["@upyo/logtape", "LogTapeTransport"],
+      ]);
+      registerHooks({
+        resolve(specifier, context, nextResolve) {
+          const resolved = nextResolve(specifier, context);
+          const name = constructors.get(specifier);
+          if (name == null) return resolved;
+          const target = JSON.stringify(resolved.url);
+          const source = name === "default"
+            ? "export * from " + target + "; export default function () { throw new Error('EARLY_RESOURCE_CONSTRUCTION'); }"
+            : "export * from " + target + ";" +
+            "import { " + name + " as Original } from " + target + ";" +
+            "export class " + name + " extends Original {" +
+            "constructor() { throw new Error('EARLY_RESOURCE_CONSTRUCTION'); } }";
+          return { url: "data:text/javascript," + encodeURIComponent(source), shortCircuit: true };
+        },
+      });
+    `,
+      );
+
+      const base = [
+        "--root-origin=http://drfed.test",
+        "--login-origin=http://drfed.test",
+        "--smtp-url=smtp://localhost:25",
+      ];
+      // Both database branches must stay resource-free through early exits.
+      for (const database of [
+        `--data-path=${dataPath}`,
+        "--database-url=postgres://localhost/drfed",
+      ]) {
+        for (const suffix of [
+          ["--help"],
+          ["--version"],
+          ["--unknown-option"],
+        ]) {
+          // oxlint-disable-next-line no-await-in-loop
+          const result = await run([...base, database, ...suffix], preload);
+          assert.equal(
+            result.code,
+            suffix[0] === "--unknown-option" ? 1 : 0,
+            result.stderr,
+          );
+          // oxlint-disable-next-line no-await-in-loop
+          await assert.rejects(access(dataPath), { code: "ENOENT" });
+          assert.doesNotMatch(result.stderr, /EARLY_RESOURCE_CONSTRUCTION/u);
+        }
+      }
+      const schema = await run(["--generate-graphql-schema"], preload);
+      assert.equal(schema.code, 0, schema.stderr);
+      assert.match(schema.stdout, /type Query/u);
+      const startup = await run([...base, `--data-path=${dataPath}`], preload);
+      assert.equal(startup.code, 1);
+      assert.match(startup.stderr, /EARLY_RESOURCE_CONSTRUCTION/u);
+      await assert.rejects(access(dataPath), { code: "ENOENT" });
+    } finally {
+      await rm(parent, { recursive: true, force: true });
+    }
   });
 });
