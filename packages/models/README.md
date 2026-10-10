@@ -45,6 +45,21 @@ A base commit from before the manifest's introduction starts the baseline.
 installed package checks without connecting to a database. These checks do
 not change the migration runner's database behavior.
 
+`@drfed/models/migration-state` exposes `inspectMigrationState(client)`.
+It uses only `SELECT` statements, verifies the installed manifest, and never
+owns or closes the supplied query client. Exact named history is `ready`;
+a strict prefix is `pending`. Changed hashes, diverged history, newer
+migrations, unsupported table formats, and DrFed tables without tracked
+history are reported separately. Legacy history must match both generation
+seconds and hashes, and reports `upgrade-required` without altering metadata.
+Named rows from Drizzle's legacy upgrade retain generation milliseconds and
+have SQL `NULL` in `applied_at`; these also match by generation second, name,
+and hash. Other named rows require the exact manifest timestamp.
+Database query failures propagate instead of being treated as a fresh database.
+Connections subject to row-level security on migration history are rejected,
+since filtered rows cannot prove that the history is complete.
+These inspection APIs are not yet connected to server startup.
+
 The *drizzle/* directory is included in the published npm package so that
 installed users can run migrations without access to the repository source.
 
