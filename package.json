@@ -1,14 +1,18 @@
 {
   "private": true,
   "devDependencies": {
-    "skills-npm": "catalog:",
     "@drfed/models": "workspace:*",
     "@electric-sql/pglite": "catalog:",
     "@logtape/logtape": "catalog:",
     "drizzle-orm": "catalog:",
     "@drfed/graphql": "workspace:*",
     "graphql": "catalog:",
+<<<<<<< HEAD
     "@sacho/sacho": "0.3.2"
+=======
+    "skills-npm": "catalog:",
+    "vitepress": "^1.6.4"
+>>>>>>> ef78c39 (Add VitePress documentation site)
   },
   "scripts": {
     "prepare": "skills-npm --recursive --yes --force && skills-npm --yes --force --no-cleanup"

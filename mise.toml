@@ -40,6 +40,19 @@ depends = ["build:backend", "build:web"]
 run = "pnpm -F @drfed/drfed build"
 silent = "stdout"
 
+[tasks."build:docs"]
+description = "Build the VitePress documentation site"
+run = "pnpm exec vitepress build docs"
+
+[tasks."dev:docs"]
+description = "Run the VitePress documentation development server"
+raw_args = true
+run = "pnpm exec vitepress dev docs"
+
+[tasks."preview:docs"]
+description = "Preview the built VitePress documentation site"
+run = "pnpm exec vitepress preview docs"
+
 [tasks."build:web"]
 description = "Build SolidStart frontend server"
 depends = [
