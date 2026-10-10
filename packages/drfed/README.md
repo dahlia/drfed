@@ -126,3 +126,23 @@ must be provided.
 
 Without `--smtp-url`, mail is written to the log instead of being delivered,
 which is why a development server can sign you in without a mail server.
+
+
+Testing npm installation
+------------------------
+
+From the repository root, run `mise run test:packaging` to build and pack the
+four backend packages, then install their tarballs with npm in temporary local
+and global prefixes outside the checkout.  The check uses a separate npm cache
+and empty npm configuration files, omits development dependencies, and disables
+installation scripts.  It needs network access to the public npm registry for
+external dependencies.
+
+The check verifies packed entry points and migrations, npm's `drfed-server`
+bin links, CLI help, a database-backed GraphQL request after initial migration,
+and a restart with `--no-migrate` using the same PGlite directory.  It removes
+the temporary installations and databases after stopping their servers.
+
+All four backend tarballs are supplied to each install together so unpublished
+workspace versions can be tested.  This baseline does not cover installing only
+the facade from the registry, the frontend, or upgrading an older release.

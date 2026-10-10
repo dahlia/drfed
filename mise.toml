@@ -46,6 +46,11 @@ description = "Probe an embedded SolidStart runtime without an HTTP listener"
 depends = ["build:web"]
 run = "node scripts/probe-web-runtime.mts"
 
+[tasks."test:packaging"]
+description = "Test local and global npm tarball installations"
+depends = ["build:server"]
+run = "node scripts/test-packaging.mts"
+
 [tasks.check]
 description = "Check all"
 depends = ["check:*"]
