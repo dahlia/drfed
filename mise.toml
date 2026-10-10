@@ -22,12 +22,18 @@ postinstall = ["mise deps", "mise generate git-pre-commit --task check --write"]
 
 [tasks.build]
 description = "Build the project"
-depends = ["build:web"]
+depends = ["build:web", "build:server"]
+silent = "stdout"
+
+[tasks."build:backend"]
+description = "Build models, federation, and GraphQL without the application CLI"
+run = "pnpm --parallel -F @drfed/federation -F @drfed/graphql -F @drfed/models build"
 silent = "stdout"
 
 [tasks."build:server"]
-description = "Build the project except web"
-run = "pnpm --parallel -F @drfed/federation -F @drfed/graphql -F @drfed/models -F @drfed/drfed build"
+description = "Build the backend and application CLI without the frontend"
+depends = ["build:backend"]
+run = "pnpm -F @drfed/drfed build"
 silent = "stdout"
 
 [tasks."build:web"]
@@ -169,11 +175,13 @@ description = "Generate GraphQL schema"
 usage = """
 flag "-o --output-file <file>" help="The output file for the generated GraphQL schema.  - for stdout.  Defaults to -"
 """
-depends = ["build:server"]
+depends = ["build:backend"]
 run = """
 #!/usr/bin/env nu
 let output_file = (if "usage_output_file" in $env { $env.usage_output_file } else { "-" })
-node packages/drfed/bin/drfed-server.mjs --generate-graphql-schema --output-file $output_file
+with-env { DRFED_SCHEMA_OUTPUT: $output_file } {
+  node scripts/generate-graphql-schema.mts
+}
 """
 
 [tasks.dev]

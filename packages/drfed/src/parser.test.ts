@@ -144,7 +144,7 @@ describe("drfed-server", () => {
 
   it("generates the GraphQL schema without a root origin", async () => {
     // Schema generation is the other branch of the parser and must stay
-    // usable without any deployment configuration; `mise run build` calls it.
+    // usable without any deployment configuration.
     const { code, stdout } = await run([
       "--generate-graphql-schema",
       "--output-file",

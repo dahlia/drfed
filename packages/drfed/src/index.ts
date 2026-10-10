@@ -20,7 +20,6 @@ import process from "node:process";
 import createFederation, { createInboundRecorder } from "@drfed/federation";
 import { KeyGenerationQueue } from "@drfed/federation/task-queue";
 import { createYogaServer } from "@drfed/graphql";
-import { schema } from "@drfed/graphql/schema";
 import { migrate } from "@drfed/models";
 import { PgliteKvStore } from "@fedify/pglite";
 import { PostgresKvStore } from "@fedify/postgres";
@@ -28,7 +27,6 @@ import { configure, getConsoleSink, getLogger } from "@logtape/logtape";
 import { createLoggingConfig } from "@optique/logtape";
 import { run } from "@optique/run";
 import { SmtpTransport } from "@upyo/smtp";
-import { printSchema } from "graphql";
 import { serve } from "srvx";
 
 import metadata from "../package.json" with { type: "json" };
@@ -153,6 +151,10 @@ async function runServer(options: ServerOptions) {
 async function runSchemaGenerator(
   options: SchemaGeneratorOptions,
 ): Promise<void> {
+  const [{ schema }, { printSchema }] = await Promise.all([
+    import("@drfed/graphql/schema"),
+    import("graphql"),
+  ]);
   const schemaCode = printSchema(schema);
   if (options.outputFile === "-") {
     // oxlint-disable-next-line no-console

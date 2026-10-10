@@ -202,3 +202,16 @@ The ActivityPub code that used to live in this package moved to
 
 `@drfed/graphql/activity-delivery` now holds only the GraphQL types for
 activity deliveries.
+
+
+Generating the schema
+---------------------
+
+Run `mise run generate:graphql-schema --output-file schema.graphql` from the
+repository root.  This task builds models, federation, and GraphQL through
+`build:backend`, then imports the built schema directly.  It does not build
+the application CLI or frontend, so frontend compilation can use it without
+creating a dependency cycle.  Omitting `--output-file` writes to stdout.
+
+The installed `drfed-server --generate-graphql-schema` option remains available
+for users who need the schema from their installed version.
