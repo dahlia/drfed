@@ -65,6 +65,10 @@
     "./operations": {
       "types": "./dist/operations.d.mts",
       "default": "./dist/operations.mjs"
+    },
+    "./configuration": {
+      "types": "./dist/configuration.d.mts",
+      "default": "./dist/configuration.mjs"
     }
   },
   "files": [
@@ -82,7 +86,8 @@
       "src/serving.ts",
       "src/query-logger.ts",
       "src/resources.ts",
-      "src/operations.ts"
+      "src/operations.ts",
+      "src/configuration.ts"
     ],
     "dts": {
       "sourcemap": true,
@@ -110,7 +115,9 @@
     "@fedify/postgres": "catalog:",
     "@logtape/drizzle-orm": "catalog:",
     "@logtape/logtape": "catalog:",
+    "@optique/config": "catalog:",
     "@optique/core": "catalog:",
+    "@optique/env": "catalog:",
     "@optique/logtape": "catalog:",
     "@optique/run": "catalog:",
     "@upyo/logtape": "catalog:",
@@ -118,6 +125,8 @@
     "drizzle-orm": "catalog:",
     "graphql": "catalog:",
     "postgres": "catalog:",
-    "srvx": "^0.11.16"
+    "smol-toml": "^1.9.1",
+    "srvx": "^0.11.16",
+    "valibot": "1.4.2"
   }
 }

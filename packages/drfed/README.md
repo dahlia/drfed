@@ -179,3 +179,30 @@ calling `drain()`.  Draining also waits for continuations registered during
 shutdown, so an accepted GraphQL response can finish during the grace period.
 
 [Yoga execution cancellation]: https://the-guild.dev/graphql/yoga-server/docs/features/execution-cancellation
+
+
+Shared configuration bindings
+-----------------------------
+
+`@drfed/drfed/configuration` supplies the common setting registry, strict TOML
+structure, and isolated [Optique environment] and [configuration] contexts.
+Bindings preserve `CLI > DRFED_* > TOML > default`, including `false` and
+empty arrays. Array sources replace each other. Each result carries its source
+and, for TOML values, the absolute configuration file path; provenance maps
+contain no setting values.
+
+Commands must check required values after resolution. An absent optional
+setting has a default-sourced result whose `value` is `undefined`; wrapping
+a binding in `optional()` can hide invalid environment values and should be
+avoided. Bind only the settings a command consumes: the entire TOML file is
+checked for unknown keys and wrong types, while unused environment values
+remain unread. `configurationPath()` resolves CLI and environment paths
+against the supplied working directory and TOML paths against the file's
+directory. The loader reads only an explicitly selected file and fails if
+that file is missing. It neither searches for configuration nor loads *.env*.
+
+These bindings are not yet connected to `drfed-server`; the CLI usage above
+continues to apply.
+
+[Optique environment]: https://optique.dev/integrations/env.md
+[configuration]: https://optique.dev/integrations/config.md
