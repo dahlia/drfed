@@ -547,7 +547,7 @@ it("keeps one row per delivery and actor and requires a role", async () => {
   }
 });
 
-it("marks only an inbound delivery carrying the stored activity as such", async () => {
+it("marks only an inbound delivery carrying the stored activity as such, whatever its caller says", async () => {
   const client = new PGlite();
   try {
     await migrate({ credentials: { driver: "pglite", client } });
@@ -578,16 +578,21 @@ it("marks only an inbound delivery carrying the stored activity as such", async 
       actor: actorIri,
       object: { type: "Note", content: "original" },
     };
-    await promoteResource(db, activityIri, "activity", async (tx, r) => {
-      await tx.insert(schema.activities).values({
-        id: r.id,
-        type: "Create",
-        actorId,
-        published: Temporal.Now.instant(),
-        document,
+    const storeActivity = (stored: unknown) =>
+      promoteResource(db, activityIri, "activity", async (tx, r) => {
+        await tx.insert(schema.activities).values({
+          id: r.id,
+          type: "Create",
+          actorId,
+          published: Temporal.Now.instant(),
+          document: stored,
+        });
+        return r.id;
       });
-    });
+    const activityId = await storeActivity(document);
     const now = Temporal.Now.instant();
+    // As a caller outside TypeScript may pass, which no type stops at runtime.
+    const forged = { carriedSnapshot: true };
     const inbound = (payload: unknown) =>
       recordInbound(db, {
         instanceId,
@@ -599,6 +604,7 @@ it("marks only an inbound delivery carrying the stored activity as such", async 
         payload,
         created: now,
         completed: now,
+        ...forged,
       });
     const carrying = [
       await inbound(document),
@@ -613,21 +619,51 @@ it("marks only an inbound delivery carrying the stored activity as such", async 
       // PostgreSQL's jsonb holds no U+0000, so the payload is not stored.
       await inbound({ ...document, summary: "\0" }),
       await inbound(undefined),
+      await inbound(null),
     ];
+    const outbound = await recordOutbound(db, {
+      instanceId,
+      inboxUrl: "https://remote.example/inbox",
+      activityIri,
+      activityId,
+      payload: document,
+      ...forged,
+    });
+    const marks = async () =>
+      new Map(
+        (
+          await db.query.activityDeliveries.findMany({
+            columns: { id: true, carriedSnapshot: true },
+          })
+        ).map(({ id, carriedSnapshot }) => [id, carriedSnapshot]),
+      );
+    // Nothing is marked before it is linked.
+    assert.ok([...(await marks()).values()].every((mark) => !mark));
     for (const delivery of [...carrying, ...other]) {
       assert.equal(await linkInboundActivity(db, delivery.id), true);
     }
     const rows = await db.query.activityDeliveries.findMany({
-      columns: { id: true, activityId: true, carriedSnapshot: true },
+      columns: { id: true, activityId: true },
+      where: { direction: "inbound" },
     });
-    assert.ok(rows.every(({ activityId }) => activityId != null));
+    assert.ok(rows.every((row) => row.activityId === activityId));
     assert.deepEqual(
-      new Map(rows.map(({ id, carriedSnapshot }) => [id, carriedSnapshot])),
+      await marks(),
       new Map([
         ...carrying.map(({ id }) => [id, true] as const),
         ...other.map(({ id }) => [id, false] as const),
+        [outbound.id, false],
       ]),
     );
+    // A mark left from a deleted activity does not carry over to another
+    // stored under the same IRI.
+    await db
+      .delete(schema.resources)
+      .where(eq(schema.resources.id, activityId));
+    assert.equal((await marks()).get(carrying[0]!.id), true);
+    await storeActivity({ ...document, summary: "replaced" });
+    assert.equal(await linkInboundActivity(db, carrying[0]!.id), true);
+    assert.equal((await marks()).get(carrying[0]!.id), false);
   } finally {
     await client.close();
   }

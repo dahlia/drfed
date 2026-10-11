@@ -34,7 +34,11 @@ import {
 import { storableText } from "./text.ts";
 import { type Uuid, uuidV7 } from "./uuid.ts";
 
-type DeliveryEntry = Omit<NewActivityDelivery, "id" | "direction" | "status">;
+/** `carriedSnapshot` is the model's to decide, never a caller's. */
+type DeliveryEntry = Omit<
+  NewActivityDelivery,
+  "id" | "direction" | "status" | "carriedSnapshot"
+>;
 
 export interface AddressedActor {
   readonly actorId: Uuid;
@@ -241,6 +245,8 @@ export async function recordInbound(
       payload: jsonb(entry.payload),
       id,
       direction: "inbound",
+      // Whatever a caller outside TypeScript passes.
+      carriedSnapshot: false,
     },
     inboundActorRows({ actorId: entry.actorId, addressed }),
   );
@@ -276,6 +282,8 @@ export async function receiveInbound(db: Database, id: Uuid): Promise<boolean> {
  * The link names the activity whatever the delivery carried, but the delivery
  * is marked as having carried the stored snapshot only when its payload is the
  * stored document, since the same IRI may arrive again with other contents.
+ * The mark is decided anew on every link, so that one left from an activity
+ * deleted since never carries over to another stored under the same IRI.
  * @returns Whether the delivery was linked.
  */
 export async function linkInboundActivity(
@@ -304,13 +312,14 @@ export async function linkInboundActivity(
         document: activities.document,
       });
     if (row == null) return false;
-    // A payload jsonb could not hold is stored as NULL and carries nothing.
-    if (row.payload != null && isDeepStrictEqual(row.payload, row.document)) {
-      await tx
-        .update(activityDeliveries)
-        .set({ carriedSnapshot: true })
-        .where(eq(activityDeliveries.id, deliveryId));
-    }
+    await tx
+      .update(activityDeliveries)
+      .set({
+        // A payload jsonb could not hold is stored as NULL and carries nothing.
+        carriedSnapshot:
+          row.payload != null && isDeepStrictEqual(row.payload, row.document),
+      })
+      .where(eq(activityDeliveries.id, deliveryId));
     return true;
   });
 }
@@ -336,6 +345,7 @@ export async function recordOutbound(
       id: uuidV7(),
       direction: "outbound",
       status: "queued",
+      carriedSnapshot: false,
     },
     entry.actorId == null ? [] : [{ actorId: entry.actorId, sender: true }],
   );

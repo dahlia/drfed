@@ -58,6 +58,10 @@ answered with 2xx, by the activity IRI it recorded; `recordOutbound` takes the
 `activityId` of the activity it sends.  `recordInbound` does not take one, and
 a CHECK constraint refuses a linked inbound delivery that is not verified,
 `received` or `acknowledged`.  A delivery outlives its activity.
+`carried_snapshot` marks an inbound delivery whose payload is the stored
+activity's document.  Neither record function takes it; `linkInboundActivity`
+decides it anew on every link, so that a mark left from a deleted activity
+never carries over to another stored under the same IRI.
 
 `activity_delivery_actors` relates a delivery to each local actor it concerns,
 as the owner of the inbox, as an addressed recipient, or as the sender, with
