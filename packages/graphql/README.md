@@ -61,7 +61,11 @@ when addressed to the public (section 5.6):
     it as stored.  A delivery of the same activity IRI with other contents
     stays linked for debugging, but grants nothing.
  -  An object of a remote actor is readable when it is addressed to the
-    public, or when the viewer may read the activity it was received in.
+    public, when the activity it was received in is, or by an accepted member
+    of a local instance that received that activity and the object as stored
+    with it.  When the object was fetched apart from the activity, only a
+    delivery whose inbox listener fetched it as stored received it so, since
+    it may differ from fetch to fetch.
  -  Administrators read everything.
 
 `as:Public` and `Public` count as the public as well as its full IRI.  What the

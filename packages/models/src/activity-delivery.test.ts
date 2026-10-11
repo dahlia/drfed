@@ -25,13 +25,14 @@ import {
   inboundActorRows,
   linkInboundActivity,
   receiveInbound,
+  recordFetchedObject,
   recordInbound,
   recordOutbound,
   settleOutbound,
 } from "@drfed/models/activity-delivery";
 import { observeKeyVersion } from "@drfed/models/key";
-import { promoteResource } from "@drfed/models/resource";
-import { uuidV7 } from "@drfed/models/uuid";
+import { ensureResource, promoteResource } from "@drfed/models/resource";
+import { type Uuid, uuidV7 } from "@drfed/models/uuid";
 import { PGlite } from "@electric-sql/pglite";
 import { DrizzleQueryError, and, eq, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
@@ -664,6 +665,168 @@ it("marks only an inbound delivery carrying the stored activity as such, whateve
     await storeActivity({ ...document, summary: "replaced" });
     assert.equal(await linkInboundActivity(db, carrying[0]!.id), true);
     assert.equal((await marks()).get(carrying[0]!.id), false);
+  } finally {
+    await client.close();
+  }
+});
+
+it("marks only an inbound delivery carrying the stored object as such, however late it fetched it", async () => {
+  const client = new PGlite();
+  try {
+    await migrate({ credentials: { driver: "pglite", client } });
+    const db = drizzle({ client, schema, relations });
+    const instanceId = uuidV7();
+    await db
+      .insert(schema.instances)
+      .values({ id: instanceId, host: "remote.example" });
+    const actorIri = "https://remote.example/users/alice";
+    const actorId = await promoteResource(
+      db,
+      actorIri,
+      "actor",
+      async (tx, r) => {
+        await tx.insert(schema.actors).values({
+          id: r.id,
+          instanceId,
+          type: "Person",
+          inboxUrl: `${actorIri}/inbox`,
+        });
+        return r.id;
+      },
+    );
+    const note = (name: string, content: string) => ({
+      id: `https://remote.example/notes/${name}`,
+      type: "Note",
+      attributedTo: actorIri,
+      content,
+    });
+    // Store an activity and the object it carried, fetched or not.
+    const store = async (name: string, fetched: boolean) => {
+      const activityIri = `https://remote.example/activities/${name}`;
+      const object = note(name, "stored");
+      const document = {
+        id: activityIri,
+        type: "Create",
+        actor: actorIri,
+        object: fetched ? object.id : object,
+      };
+      // The object names the activity before it is stored, as an inbox does.
+      const { id: activityId } = await ensureResource(db, activityIri);
+      const objectId = await promoteResource(
+        db,
+        object.id,
+        "object",
+        async (tx, r) => {
+          await tx.insert(schema.objects).values({
+            id: r.id,
+            actorId,
+            activityId,
+            fetched,
+            type: "Note",
+            document: object,
+            contentHtml: "stored",
+          });
+          return r.id;
+        },
+      );
+      await promoteResource(db, activityIri, "activity", async (tx, r) => {
+        await tx.insert(schema.activities).values({
+          id: r.id,
+          type: "Create",
+          actorId,
+          objectId,
+          published: Temporal.Now.instant(),
+          document,
+        });
+      });
+      return { activityIri, document, object };
+    };
+    const now = Temporal.Now.instant();
+    // As a caller outside TypeScript may pass, which no type stops at runtime.
+    const forged = { carriedSnapshot: true, carriedObjectSnapshot: true };
+    const inbound = (
+      activityIri: string,
+      payload: unknown,
+      fetchedObject?: unknown,
+    ) =>
+      recordInbound(db, {
+        instanceId,
+        inboxUrl: "https://local.example/inbox",
+        activityIri,
+        status: "received",
+        verificationResult: "verified",
+        body: new Uint8Array(),
+        payload,
+        fetchedObject,
+        created: now,
+        completed: now,
+        ...forged,
+      });
+    const marks = async (id: Uuid) =>
+      await db.query.activityDeliveries.findFirst({
+        columns: { carriedSnapshot: true, carriedObjectSnapshot: true },
+        where: { id },
+      });
+    const both = { carriedSnapshot: true, carriedObjectSnapshot: true };
+    const activityOnly = {
+      carriedSnapshot: true,
+      carriedObjectSnapshot: false,
+    };
+    const neither = { carriedSnapshot: false, carriedObjectSnapshot: false };
+
+    const fetched = await store("1", true);
+    const redacted = note("1", "redacted");
+    // Fetched as stored, before or after the delivery is linked.
+    const before = await inbound(
+      fetched.activityIri,
+      fetched.document,
+      fetched.object,
+    );
+    assert.deepEqual(await marks(before.id), neither);
+    assert.equal(await linkInboundActivity(db, before.id), true);
+    assert.deepEqual(await marks(before.id), both);
+    const after = await inbound(fetched.activityIri, fetched.document);
+    assert.equal(await linkInboundActivity(db, after.id), true);
+    assert.deepEqual(await marks(after.id), activityOnly);
+    assert.equal(await recordFetchedObject(db, after.id, redacted), true);
+    assert.deepEqual(await marks(after.id), activityOnly);
+    assert.equal(await recordFetchedObject(db, after.id, fetched.object), true);
+    assert.deepEqual(await marks(after.id), both);
+    // Fetching the object as stored proves nothing of another activity.
+    const other = await inbound(
+      fetched.activityIri,
+      { ...fetched.document, summary: "other" },
+      fetched.object,
+    );
+    assert.equal(await linkInboundActivity(db, other.id), true);
+    assert.deepEqual(await marks(other.id), neither);
+    // PostgreSQL's jsonb holds no U+0000, so the object is not stored.
+    const unstorable = await inbound(fetched.activityIri, fetched.document, {
+      ...fetched.object,
+      summary: "\0",
+    });
+    assert.equal(await linkInboundActivity(db, unstorable.id), true);
+    assert.deepEqual(await marks(unstorable.id), activityOnly);
+
+    // An object taken from the activity is carried with it.
+    const embedded = await store("2", false);
+    const carrying = await inbound(embedded.activityIri, embedded.document);
+    assert.equal(await linkInboundActivity(db, carrying.id), true);
+    assert.deepEqual(await marks(carrying.id), both);
+
+    assert.equal(await recordFetchedObject(db, uuidV7(), redacted), false);
+    const outbound = await recordOutbound(db, {
+      instanceId,
+      inboxUrl: "https://remote.example/inbox",
+      activityIri: fetched.activityIri,
+      payload: fetched.document,
+      ...forged,
+    });
+    assert.equal(
+      await recordFetchedObject(db, outbound.id, fetched.object),
+      false,
+    );
+    assert.deepEqual(await marks(outbound.id), neither);
   } finally {
     await client.close();
   }

@@ -48,6 +48,8 @@ export interface ObservedResponse {
 export interface Report {
   /** Whether an inbox listener ran. */
   readonly handled: boolean;
+  /** The object an inbox listener fetched from its IRI, if it had to. */
+  readonly fetchedObject: unknown;
   readonly spans: readonly ObservedSpan[];
   readonly inboxReport: InboxRequestReport | undefined;
   /** `activitypub.outbox.activity` results: `retried`, `abandoned`, ... */
@@ -72,6 +74,7 @@ export interface Tracked {
   /** What the inbox request being handled carried. */
   readonly receipt?: Receipt;
   handled: boolean;
+  fetchedObject: unknown;
   /** Tasks the run started may outlive it; they must not add to it. */
   closed: boolean;
   inboxReport: InboxRequestReport | undefined;
@@ -132,6 +135,15 @@ export function markHandled(): void {
 }
 
 /**
+ * Note the object the inbox listener fetched from its IRI for the activity it
+ * is handling, which the delivery keeps as what it carried of the object.
+ */
+export function noteFetchedObject(document: unknown): void {
+  const state = tracking();
+  if (state != null) state.fetchedObject = document;
+}
+
+/**
  * Run something that outlives the current tracked run, such as a queue
  * worker, outside it.
  * @returns The result of the run.
@@ -159,6 +171,7 @@ export async function trackSettled<T>(
     ...(inboundDeliveryId == null ? {} : { inboundDeliveryId }),
     ...(carried == null ? {} : { receipt: carried }),
     handled: false,
+    fetchedObject: undefined,
     closed: false,
     inboxReport: undefined,
     spans: [],
@@ -169,8 +182,17 @@ export async function trackSettled<T>(
     storage.run(state, async () => await run()),
   ]);
   state.closed = true;
-  const { handled, spans, inboxReport, outbox, responses } = state;
-  return { outcome, handled, spans, inboxReport, outbox, responses };
+  const { handled, fetchedObject, spans, inboxReport, outbox, responses } =
+    state;
+  return {
+    outcome,
+    handled,
+    fetchedObject,
+    spans,
+    inboxReport,
+    outbox,
+    responses,
+  };
 }
 
 /**

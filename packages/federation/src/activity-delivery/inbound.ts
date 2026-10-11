@@ -30,7 +30,7 @@ import { getLogger } from "@logtape/logtape";
 import { canonicalizeAuthority, instanceUrl } from "../origin.ts";
 import { addressedIris, findAddressedActors } from "./addressing.ts";
 import { describeParsed, parseActivity, remoteHost } from "./describe.ts";
-import { describeError, receivedMeanwhile } from "./queue.ts";
+import { describeError, fetchedMeanwhile, receivedMeanwhile } from "./queue.ts";
 import {
   type Report,
   type TrackedFederation,
@@ -154,7 +154,7 @@ export function createInboundRecorder({
       readonly id: Uuid;
       readonly body: Uint8Array;
       readonly payload: unknown;
-      readonly report: Pick<Report, "inboxReport">;
+      readonly report: Pick<Report, "inboxReport" | "fetchedObject">;
       readonly outcome: PromiseSettledResult<Response>;
       readonly handled: boolean;
       readonly loaders: Parameters<typeof parseActivity>[1];
@@ -237,6 +237,7 @@ export function createInboundRecorder({
               ? (verification.detail ?? (responseBody || null))
               : null,
       payload,
+      fetchedObject: report.fetchedObject,
       created,
       completed,
     });
@@ -244,6 +245,7 @@ export function createInboundRecorder({
     const kv = kvOf(federation);
     if (status === "acknowledged" && kv != null) {
       await receivedMeanwhile(db, kv, id);
+      await fetchedMeanwhile(db, kv, id);
     }
     // A listener stores the activity before Fedify answers; a queue worker
     // that runs after this links the delivery itself.

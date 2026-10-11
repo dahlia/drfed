@@ -23,12 +23,15 @@ import { describe, it } from "node:test";
 import type { Database } from "@drfed/models";
 import { PUBLIC_IRI } from "@drfed/models/resource";
 import type { Uuid } from "@drfed/models/uuid";
+import { InProcessMessageQueue } from "@fedify/fedify";
 
 import {
   type Documents,
   addActor,
   createOf,
   createRecorder,
+  eventually,
+  findDeliveries,
   hostB,
   hostC,
   otherInstanceId,
@@ -36,6 +39,7 @@ import {
   seedOtherInstance,
   signed,
   thirdInstanceId,
+  withWorkers,
 } from "./activity-delivery/inbox-fixture.test.ts";
 import { type TestHarness, withTestHarness } from "./harness.test.ts";
 import {
@@ -562,6 +566,135 @@ describe("Reading received content", () => {
         ]),
       );
     });
+  });
+
+  it("shows a fetched object only to the instances that fetched it as stored", async () => {
+    for (const queued of [false, true]) {
+      await withTestHarness(async ({ db, post: graphql }) => {
+        const viewers = await seedViewers(db);
+        await seedOtherInstance(db, {
+          id: thirdInstanceId,
+          slug: "third-instance",
+          host: hostC,
+        });
+        const third = await seedAccount(db, "third", {
+          member: { instanceId: thirdInstanceId, accepted },
+        });
+        const documents: Documents = new Map();
+        const alice = await addActor(documents, aliceIri);
+        const { federation, send } = await createRecorder(
+          db,
+          documents,
+          queued ? { queue: new InProcessMessageQueue() } : {},
+        );
+        const noteIri = "https://remote.example/notes/1";
+        const serve = (content: string) =>
+          documents.set(noteIri, {
+            "@context": "https://www.w3.org/ns/activitystreams",
+            id: noteIri,
+            type: "Note",
+            attributedTo: alice.iri,
+            content,
+            published: "2026-10-01T00:00:00Z",
+            ...direct,
+          });
+        // The same envelope each time, referring to the object by its IRI.
+        const body = createOf(alice.iri, "1", {
+          activity: direct,
+          object: noteIri,
+        });
+        const receive = async (host: string | undefined, count: number) => {
+          assert.equal(
+            (await send(await signed(alice, body, host))).status,
+            202,
+          );
+          await eventually(
+            () => findDeliveries(db),
+            (rows) =>
+              rows.length === count &&
+              rows.every(
+                (row) =>
+                  row.activityId != null && row.status !== "acknowledged",
+              ),
+          );
+        };
+        await withWorkers(federation, async () => {
+          serve("<p>SECRET FETCHED ONLY FOR A</p>");
+          await receive(undefined, 1);
+          serve("<p>REDACTED</p>");
+          await receive(hostB, 2);
+          serve("<p>SECRET FETCHED ONLY FOR A</p>");
+          await receive(hostC, 3);
+        });
+        const query = `
+          query ($activity: ID!, $object: ID!) {
+            activity: node(id: $activity) {
+              ... on Activity {
+                document
+                object { detail { ... on Object { contentHtml } } }
+              }
+            }
+            object: node(id: $object) { ... on Object { contentHtml } }
+          }
+        `;
+        const variables = {
+          activity: globalId(
+            "Activity",
+            await idOf(db, "https://remote.example/activities/1"),
+          ),
+          object: globalId("Object", await idOf(db, noteIri)),
+        };
+        const secret = { contentHtml: "<p>SECRET FETCHED ONLY FOR A</p>" };
+        // The instance that fetched another version reads the activity it
+        // received, but not the object it never fetched as stored.
+        assert.deepEqual(
+          await read(graphql, query, variables, viewers.other),
+          {
+            activity: { document: body, object: null },
+            object: null,
+          },
+          `queued: ${queued}`,
+        );
+        for (const viewer of [viewers.member, third, viewers.admin]) {
+          assert.deepEqual(
+            await read(graphql, query, variables, viewer),
+            {
+              activity: { document: body, object: { detail: secret } },
+              object: secret,
+            },
+            `queued: ${queued}`,
+          );
+        }
+        const deliveries = await db.query.activityDeliveries.findMany({
+          columns: {
+            instanceId: true,
+            carriedSnapshot: true,
+            carriedObjectSnapshot: true,
+          },
+          where: { direction: "inbound" },
+        });
+        assert.deepEqual(
+          new Map(
+            deliveries.map(({ instanceId, ...marks }) => [instanceId, marks]),
+          ),
+          new Map([
+            [
+              localInstanceId,
+              { carriedSnapshot: true, carriedObjectSnapshot: true },
+            ],
+            [
+              otherInstanceId,
+              { carriedSnapshot: true, carriedObjectSnapshot: false },
+            ],
+            [
+              thirdInstanceId,
+              { carriedSnapshot: true, carriedObjectSnapshot: true },
+            ],
+          ]),
+          `queued: ${queued}`,
+        );
+      });
+    }
   });
 
   it("shows what a remote actor addresses to the public in any spelling", async () => {

@@ -405,6 +405,11 @@ export const objects = pgTable(
     activityId: uuid("activity_id")
       .$type<Uuid>()
       .references(() => resources.id, { onDelete: "set null" }),
+    /**
+     * Whether `document` was fetched from the object's IRI rather than taken
+     * from the activity that carried it, which then proves nothing of it.
+     */
+    fetched: boolean().notNull().default(false),
     type: objectTypeEnum().notNull(),
     document: json(),
     url: text(),
@@ -710,6 +715,20 @@ export const activityDeliveries = pgTable(
      * delivery opens the activity to its instance.
      */
     carriedSnapshot: boolean("carried_snapshot").notNull().default(false),
+    /**
+     * The object an inbound delivery's inbox listener fetched from its IRI,
+     * when it had to.
+     */
+    fetchedObject: jsonb("fetched_object").$type<unknown>(),
+    /**
+     * Whether an inbound delivery carried the object stored with its activity
+     * as it is: the activity carried it, or the delivery fetched it as stored.
+     * `linkInboundActivity()` decides it, and only such a delivery opens the
+     * object to its instance.
+     */
+    carriedObjectSnapshot: boolean("carried_object_snapshot")
+      .notNull()
+      .default(false),
     objectType: text("object_type"),
     objectIri: text("object_iri"),
     signedKeyIri: text("signed_key_iri"),

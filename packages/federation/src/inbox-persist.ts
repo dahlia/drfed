@@ -51,7 +51,10 @@ import { haveSameFe34Origin } from "@fedify/vocab-runtime";
 import jsonld from "@fedify/vocab-runtime/jsonld";
 import { getLogger } from "@logtape/logtape";
 
-import type { Receipt } from "./activity-delivery/tracking.ts";
+import {
+  type Receipt,
+  noteFetchedObject,
+} from "./activity-delivery/tracking.ts";
 import { canonicalizeAuthority } from "./origin.ts";
 
 const logger = getLogger(["drfed", "federation"]);
@@ -73,6 +76,8 @@ interface Accepted {
   readonly username: string | null;
   /** The object as received, or as fetched when only its IRI was. */
   readonly objectDocument: unknown;
+  /** Whether the object was fetched rather than taken from the activity. */
+  readonly objectFetched: boolean;
   readonly receipt: Receipt;
 }
 
@@ -270,7 +275,9 @@ function checkStorable(texts: Readonly<Record<string, string | null>>): void {
 
 /**
  * Dereference the object of a `Create`, noting whether it had to be fetched.
- * Fedify fetches an embedded object unless its origin vouches for it.
+ * Fedify fetches an embedded object unless its origin vouches for it.  What
+ * was fetched is noted for the delivery too, whether the `Create` is stored
+ * or not, since only it tells which version of the object the delivery saw.
  * @returns The object and its document, or a refusal.
  * @throws {Refusal} When the object cannot be had.
  */
@@ -278,7 +285,11 @@ async function loadObject(
   ctx: InboxContext<unknown>,
   activity: Create,
   receipt: Receipt,
-): Promise<{ readonly object: APObject; readonly document: unknown }> {
+): Promise<{
+  readonly object: APObject;
+  readonly document: unknown;
+  readonly fetched: boolean;
+}> {
   const objectIri = activity.objectId?.href;
   let fetched = false;
   const documentLoader: DocumentLoader = async (url, options) => {
@@ -295,12 +306,16 @@ async function loadObject(
     throw new Refusal(`its object could not be fetched: ${String(error)}`);
   }
   if (object == null) throw new Refusal("it has no object");
-  return {
-    object,
-    document: fetched
-      ? await object.toJsonLd({ contextLoader: ctx.contextLoader })
-      : await embeddedObject(receipt.payload, ctx.contextLoader),
-  };
+  if (!fetched) {
+    return {
+      object,
+      document: await embeddedObject(receipt.payload, ctx.contextLoader),
+      fetched,
+    };
+  }
+  const document = await object.toJsonLd({ contextLoader: ctx.contextLoader });
+  noteFetchedObject(document);
+  return { object, document, fetched };
 }
 
 /**
@@ -344,7 +359,11 @@ async function accept(
 ): Promise<Accepted> {
   const activityIri = activity.id?.href;
   if (activityIri == null) throw new Refusal("it has no ID");
-  const { object, document } = await loadObject(ctx, activity, receipt);
+  const { object, document, fetched } = await loadObject(
+    ctx,
+    activity,
+    receipt,
+  );
   const objectIri = object.id?.href;
   const objectType = typeOf(objectTypes, object);
   if (objectType == null) throw new Refusal("its object is not supported");
@@ -387,6 +406,7 @@ async function accept(
     summary,
     username,
     objectDocument: document,
+    objectFetched: fetched,
     receipt,
   };
 }
@@ -465,6 +485,7 @@ async function store(db: Database, accepted: Accepted): Promise<void> {
             id: resource.id,
             actorId,
             activityId,
+            fetched: accepted.objectFetched,
             type: accepted.objectType,
             document: accepted.objectDocument,
             name: accepted.name,

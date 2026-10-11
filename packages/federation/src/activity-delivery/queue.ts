@@ -21,6 +21,7 @@ import {
   type OutboundSettlement,
   linkInboundActivity,
   receiveInbound,
+  recordFetchedObject,
   settleOutbound,
 } from "@drfed/models/activity-delivery";
 import { type Uuid, validateUuid } from "@drfed/models/uuid";
@@ -279,6 +280,46 @@ export async function receivedMeanwhile(
   }
 }
 
+const fetchedObjectKey = (deliveryId: Uuid): KvKey => [
+  "drfed",
+  "activityDelivery",
+  "fetchedObject",
+  deliveryId,
+];
+
+async function fetchObject(
+  db: Database,
+  kv: KvStore,
+  deliveryId: Uuid,
+  document: unknown,
+): Promise<void> {
+  try {
+    // Leave it first, as receive() does, for an inbox request that has not
+    // recorded its delivery yet.
+    await kv.set(fetchedObjectKey(deliveryId), document, {
+      ttl: RECEIVED_TTL,
+    });
+    await recordFetchedObject(db, deliveryId, document);
+  } catch (error) {
+    logger.error("Could not record a queued fetched object: {error}", {
+      error,
+    });
+  }
+}
+
+/**
+ * Give an inbound delivery recorded after the queue worker already ran its
+ * inbox listener the object the listener fetched, which it left for it.
+ */
+export async function fetchedMeanwhile(
+  db: Database,
+  kv: KvStore,
+  deliveryId: Uuid,
+): Promise<void> {
+  const document = await kv.get(fetchedObjectKey(deliveryId));
+  if (document != null) await recordFetchedObject(db, deliveryId, document);
+}
+
 /** Note an outbox failure on the attempt the worker is making. */
 export const reportOutboxError: OutboxErrorHandler = (error) => {
   const attempt = attempts.getStore();
@@ -413,13 +454,16 @@ async function handleInbox(
 ): Promise<void> {
   const reception = { activityIri: inboxActivityIri(message), deliveryId };
   const receipt = receiptOf(message);
-  const { handled } = await receptions.run(reception, () =>
+  const { handled, fetchedObject } = await receptions.run(reception, () =>
     trackRequest(
       async () => await handler(message),
       receipt == null ? {} : { receipt },
     ),
   );
   if (handled) await receive(db, kv, deliveryId);
+  if (fetchedObject != null) {
+    await fetchObject(db, kv, deliveryId, fetchedObject);
+  }
   // Fedify skips the listener of a duplicate, whose activity is stored anyway;
   // an inbox request recorded after this links the delivery itself.
   try {

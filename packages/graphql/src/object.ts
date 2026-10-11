@@ -65,8 +65,9 @@ const ObjectRef = builder.drizzleNode("objects", {
   description:
     "Represents an ActivityPub object authored by an `Actor`.  An object of " +
     "a local actor is readable whatever its addressing.  One of a remote " +
-    "actor is readable only when it is addressed to the public or the " +
-    "viewer may read the activity it was received in, and by " +
+    "actor is readable only when it or the activity it was received in is " +
+    "addressed to the public, by members of the local instances that " +
+    "received that activity and the object as stored with it, and by " +
     "administrators; otherwise it is left out as if it did not exist.",
   id: {
     column: ({ id }) => id,

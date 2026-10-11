@@ -29,15 +29,16 @@ import {
   activityDeliveryActors,
   activityDeliveryAttempts,
   actors,
+  objects,
   resources,
 } from "./schema.ts";
 import { storableText } from "./text.ts";
 import { type Uuid, uuidV7 } from "./uuid.ts";
 
-/** `carriedSnapshot` is the model's to decide, never a caller's. */
+/** The marks of what a delivery carried are the model's to decide. */
 type DeliveryEntry = Omit<
   NewActivityDelivery,
-  "id" | "direction" | "status" | "carriedSnapshot"
+  "id" | "direction" | "status" | "carriedSnapshot" | "carriedObjectSnapshot"
 >;
 
 export interface AddressedActor {
@@ -48,6 +49,7 @@ export interface AddressedActor {
 /**
  * `payload` is `undefined` for an unparsable body and `null` for JSON `null`;
  * it is stored as SQL `NULL` when jsonb cannot hold it, and `body` keeps it.
+ * `fetchedObject` is stored as SQL `NULL` when jsonb cannot hold it too.
  * An inbound delivery is linked to its activity only by
  * `linkInboundActivity()`.
  */
@@ -79,6 +81,7 @@ export type OutboundDeliveryEntry = Omit<
   | "headers"
   | "requestUrl"
   | "completed"
+  | "fetchedObject"
 > & {
   readonly activityIri: string;
 };
@@ -146,6 +149,13 @@ const jsonb = (payload: unknown) =>
     : storableJson(payload)
       ? payload
       : null;
+
+/**
+ * A fetched object is a JSON object, so nothing fetched is SQL `NULL`.
+ * @returns The value to store.
+ */
+const storedObject = (document: unknown) =>
+  document == null ? null : jsonb(document);
 
 /**
  * PostgreSQL's text holds no U+0000, which a remote response or an error
@@ -243,10 +253,12 @@ export async function recordInbound(
       ...entry,
       body: Buffer.from(body),
       payload: jsonb(entry.payload),
+      fetchedObject: storedObject(entry.fetchedObject),
       id,
       direction: "inbound",
       // Whatever a caller outside TypeScript passes.
       carriedSnapshot: false,
+      carriedObjectSnapshot: false,
     },
     inboundActorRows({ actorId: entry.actorId, addressed }),
   );
@@ -273,17 +285,62 @@ export async function receiveInbound(db: Database, id: Uuid): Promise<boolean> {
 }
 
 /**
+ * Decide what a linked inbound delivery carried, anew every time, so that a
+ * mark left from an activity deleted since never carries over to another
+ * stored under the same IRI:
+ *
+ *  -  The stored activity, when its payload is the stored document, since the
+ *     same IRI may arrive again with other contents.
+ *  -  The object stored with that activity, when the delivery carried the
+ *     activity and the object was taken from it, or when its inbox listener
+ *     fetched the object as stored.  Matching the activity proves nothing of
+ *     an object fetched apart from it, which may differ from fetch to fetch.
+ *
+ * A payload or a fetched object jsonb could not hold is stored as SQL `NULL`
+ * and carries nothing.  An unlinked delivery is left as is.
+ */
+async function decideCarried(tx: Transaction, deliveryId: Uuid): Promise<void> {
+  const [row] = await tx
+    .select({
+      payload: activityDeliveries.payload,
+      fetchedObject: activityDeliveries.fetchedObject,
+      activity: activities.document,
+      object: objects.document,
+      fetched: objects.fetched,
+    })
+    .from(activityDeliveries)
+    .innerJoin(activities, eq(activities.id, activityDeliveries.activityId))
+    .leftJoin(objects, eq(objects.activityId, activityDeliveries.activityId))
+    .where(
+      and(
+        eq(activityDeliveries.id, deliveryId),
+        eq(activityDeliveries.direction, "inbound"),
+      ),
+    );
+  if (row == null) return;
+  const carriedSnapshot =
+    row.payload != null && isDeepStrictEqual(row.payload, row.activity);
+  const carriedObjectSnapshot =
+    carriedSnapshot &&
+    row.fetched != null &&
+    (!row.fetched ||
+      (row.fetchedObject != null &&
+        isDeepStrictEqual(row.fetchedObject, row.object)));
+  await tx
+    .update(activityDeliveries)
+    .set({ carriedSnapshot, carriedObjectSnapshot })
+    .where(eq(activityDeliveries.id, deliveryId));
+}
+
+/**
  * Link an inbound delivery to the stored activity its activity IRI names.
  * Only a delivery Fedify verified and answered with 2xx is linked: Fedify
  * authenticates an activity before accepting it, so its actor has the origin
  * of the activity's ID, whether an inbox listener ran or it was a duplicate.
  * A delivery that is already linked is left as is.
  *
- * The link names the activity whatever the delivery carried, but the delivery
- * is marked as having carried the stored snapshot only when its payload is the
- * stored document, since the same IRI may arrive again with other contents.
- * The mark is decided anew on every link, so that one left from an activity
- * deleted since never carries over to another stored under the same IRI.
+ * The link names the activity whatever the delivery carried; what it carried
+ * is decided as the link is made, as `recordFetchedObject()` decides it again.
  * @returns Whether the delivery was linked.
  */
 export async function linkInboundActivity(
@@ -307,19 +364,37 @@ export async function linkInboundActivity(
           eq(resources.kind, "activity"),
         ),
       )
-      .returning({
-        payload: activityDeliveries.payload,
-        document: activities.document,
-      });
+      .returning({ id: activityDeliveries.id });
     if (row == null) return false;
-    await tx
+    await decideCarried(tx, deliveryId);
+    return true;
+  });
+}
+
+/**
+ * Record the object an inbound delivery's inbox listener fetched from its IRI,
+ * and decide again what the delivery carried if it is linked already, as a
+ * duplicate queued for a worker is before its listener runs.
+ * @returns Whether the inbound delivery was found.
+ */
+export async function recordFetchedObject(
+  db: Database,
+  deliveryId: Uuid,
+  document: unknown,
+): Promise<boolean> {
+  return await db.transaction(async (tx) => {
+    const rows = await tx
       .update(activityDeliveries)
-      .set({
-        // A payload jsonb could not hold is stored as NULL and carries nothing.
-        carriedSnapshot:
-          row.payload != null && isDeepStrictEqual(row.payload, row.document),
-      })
-      .where(eq(activityDeliveries.id, deliveryId));
+      .set({ fetchedObject: storedObject(document) })
+      .where(
+        and(
+          eq(activityDeliveries.id, deliveryId),
+          eq(activityDeliveries.direction, "inbound"),
+        ),
+      )
+      .returning({ id: activityDeliveries.id });
+    if (rows.length < 1) return false;
+    await decideCarried(tx, deliveryId);
     return true;
   });
 }
@@ -345,7 +420,9 @@ export async function recordOutbound(
       id: uuidV7(),
       direction: "outbound",
       status: "queued",
+      fetchedObject: null,
       carriedSnapshot: false,
+      carriedObjectSnapshot: false,
     },
     entry.actorId == null ? [] : [{ actorId: entry.actorId, sender: true }],
   );
