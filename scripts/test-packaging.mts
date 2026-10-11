@@ -177,6 +177,7 @@ async function smoke(
   cwd: string,
   dataPath: string,
   migrate: boolean,
+  loginEmail = "unknown@example.com",
 ) {
   const socket = createServer();
   socket.listen(0, "127.0.0.1");
@@ -260,6 +261,7 @@ log_output = "server.log"
     closed.resolve({ code, signal });
   });
   let result;
+  let challengeId: string | undefined;
   try {
     await ready.promise;
     const response = await fetch(`http://127.0.0.1:${address.port}/graphql`, {
@@ -271,7 +273,7 @@ log_output = "server.log"
           loginByEmail(email: $email, verifyUrl: $verifyUrl) { challengeId }
         }`,
         variables: {
-          email: "unknown@example.com",
+          email: loginEmail,
           verifyUrl:
             "http://drfed.test/verify?challengeId={challengeId}&code={code}",
         },
@@ -281,6 +283,7 @@ log_output = "server.log"
     const body = await response.json();
     assert.equal(body.errors, undefined, JSON.stringify(body));
     assert.ok(body.data.loginByEmail.challengeId);
+    challengeId = body.data.loginByEmail.challengeId;
   } finally {
     child.kill("SIGTERM");
     const timer = setTimeout(() => child.kill("SIGKILL"), 15_000);
@@ -295,6 +298,7 @@ log_output = "server.log"
     /select|insert/iu,
   );
   if (!windows) assert.deepEqual(result, { code: 0, signal: null }, output);
+  return challengeId;
 }
 
 try {
@@ -413,8 +417,81 @@ try {
       prefix,
       join(prefix, "migration-data"),
     );
-    await smoke(binary, prefix, join(prefix, "data"), true);
-    await smoke(binary, prefix, join(prefix, "data"), false);
+    const accountBinary = join(application, "bin/drfed-account.mjs");
+    const accountLink = global
+      ? join(prefix, windows ? "drfed-account.cmd" : "bin/drfed-account")
+      : join(modules, ".bin", windows ? "drfed-account.cmd" : "drfed-account");
+    if (!windows) {
+      assert.equal(await realpath(accountLink), await realpath(accountBinary));
+      assert.ok(
+        (await run(accountLink, ["--help"], prefix)).stdout.includes("create"),
+      );
+    } else {
+      assert.ok(
+        (await readFile(accountLink, "utf8")).includes("drfed-account.mjs"),
+      );
+      const accountHelp = await run(
+        process.execPath,
+        [
+          npm,
+          "exec",
+          "--offline",
+          ...(global ? ["--global", "--prefix", prefix] : []),
+          "--",
+          "drfed-account",
+          "--help",
+        ],
+        prefix,
+      );
+      assert.ok(accountHelp.stdout.includes("create"));
+    }
+    const dataPath = join(prefix, "data");
+    await smoke(binary, prefix, dataPath, true);
+    const accountArgs = [
+      accountBinary,
+      "create",
+      "--data-path",
+      dataPath,
+      "--email=operator@example.com",
+      "--name=Operator",
+      "--no-migrate",
+    ];
+    const createdAccount = JSON.parse(
+      (await run(process.execPath, accountArgs, prefix)).stdout,
+    );
+    assert.equal(createdAccount.status, "created");
+    assert.equal(createdAccount.account.admin, false);
+    const existingAccount = JSON.parse(
+      (await run(process.execPath, accountArgs, prefix)).stdout,
+    );
+    assert.equal(existingAccount.status, "exists");
+    assert.equal(existingAccount.account.id, createdAccount.account.id);
+    const challengeId = await smoke(
+      binary,
+      prefix,
+      dataPath,
+      false,
+      "operator@example.com",
+    );
+    assert.ok(challengeId);
+    await run(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `
+import assert from "node:assert/strict";
+import { openPersistentPglite } from ${JSON.stringify(pathToFileURL(join(modules, "@drfed/models/dist/pglite-store.mjs")).href)};
+const store = await openPersistentPglite(${JSON.stringify(dataPath)});
+try {
+  await store.ready;
+  const result = await store.client.query("SELECT account_id FROM login_challenges WHERE id=$1", [${JSON.stringify(challengeId)}]);
+  assert.equal(result.rows[0]?.account_id, ${JSON.stringify(createdAccount.account.id)});
+} finally { await store.close(); }
+`,
+      ],
+      prefix,
+    );
     console.log(
       `${global ? "Global" : "Local"} npm install: bin, GraphQL, migration and persistent restart passed`,
     );

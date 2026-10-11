@@ -382,3 +382,33 @@ the new package, run `drfed-migrate` and verify `drfed-migrate --check`, then
 start the server. Automatic migration at server startup is also available. Use
 `--no-migrate` for later starts that should only inspect already prepared
 history. Keep your backup until you have verified the update.
+
+
+Initial account creation
+------------------------
+
+Create a local account before signing in; installed deployments do not need the
+development seed. Use the same shared configuration or database options:
+
+~~~~ sh
+drfed-account create --config /etc/drfed/drfed.toml \
+  --email operator@example.com --name Operator
+~~~~
+
+The command prepares a fresh database by default. `database.migrate = false`,
+`DRFED_MIGRATE=false` or `--no-migrate` requires ready history instead; use
+`--migrate` to override a lower-source disabled setting. PGlite ownership is
+shared with the server, so stop a PGlite server before account creation.
+
+Account creation grants no administrator privileges and creates no login
+session. Repeat creation for the same normalized email to obtain the existing
+account; its name and privileges are preserved. Email domain normalization
+matches login. Display names are trimmed and accept 1 to 100 Unicode characters.
+Invalid input is rejected before opening the database.
+
+The command prints JSON with `status` (`created` or `exists`) and the stored
+account identity. Both outcomes exit 0; configuration, preparation, ownership,
+write and cleanup failures exit 1. Interruption also exits 1 after draining
+admitted work; an in-flight write may complete, and retrying preserves an
+account that was already created. `--print-config` shows redacted database
+settings without acquiring resources. Server/mail settings are unused.
