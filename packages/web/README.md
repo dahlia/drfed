@@ -62,6 +62,29 @@ binding. [Solid's request context] supplies the request cancellation signal.
 [Solid's request context]: https://docs.solidjs.com/reference/server-utilities/get-request-event
 
 
+Request and cookie policy
+-------------------------
+
+Serve the web app only through the configured public origin's authority.
+Host-preserving reverse proxies may terminate TLS: DrFed restores the request
+URL's scheme from the public origin and strips forwarded headers. It does not
+trust forwarded host or protocol headers. A different authority receives 421;
+malformed or inconsistent URL/Host values receive 400.
+
+[Server functions] accept POST only, with an Origin matching the public origin.
+When Origin is absent, a same-origin Referer is required. Missing, opaque,
+malformed and cross-origin sources are rejected before body deserialization;
+instance subdomains are also cross-origin. The same policy runs in embedded
+and development servers, including encoded server-function path aliases.
+Regular login-link GET pages still render, while confirmation uses POST.
+
+Session cookies use HttpOnly, SameSite=Lax and path `/`, without Domain.
+Secure follows the configured public origin's HTTPS scheme, including behind
+TLS termination; forwarded headers cannot downgrade it.
+
+[Server functions]: https://docs.solidjs.com/solid-start/v2/guides/security#csrf-cross-site-request-forgery
+
+
 Verification
 ------------
 

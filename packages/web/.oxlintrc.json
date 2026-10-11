@@ -40,6 +40,9 @@
       "files": [
         "src/bridge.ts",
         "src/runtime.ts",
+        "src/request-policy.ts",
+        "src/request-policy.test.ts",
+        "src/security.test.ts",
         "src/runtime-entry.mjs",
         "src/runtime.test.ts",
         "src/development-binding.test.ts",

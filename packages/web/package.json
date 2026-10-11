@@ -89,12 +89,17 @@
     "./bridge": {
       "types": "./dist/bridge.d.mts",
       "default": "./dist/bridge.mjs"
+    },
+    "./request-policy": {
+      "types": "./dist/request-policy.d.mts",
+      "default": "./dist/request-policy.mjs"
     }
   },
   "tsdown": {
     "entry": [
       "src/runtime.ts",
-      "src/bridge.ts"
+      "src/bridge.ts",
+      "src/request-policy.ts"
     ],
     "dts": {
       "tsconfig": "tsconfig.runtime.json"

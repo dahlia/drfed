@@ -16,6 +16,8 @@
 
 import type { GraphQLResponse } from "relay-runtime";
 
+import { prepareWebRequest as applyRequestPolicy } from "./request-policy.ts";
+
 /** A GraphQL fetch handler owned by the embedding application. */
 export type GraphqlFetch = (request: Request) => Response | Promise<Response>;
 
@@ -150,4 +152,21 @@ export async function queryGraphql(
 
 function isGraphqlResponse(value: unknown): value is GraphQLResponse {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** The immutable public web origin used for redirects and cookie security.
+ * @returns The configured normalized web origin.
+ */
+export function getPublicOrigin(): string {
+  if (binding === undefined || binding.abort.signal.aborted) {
+    throw new Error("Web runtime is unavailable.");
+  }
+  return binding.publicOrigin;
+}
+
+/** Apply the shared web authority, public scheme and server-function policy.
+ * @returns The prepared request or an early rejection.
+ */
+export function prepareWebRequest(request: Request): Request | Response {
+  return applyRequestPolicy(request, getPublicOrigin());
 }

@@ -16,11 +16,8 @@
 
 // oxlint-disable-next-line import/no-unassigned-import -- Environment marker.
 import "server-only";
-import {
-  deleteCookie,
-  getRequestProtocol,
-  setCookie,
-} from "@solidjs/start/http";
+import { getPublicOrigin } from "@drfed/web/bridge";
+import { deleteCookie, setCookie } from "@solidjs/start/http";
 
 const SESSION_COOKIE = "session";
 const ACCESS_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/u;
@@ -49,7 +46,7 @@ export function setSessionCookie(
     httpOnly: true,
     path: "/",
     sameSite: "lax",
-    secure: getRequestProtocol() === "https",
+    secure: new URL(getPublicOrigin()).protocol === "https:",
   });
 }
 

@@ -14,7 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { type WebRuntimeOptions, installWebBinding } from "./bridge.ts";
+import {
+  type WebRuntimeOptions,
+  installWebBinding,
+  prepareWebRequest,
+} from "./bridge.ts";
 
 export type { GraphqlFetch, WebRuntimeOptions } from "./bridge.ts";
 
@@ -55,8 +59,10 @@ export async function createWebRuntime(
       if (owner.signal.aborted) {
         return new Response("Web runtime is closed.", { status: 503 });
       }
+      const prepared = prepareWebRequest(request);
+      if (prepared instanceof Response) return prepared;
       return nitro.fetch(
-        new Request(request, {
+        new Request(prepared, {
           signal: AbortSignal.any([request.signal, owner.signal]),
         }),
       );

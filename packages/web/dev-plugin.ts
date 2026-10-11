@@ -22,6 +22,7 @@ import { type Plugin, loadEnv } from "vite";
 import type {
   WebRuntimeOptions,
   installDevelopmentWebBinding,
+  prepareWebRequest,
 } from "./src/bridge.ts";
 
 /** Set up the external binding before Vite handles any SSR requests.
@@ -60,6 +61,37 @@ export function developmentBridge(): Plugin {
         },
       };
       const owner = bridge.installDevelopmentWebBinding(options);
+      server.middlewares.use((request, response, next) => {
+        try {
+          const headers = new Headers();
+          for (const [name, value] of Object.entries(request.headers)) {
+            if (value !== undefined) {
+              headers.set(
+                name,
+                Array.isArray(value) ? value.join(", ") : value,
+              );
+            }
+          }
+          const incoming = new Request(
+            new URL(request.url ?? "/", `http://${headers.get("host") ?? ""}`),
+            { method: request.method ?? "GET", headers },
+          );
+          const prepared = bridge.prepareWebRequest(incoming);
+          if (prepared instanceof Response) {
+            response.statusCode = prepared.status;
+            for (const [name, value] of prepared.headers) {
+              response.setHeader(name, value);
+            }
+            response.end(prepared.statusText);
+            return;
+          }
+        } catch {
+          response.statusCode = 400;
+          response.end("Invalid web request.");
+          return;
+        }
+        next();
+      });
       server.httpServer?.once("close", () => {
         void owner.close();
       });
@@ -69,11 +101,14 @@ export function developmentBridge(): Plugin {
 
 function isBridge(value: unknown): value is {
   installDevelopmentWebBinding: typeof installDevelopmentWebBinding;
+  prepareWebRequest: typeof prepareWebRequest;
 } {
   return (
     typeof value === "object" &&
     value !== null &&
     "installDevelopmentWebBinding" in value &&
-    typeof value.installDevelopmentWebBinding === "function"
+    typeof value.installDevelopmentWebBinding === "function" &&
+    "prepareWebRequest" in value &&
+    typeof value.prepareWebRequest === "function"
   );
 }
