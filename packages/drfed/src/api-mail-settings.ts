@@ -14,9 +14,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import { isIP } from "node:net";
+import { domainToASCII } from "node:url";
+
 import { bool } from "@optique/env";
 import type { LettermintConfig } from "@upyo/lettermint";
 import type { MailerooConfig } from "@upyo/maileroo";
+import type { MailgunConfig } from "@upyo/mailgun";
 import type { MailtrapConfig } from "@upyo/mailtrap";
 
 import type { Sourced } from "./configuration.ts";
@@ -48,6 +52,14 @@ export type ApiMailSettings =
         "apiToken" | "metadata" | "headers" | "defaultCategory" | "userAgent"
       >;
       readonly credential: SecretSource;
+    }
+  | {
+      readonly transport: "mailgun";
+      readonly connection: Omit<
+        MailgunConfig,
+        "apiKey" | "headers" | "tracking" | "clickTracking" | "openTracking"
+      >;
+      readonly credential: SecretSource;
     };
 
 type Input = Sourced<string | undefined> | undefined;
@@ -68,20 +80,25 @@ function credential(
   provider: ApiMailSettings["transport"],
 ) {
   const specific =
-    provider === "mailtrap"
+    provider === "mailgun"
       ? ([
-          ["mailtrapApiToken", raw.mailtrapApiToken, false],
-          ["mailtrapApiTokenFile", raw.mailtrapApiTokenFile, true],
+          ["mailgunApiKey", raw.mailgunApiKey, false],
+          ["mailgunApiKeyFile", raw.mailgunApiKeyFile, true],
         ] as const)
-      : provider === "lettermint"
+      : provider === "mailtrap"
         ? ([
-            ["lettermintApiToken", raw.lettermintApiToken, false],
-            ["lettermintApiTokenFile", raw.lettermintApiTokenFile, true],
+            ["mailtrapApiToken", raw.mailtrapApiToken, false],
+            ["mailtrapApiTokenFile", raw.mailtrapApiTokenFile, true],
           ] as const)
-        : ([
-            ["mailerooApiKey", raw.mailerooApiKey, false],
-            ["mailerooApiKeyFile", raw.mailerooApiKeyFile, true],
-          ] as const);
+        : provider === "lettermint"
+          ? ([
+              ["lettermintApiToken", raw.lettermintApiToken, false],
+              ["lettermintApiTokenFile", raw.lettermintApiTokenFile, true],
+            ] as const)
+          : ([
+              ["mailerooApiKey", raw.mailerooApiKey, false],
+              ["mailerooApiKeyFile", raw.mailerooApiKeyFile, true],
+            ] as const);
   const variants = [
     ["mailApiKey", raw.mailApiKey, false],
     ["mailApiKeyFile", raw.mailApiKeyFile, true],
@@ -167,7 +184,7 @@ function number(
     value > maximum
   ) {
     throw new Error(
-      `Invalid ${provider === "lettermint" ? "Lettermint" : provider === "mailtrap" ? "Mailtrap" : "Maileroo"} ${field}.`,
+      `Invalid ${provider === "lettermint" ? "Lettermint" : provider === "mailtrap" ? "Mailtrap" : provider === "mailgun" ? "Mailgun" : "Maileroo"} ${field}.`,
     );
   }
   return value;
@@ -234,6 +251,80 @@ function mailtrapSettings(
   };
 }
 
+function mailgunDomain(input: Input) {
+  const original = input?.value;
+  if (
+    original === undefined ||
+    original === "" ||
+    /[\\/:@?#%\s]/u.test(original)
+  ) {
+    throw new Error("Invalid Mailgun sending domain.");
+  }
+  const value = domainToASCII(original).toLowerCase().replace(/\.$/u, "");
+  if (
+    value.length > 253 ||
+    isIP(value) !== 0 ||
+    !value
+      .split(".")
+      .every(
+        (label) =>
+          label.length <= 63 &&
+          /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/u.test(label),
+      )
+  ) {
+    throw new Error("Invalid Mailgun sending domain.");
+  }
+  return value;
+}
+function mailgunSettings(
+  raw: RawMailOptions,
+  auth: ReturnType<typeof credential>,
+) {
+  const region = raw.mailgunRegion?.value ?? "us";
+  if (region !== "us" && region !== "eu") {
+    throw new Error("Invalid Mailgun region; use us or eu.");
+  }
+  const connection: Omit<MailgunConfig, "apiKey"> = {
+    domain: mailgunDomain(raw.mailgunDomain),
+    region,
+    baseUrl: endpoint(
+      raw.mailgunBaseUrl,
+      "mailgun",
+      region === "eu"
+        ? "https://api.eu.mailgun.net/v3"
+        : "https://api.mailgun.net/v3",
+    ),
+    timeout: number(
+      raw.mailgunTimeout,
+      30000,
+      1,
+      2147483647,
+      "delivery timeout",
+      "mailgun",
+    ),
+    retries: 0,
+    validateSsl: true,
+    tracking: false,
+    clickTracking: false,
+    openTracking: false,
+  };
+  const mail: ApiMailSettings = {
+    transport: "mailgun",
+    connection,
+    credential: auth.secret,
+  };
+  return {
+    mail,
+    sources: auth.sources,
+    values: {
+      mailgunDomain: connection.domain,
+      mailgunRegion: region,
+      mailgunBaseUrl: connection.baseUrl,
+      mailgunTimeout: connection.timeout,
+    },
+  };
+}
+
 /** Resolve only the selected API service; credentials remain unopened.
  * @returns Prepared meaning, safe diagnostic values and effective source tags.
  */
@@ -243,6 +334,7 @@ export function resolveApiMailSettings(
   provider: ApiMailSettings["transport"] = "lettermint",
 ) {
   const auth = credential(raw, cwd, provider);
+  if (provider === "mailgun") return mailgunSettings(raw, auth);
   if (provider === "mailtrap") return mailtrapSettings(raw, auth);
   if (provider === "maileroo") {
     const connection = {

@@ -23,6 +23,7 @@ import type { JmapConfig } from "@upyo/jmap";
 import { type LettermintConfig, LettermintTransport } from "@upyo/lettermint";
 import { LogTapeTransport } from "@upyo/logtape";
 import { type MailerooConfig, MailerooTransport } from "@upyo/maileroo";
+import { type MailgunConfig, MailgunTransport } from "@upyo/mailgun";
 import { type MailtrapConfig, MailtrapTransport } from "@upyo/mailtrap";
 import {
   type SmtpConfig,
@@ -47,6 +48,7 @@ import { readSecretSource } from "./secret-source.ts";
 
 /** Mail settings with operational credential reads completed before DB writes. */
 export type PreparedMail =
+  | { readonly transport: "mailgun"; readonly connection: MailgunConfig }
   | { readonly transport: "mailtrap"; readonly connection: MailtrapConfig }
   | { readonly transport: "maileroo"; readonly connection: MailerooConfig }
   | { readonly transport: "lettermint"; readonly connection: LettermintConfig }
@@ -100,6 +102,20 @@ async function prepareApiMail(
   );
   validateApiMailCredential(credential);
   signal?.throwIfAborted();
+  if (settings.transport === "mailgun") {
+    return {
+      transport: settings.transport,
+      connection: {
+        ...settings.connection,
+        apiKey: credential,
+        retries: 0,
+        validateSsl: true,
+        tracking: false,
+        clickTracking: false,
+        openTracking: false,
+      },
+    };
+  }
   if (settings.transport === "maileroo") {
     return {
       transport: settings.transport,
@@ -133,6 +149,7 @@ export async function prepareMail(
   signal?.throwIfAborted();
   if (settings.transport === "logtape") return settings;
   if (
+    settings.transport === "mailgun" ||
     settings.transport === "mailtrap" ||
     settings.transport === "maileroo" ||
     settings.transport === "lettermint"
@@ -238,37 +255,50 @@ export interface MailRuntime {
  */
 export function createMailRuntime(settings: PreparedMail): MailRuntime {
   const transport =
-    settings.transport === "mailtrap"
+    settings.transport === "mailgun"
       ? createBoundedTransport(
-          new MailtrapTransport({
+          new MailgunTransport({
             ...settings.connection,
             retries: 0,
             validateSsl: true,
+            tracking: false,
+            clickTracking: false,
+            openTracking: false,
           }),
           settings.connection.timeout ?? 30000,
-          "Mailtrap",
+          "Mailgun",
         )
-      : settings.transport === "maileroo"
+      : settings.transport === "mailtrap"
         ? createBoundedTransport(
-            new MailerooTransport({ ...settings.connection, retries: 0 }),
+            new MailtrapTransport({
+              ...settings.connection,
+              retries: 0,
+              validateSsl: true,
+            }),
             settings.connection.timeout ?? 30000,
-            "Maileroo",
+            "Mailtrap",
           )
-        : settings.transport === "lettermint"
+        : settings.transport === "maileroo"
           ? createBoundedTransport(
-              new LettermintTransport(settings.connection),
-              settings.connection.timeout ?? 30_000,
-              "Lettermint",
+              new MailerooTransport({ ...settings.connection, retries: 0 }),
+              settings.connection.timeout ?? 30000,
+              "Maileroo",
             )
-          : settings.transport === "jmap"
-            ? createJmapTransport(settings.connection)
-            : settings.transport === "smtp"
-              ? new SmtpTransport(settings.connection)
-              : new LogTapeTransport({
-                  ...(settings.logContent
-                    ? { recordMessage: "inline" as const }
-                    : {}),
-                });
+          : settings.transport === "lettermint"
+            ? createBoundedTransport(
+                new LettermintTransport(settings.connection),
+                settings.connection.timeout ?? 30_000,
+                "Lettermint",
+              )
+            : settings.transport === "jmap"
+              ? createJmapTransport(settings.connection)
+              : settings.transport === "smtp"
+                ? new SmtpTransport(settings.connection)
+                : new LogTapeTransport({
+                    ...(settings.logContent
+                      ? { recordMessage: "inline" as const }
+                      : {}),
+                  });
   if (settings.transport === "logtape") {
     getLogger(["drfed", "mail"]).warning(
       "Mail delivery is disabled. Select a delivery transport; use --mail-log-content only to inspect login codes in development logs.",

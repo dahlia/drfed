@@ -75,6 +75,9 @@ catalogs:
     '@upyo/maileroo':
       specifier: 0.6.0
       version: 0.6.0
+    '@upyo/mailgun':
+      specifier: 0.6.0
+      version: 0.6.0
     '@upyo/mailtrap':
       specifier: 0.6.0
       version: 0.6.0
@@ -198,6 +201,9 @@ importers:
         specifier: 'catalog:'
         version: 0.6.0(@logtape/logtape@2.3.0-dev.840)(@upyo/core@0.6.0)
       '@upyo/maileroo':
+        specifier: 'catalog:'
+        version: 0.6.0(@upyo/core@0.6.0)
+      '@upyo/mailgun':
         specifier: 'catalog:'
         version: 0.6.0(@upyo/core@0.6.0)
       '@upyo/mailtrap':
@@ -2158,6 +2164,12 @@ packages:
 
   '@upyo/maileroo@0.6.0':
     resolution: {integrity: sha512-k6iLTTYoZPoBe1VkNHYP9F+nm+xkWGqq+fms4d+7udTZk4h0Ln7Pdh2IUu8reypd3vO+xijQssFdVPF/0O0nFw==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/mailgun@0.6.0':
+    resolution: {integrity: sha512-JmbqaVvkpBL0z4W/tEEonzy3o8BWEZl6T3eawfPHhd2UwZ59j+qWZrzO6ts0GUNwgNmTJpo+Tkh10r9jUDE+AQ==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
     peerDependencies:
       '@upyo/core': 0.6.0
@@ -5534,6 +5546,10 @@ snapshots:
       '@upyo/core': 0.6.0
 
   '@upyo/maileroo@0.6.0(@upyo/core@0.6.0)':
+    dependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/mailgun@0.6.0(@upyo/core@0.6.0)':
     dependencies:
       '@upyo/core': 0.6.0
 

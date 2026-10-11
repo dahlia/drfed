@@ -68,6 +68,18 @@ const priority = { default: 0, config: 1, env: 2, cli: 3 } as const;
 const rank = (value: Sourced<unknown> | undefined) =>
   value?.value === undefined ? -1 : priority[value.source];
 
+function isMailTransport(value: string): value is MailSettings["transport"] {
+  return [
+    "logtape",
+    "smtp",
+    "jmap",
+    "lettermint",
+    "maileroo",
+    "mailtrap",
+    "mailgun",
+  ].includes(value);
+}
+
 function selectTransport(raw: RawMailOptions): {
   transport: MailSettings["transport"];
   selector: Input;
@@ -84,16 +96,9 @@ function selectTransport(raw: RawMailOptions): {
   const jmap = rank(raw.jmapSessionUrl) === highest && highest >= 0;
   const transport =
     explicit ?? (jmap ? "jmap" : smtp && highest >= 0 ? "smtp" : "logtape");
-  if (
-    transport !== "smtp" &&
-    transport !== "logtape" &&
-    transport !== "jmap" &&
-    transport !== "lettermint" &&
-    transport !== "maileroo" &&
-    transport !== "mailtrap"
-  ) {
+  if (!isMailTransport(transport)) {
     throw new Error(
-      "Unsupported mail transport; expected logtape, smtp, jmap, lettermint, maileroo or mailtrap.",
+      "Unsupported mail transport; expected logtape, smtp, jmap, lettermint, maileroo, mailtrap or mailgun.",
     );
   }
   if (
@@ -526,7 +531,8 @@ function selectedMailSettings(
   if (
     transport === "lettermint" ||
     transport === "maileroo" ||
-    transport === "mailtrap"
+    transport === "mailtrap" ||
+    transport === "mailgun"
   ) {
     return resolveApiMailSettings(raw, cwd, transport);
   }
@@ -565,7 +571,8 @@ function secretFieldForTransport(
   return (
     (transport === "lettermint" ||
       transport === "maileroo" ||
-      transport === "mailtrap") &&
+      transport === "mailtrap" ||
+      transport === "mailgun") &&
     (key === "mailApiKey" || key === "mailApiKeyFile")
   );
 }
@@ -580,13 +587,19 @@ function ignoredMailField(
     return (
       (provider !== "lettermint" &&
         provider !== "maileroo" &&
-        provider !== "mailtrap") ||
+        provider !== "mailtrap" &&
+        provider !== "mailgun") ||
       sources[key]?.value === undefined
     );
   }
-  const branch = ["smtp", "jmap", "lettermint", "maileroo", "mailtrap"].find(
-    (name) => key.startsWith(name),
-  );
+  const branch = [
+    "smtp",
+    "jmap",
+    "lettermint",
+    "maileroo",
+    "mailtrap",
+    "mailgun",
+  ].find((name) => key.startsWith(name));
   if (branch === undefined) return false;
   if (branch !== provider) return true;
   if (key === "smtpAuthMethod" && sources[key]?.source === "default") {

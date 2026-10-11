@@ -29,6 +29,12 @@ import {
 export const apiMailValueOptionNames = {
   mailApiKey: ["--mail-api-key"],
   mailApiKeyFile: ["--mail-api-key-file"],
+  mailgunApiKey: ["--mailgun-api-key"],
+  mailgunApiKeyFile: ["--mailgun-api-key-file"],
+  mailgunDomain: ["--mailgun-domain"],
+  mailgunRegion: ["--mailgun-region"],
+  mailgunBaseUrl: ["--mailgun-base-url"],
+  mailgunTimeout: ["--mailgun-timeout"],
   mailtrapApiToken: ["--mailtrap-api-token"],
   mailtrapApiTokenFile: ["--mailtrap-api-token-file"],
   mailtrapInboxId: ["--mailtrap-inbox-id"],
@@ -75,6 +81,71 @@ export function createApiMailFields(
         },
       ),
       settings.mailApiKeyFile,
+      string(),
+      String,
+    ),
+    mailgunApiKey: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.mailgunApiKey,
+        string({ metavar: "VALUE" }),
+        { description: message`Mailgun sending API key.` },
+      ),
+      settings.mailgunApiKey,
+      string(),
+      String,
+    ),
+    mailgunApiKeyFile: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.mailgunApiKeyFile,
+        string({ metavar: "VALUE" }),
+        { description: message`File containing the Mailgun API key.` },
+      ),
+      settings.mailgunApiKeyFile,
+      string(),
+      String,
+    ),
+    mailgunDomain: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.mailgunDomain,
+        string({ metavar: "VALUE" }),
+        { description: message`Verified Mailgun sending domain.` },
+      ),
+      settings.mailgunDomain,
+      string(),
+      String,
+    ),
+    mailgunRegion: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.mailgunRegion,
+        string({ metavar: "VALUE" }),
+        { description: message`Mailgun API region (us or eu).` },
+      ),
+      settings.mailgunRegion,
+      string(),
+      String,
+    ),
+    mailgunBaseUrl: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.mailgunBaseUrl,
+        string({ metavar: "VALUE" }),
+        { description: message`Mailgun API base URL including its path.` },
+      ),
+      settings.mailgunBaseUrl,
+      string(),
+      String,
+    ),
+    mailgunTimeout: bindings.bind(
+      map(
+        option(
+          ...apiMailValueOptionNames.mailgunTimeout,
+          integer({ min: 1, max: 2147483647 }),
+          {
+            description: message`Whole Mailgun delivery timeout in milliseconds.`,
+          },
+        ),
+        String,
+      ),
+      settings.mailgunTimeout,
       string(),
       String,
     ),
