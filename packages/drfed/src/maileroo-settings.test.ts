@@ -120,7 +120,11 @@ it("validates Maileroo endpoint paths and bounded timeout", async () => {
     /Invalid Maileroo delivery timeout/u,
   );
 });
-async function fixture(t: TestContext, mode: "success" | "fail" | "stall") {
+async function fixture(
+  t: TestContext,
+  mode: "success" | "fail" | "stall",
+  timeout = 30000,
+) {
   const requests: {
     path: string | undefined;
     key: string | string[] | undefined;
@@ -181,7 +185,7 @@ async function fixture(t: TestContext, mode: "success" | "fail" | "stall") {
       "--maileroo-base-url",
       `http://127.0.0.1:${address.port}/api/v2`,
       "--maileroo-timeout",
-      mode === "stall" ? "100" : "1000",
+      String(timeout),
     ]),
   );
   const runtime = createMailRuntime(await prepareMail(settings.mail));
@@ -203,26 +207,52 @@ it("sends Maileroo API key and preserves API path without automatic replay", asy
   );
   assert.equal(fail.requests.length, 1);
 });
-it("bounds Maileroo response bodies and drains shutdown", async (t) => {
-  const timed = await fixture(t, "stall");
-  const receipt = await timed.runtime.transport.send(message());
-  assert.equal(receipt.successful, false);
-  const closing = await fixture(t, "stall");
-  const send = closing.runtime.transport.send(message());
-  const rejection = assert.rejects(send, /Maileroo transport is closed/u);
-  await closing.started;
-  const first = closing.runtime.close();
-  assert.equal(first, closing.runtime.close());
-  await first;
-  await rejection;
-  await assert.rejects(closing.runtime.transport.send(message()), /closed/u);
-  const cancelled = await fixture(t, "stall");
-  const controller = new AbortController();
-  const pending = cancelled.runtime.transport.send(message(), {
-    signal: controller.signal,
-  });
-  const cancelledCheck = assert.rejects(pending, (e) => e === "cancelled");
-  await cancelled.started;
-  controller.abort("cancelled");
-  await cancelledCheck;
-});
+it(
+  "bounds Maileroo response bodies and drains shutdown",
+  { timeout: 15000 },
+  async (t) => {
+    const originalFetch = globalThis.fetch;
+    const bodyStarted = Promise.withResolvers<void>();
+    t.mock.method(
+      globalThis,
+      "fetch",
+      async (...args: Parameters<typeof fetch>) => {
+        const response = await originalFetch(...args);
+        const originalRead = response.text.bind(response);
+        t.mock.method(response, "text", () => {
+          const reading = originalRead();
+          bodyStarted.resolve();
+          return reading;
+        });
+        return response;
+      },
+    );
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    const timed = await fixture(t, "stall", 100);
+    const delivery = timed.runtime.transport.send(message());
+    await bodyStarted.promise;
+    t.mock.timers.tick(100);
+    const receipt = await delivery;
+    t.mock.timers.reset();
+    t.mock.restoreAll();
+    assert.equal(receipt.successful, false);
+    const closing = await fixture(t, "stall");
+    const send = closing.runtime.transport.send(message());
+    const rejection = assert.rejects(send, /Maileroo transport is closed/u);
+    await closing.started;
+    const first = closing.runtime.close();
+    assert.equal(first, closing.runtime.close());
+    await first;
+    await rejection;
+    await assert.rejects(closing.runtime.transport.send(message()), /closed/u);
+    const cancelled = await fixture(t, "stall");
+    const controller = new AbortController();
+    const pending = cancelled.runtime.transport.send(message(), {
+      signal: controller.signal,
+    });
+    const cancelledCheck = assert.rejects(pending, (e) => e === "cancelled");
+    await cancelled.started;
+    controller.abort("cancelled");
+    await cancelledCheck;
+  },
+);

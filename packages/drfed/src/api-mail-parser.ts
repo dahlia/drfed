@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import { or } from "@optique/core/constructs";
 import { message } from "@optique/core/message";
 import { map } from "@optique/core/modifiers";
-import { option } from "@optique/core/primitives";
+import { flag, option } from "@optique/core/primitives";
 import { integer, string } from "@optique/core/valueparser";
 
 import {
@@ -28,6 +29,12 @@ import {
 export const apiMailValueOptionNames = {
   mailApiKey: ["--mail-api-key"],
   mailApiKeyFile: ["--mail-api-key-file"],
+  mailtrapApiToken: ["--mailtrap-api-token"],
+  mailtrapApiTokenFile: ["--mailtrap-api-token-file"],
+  mailtrapInboxId: ["--mailtrap-inbox-id"],
+  mailtrapSendBaseUrl: ["--mailtrap-send-base-url"],
+  mailtrapSandboxBaseUrl: ["--mailtrap-sandbox-base-url"],
+  mailtrapTimeout: ["--mailtrap-timeout"],
   mailerooApiKey: ["--maileroo-api-key"],
   mailerooApiKeyFile: ["--maileroo-api-key-file"],
   mailerooBaseUrl: ["--maileroo-base-url"],
@@ -68,6 +75,91 @@ export function createApiMailFields(
         },
       ),
       settings.mailApiKeyFile,
+      string(),
+      String,
+    ),
+    mailtrapApiToken: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.mailtrapApiToken,
+        string({ metavar: "VALUE" }),
+        { description: message`Mailtrap sending API token.` },
+      ),
+      settings.mailtrapApiToken,
+      string(),
+      String,
+    ),
+    mailtrapApiTokenFile: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.mailtrapApiTokenFile,
+        string({ metavar: "VALUE" }),
+        { description: message`File containing the Mailtrap API token.` },
+      ),
+      settings.mailtrapApiTokenFile,
+      string(),
+      String,
+    ),
+    mailtrapSandbox: bindings.bind(
+      map(
+        or(
+          flag("--mailtrap-sandbox", {
+            description: message`Capture mail in a test inbox.`,
+          }),
+          map(
+            flag("--no-mailtrap-sandbox", {
+              description: message`Use the production sending API.`,
+            }),
+            () => false,
+          ),
+        ),
+        String,
+      ),
+      settings.mailtrapSandbox,
+      string(),
+      String,
+      "false",
+    ),
+    mailtrapInboxId: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.mailtrapInboxId,
+        string({ metavar: "VALUE" }),
+        { description: message`Mailtrap sandbox inbox ID.` },
+      ),
+      settings.mailtrapInboxId,
+      string(),
+      String,
+    ),
+    mailtrapSendBaseUrl: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.mailtrapSendBaseUrl,
+        string({ metavar: "VALUE" }),
+        { description: message`Mailtrap sending API base URL.` },
+      ),
+      settings.mailtrapSendBaseUrl,
+      string(),
+      String,
+    ),
+    mailtrapSandboxBaseUrl: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.mailtrapSandboxBaseUrl,
+        string({ metavar: "VALUE" }),
+        { description: message`Mailtrap sandbox API base URL.` },
+      ),
+      settings.mailtrapSandboxBaseUrl,
+      string(),
+      String,
+    ),
+    mailtrapTimeout: bindings.bind(
+      map(
+        option(
+          ...apiMailValueOptionNames.mailtrapTimeout,
+          integer({ min: 1, max: 2147483647 }),
+          {
+            description: message`Whole Mailtrap delivery timeout in milliseconds.`,
+          },
+        ),
+        String,
+      ),
+      settings.mailtrapTimeout,
       string(),
       String,
     ),

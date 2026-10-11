@@ -89,10 +89,11 @@ function selectTransport(raw: RawMailOptions): {
     transport !== "logtape" &&
     transport !== "jmap" &&
     transport !== "lettermint" &&
-    transport !== "maileroo"
+    transport !== "maileroo" &&
+    transport !== "mailtrap"
   ) {
     throw new Error(
-      "Unsupported mail transport; expected logtape, smtp, jmap, lettermint or maileroo.",
+      "Unsupported mail transport; expected logtape, smtp, jmap, lettermint, maileroo or mailtrap.",
     );
   }
   if (
@@ -522,7 +523,11 @@ function selectedMailSettings(
   sources: Record<string, Input>;
   values: Record<string, unknown>;
 } {
-  if (transport === "lettermint" || transport === "maileroo") {
+  if (
+    transport === "lettermint" ||
+    transport === "maileroo" ||
+    transport === "mailtrap"
+  ) {
     return resolveApiMailSettings(raw, cwd, transport);
   }
   if (transport === "jmap") return resolveJmapSettings(raw, cwd);
@@ -558,7 +563,9 @@ function secretFieldForTransport(
 ) {
   if (key.startsWith(transport)) return true;
   return (
-    (transport === "lettermint" || transport === "maileroo") &&
+    (transport === "lettermint" ||
+      transport === "maileroo" ||
+      transport === "mailtrap") &&
     (key === "mailApiKey" || key === "mailApiKeyFile")
   );
 }
@@ -571,12 +578,14 @@ function ignoredMailField(
   if (key === "mailLogContent") return provider !== "logtape";
   if (key === "mailApiKey" || key === "mailApiKeyFile") {
     return (
-      (provider !== "lettermint" && provider !== "maileroo") ||
+      (provider !== "lettermint" &&
+        provider !== "maileroo" &&
+        provider !== "mailtrap") ||
       sources[key]?.value === undefined
     );
   }
-  const branch = ["smtp", "jmap", "lettermint", "maileroo"].find((name) =>
-    key.startsWith(name),
+  const branch = ["smtp", "jmap", "lettermint", "maileroo", "mailtrap"].find(
+    (name) => key.startsWith(name),
   );
   if (branch === undefined) return false;
   if (branch !== provider) return true;

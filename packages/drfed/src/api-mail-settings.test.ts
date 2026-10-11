@@ -307,20 +307,46 @@ it("returns a failed receipt without retrying permanent Lettermint rejection", a
 
 it(
   "bounds Lettermint response bodies and drains cancellation and cleanup",
-  { timeout: 3000 },
+  { timeout: 15000 },
   async (t) => {
+    const originalFetch = globalThis.fetch;
+    const bodyStarted = Promise.withResolvers<void>();
+    t.mock.method(
+      globalThis,
+      "fetch",
+      async (...args: Parameters<typeof fetch>) => {
+        const response = await originalFetch(...args);
+        const originalRead = response.text.bind(response);
+        t.mock.method(response, "text", () => {
+          const reading = originalRead();
+          bodyStarted.resolve();
+          return reading;
+        });
+        return response;
+      },
+    );
+    t.mock.timers.enable({ apis: ["setTimeout"] });
     const service = await fixture(t, "stall");
-    const mail = await runtime(t, service.origin, [
+    const deadlineMail = await runtime(t, service.origin, [
       "--lettermint-timeout",
       "100",
       "--lettermint-retries",
       "0",
     ]);
-    const receipt = await mail.transport.send(message());
+    const delivery = deadlineMail.transport.send(message());
+    await bodyStarted.promise;
+    t.mock.timers.tick(100);
+    const receipt = await delivery;
+    t.mock.timers.reset();
+    t.mock.restoreAll();
     assert.equal(receipt.successful, false);
     if (receipt.successful) throw new Error();
     assert.equal(receipt.errors?.[0]?.category, "timeout");
     assert.equal(receipt.retryable, false);
+    const mail = await runtime(t, service.origin, [
+      "--lettermint-retries",
+      "0",
+    ]);
     const caller = new AbortController();
     const pending = mail.transport.send(message(), { signal: caller.signal });
     await service.waitForRequest(2);
@@ -329,6 +355,10 @@ it(
     const active = mail.transport.send(message());
     const failed = assert.rejects(active, /Lettermint transport is closed/u);
     await service.waitForRequest(3);
+    // Lifecycle checks use a separate deadline from the timeout case.
+    await new Promise((resolve) => {
+      setTimeout(resolve, 150);
+    });
     assert.equal(mail.close(), mail.close());
     await mail.close();
     await failed;

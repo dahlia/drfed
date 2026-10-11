@@ -14,8 +14,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import { bool } from "@optique/env";
 import type { LettermintConfig } from "@upyo/lettermint";
 import type { MailerooConfig } from "@upyo/maileroo";
+import type { MailtrapConfig } from "@upyo/mailtrap";
 
 import type { Sourced } from "./configuration.ts";
 import type { RawMailOptions } from "./mail-parser.ts";
@@ -38,6 +40,14 @@ export type ApiMailSettings =
         "apiKey" | "headers" | "tracking" | "tags"
       >;
       readonly credential: SecretSource;
+    }
+  | {
+      readonly transport: "mailtrap";
+      readonly connection: Omit<
+        MailtrapConfig,
+        "apiToken" | "metadata" | "headers" | "defaultCategory" | "userAgent"
+      >;
+      readonly credential: SecretSource;
     };
 
 type Input = Sourced<string | undefined> | undefined;
@@ -58,15 +68,20 @@ function credential(
   provider: ApiMailSettings["transport"],
 ) {
   const specific =
-    provider === "lettermint"
+    provider === "mailtrap"
       ? ([
-          ["lettermintApiToken", raw.lettermintApiToken, false],
-          ["lettermintApiTokenFile", raw.lettermintApiTokenFile, true],
+          ["mailtrapApiToken", raw.mailtrapApiToken, false],
+          ["mailtrapApiTokenFile", raw.mailtrapApiTokenFile, true],
         ] as const)
-      : ([
-          ["mailerooApiKey", raw.mailerooApiKey, false],
-          ["mailerooApiKeyFile", raw.mailerooApiKeyFile, true],
-        ] as const);
+      : provider === "lettermint"
+        ? ([
+            ["lettermintApiToken", raw.lettermintApiToken, false],
+            ["lettermintApiTokenFile", raw.lettermintApiTokenFile, true],
+          ] as const)
+        : ([
+            ["mailerooApiKey", raw.mailerooApiKey, false],
+            ["mailerooApiKeyFile", raw.mailerooApiKeyFile, true],
+          ] as const);
   const variants = [
     ["mailApiKey", raw.mailApiKey, false],
     ["mailApiKeyFile", raw.mailApiKeyFile, true],
@@ -98,11 +113,18 @@ function credential(
   return { secret, sources };
 }
 
-function endpoint(input: Input, provider: ApiMailSettings["transport"]) {
+function endpoint(
+  input: Input,
+  provider: ApiMailSettings["transport"],
+  fallback?: string,
+) {
   if (input?.value === undefined) {
-    return provider === "lettermint"
-      ? "https://api.lettermint.co"
-      : "https://smtp.maileroo.com/api/v2";
+    return (
+      fallback ??
+      (provider === "lettermint"
+        ? "https://api.lettermint.co"
+        : "https://smtp.maileroo.com/api/v2")
+    );
   }
   try {
     const value = new URL(input.value);
@@ -123,7 +145,7 @@ function endpoint(input: Input, provider: ApiMailSettings["transport"]) {
     throw new Error(
       provider === "lettermint"
         ? "Invalid Lettermint base origin; use HTTPS or local loopback HTTP without credentials."
-        : "Invalid maileroo API endpoint; use HTTPS or local loopback HTTP without credentials, query or fragment.",
+        : `Invalid ${provider} API endpoint; use HTTPS or local loopback HTTP without credentials, query or fragment.`,
     );
   }
 }
@@ -145,10 +167,71 @@ function number(
     value > maximum
   ) {
     throw new Error(
-      `Invalid ${provider === "lettermint" ? "Lettermint" : "Maileroo"} ${field}.`,
+      `Invalid ${provider === "lettermint" ? "Lettermint" : provider === "mailtrap" ? "Mailtrap" : "Maileroo"} ${field}.`,
     );
   }
   return value;
+}
+
+function mailtrapSettings(
+  raw: RawMailOptions,
+  auth: ReturnType<typeof credential>,
+) {
+  const provider = "mailtrap" as const;
+  const parsed = bool().parse(raw.mailtrapSandbox?.value ?? "false");
+  if (!parsed.success) throw new Error("Invalid Mailtrap sandbox setting.");
+  const sandbox = parsed.value;
+  const id = raw.mailtrapInboxId?.value;
+  if (
+    sandbox &&
+    (id === undefined ||
+      !/^[1-9]\d*$/u.test(id) ||
+      !Number.isSafeInteger(Number(id)))
+  ) {
+    throw new Error("Mailtrap sandbox requires a positive decimal inbox ID.");
+  }
+  const active = sandbox ? "mailtrapSandboxBaseUrl" : "mailtrapSendBaseUrl";
+  const inactive = sandbox ? "mailtrapSendBaseUrl" : "mailtrapSandboxBaseUrl";
+  const url = endpoint(
+    raw[active],
+    provider,
+    sandbox
+      ? "https://sandbox.api.mailtrap.io"
+      : "https://send.api.mailtrap.io",
+  );
+  const connection = {
+    sandbox,
+    ...(sandbox ? { inboxId: id!, sandboxBaseUrl: url } : { sendBaseUrl: url }),
+    timeout: number(
+      raw.mailtrapTimeout,
+      30000,
+      1,
+      2147483647,
+      "delivery timeout",
+      provider,
+    ),
+    retries: 0,
+    validateSsl: true,
+  };
+  const mail: ApiMailSettings = {
+    transport: provider,
+    connection,
+    credential: auth.secret,
+  };
+  return {
+    mail,
+    sources: {
+      ...auth.sources,
+      [inactive]: undefined,
+      ...(sandbox ? {} : { mailtrapInboxId: undefined }),
+    },
+    values: {
+      mailtrapSandbox: sandbox,
+      [active]: url,
+      mailtrapTimeout: connection.timeout,
+      ...(sandbox ? { mailtrapInboxId: id } : {}),
+    },
+  };
 }
 
 /** Resolve only the selected API service; credentials remain unopened.
@@ -160,6 +243,7 @@ export function resolveApiMailSettings(
   provider: ApiMailSettings["transport"] = "lettermint",
 ) {
   const auth = credential(raw, cwd, provider);
+  if (provider === "mailtrap") return mailtrapSettings(raw, auth);
   if (provider === "maileroo") {
     const connection = {
       baseUrl: endpoint(raw.mailerooBaseUrl, provider),
