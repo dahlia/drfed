@@ -83,6 +83,11 @@ async function writeResourceGuard(preload: string): Promise<void> {
       registerHooks({
         resolve(specifier, context, nextResolve) {
           const resolved = nextResolve(specifier, context);
+          if (specifier === "@drfed/models") {
+            const target = JSON.stringify(resolved.url);
+            const source = "export * from " + target + "; export async function openPersistentPglite() { throw new Error('EARLY_RESOURCE_CONSTRUCTION'); }";
+            return { url: "data:text/javascript," + encodeURIComponent(source), shortCircuit: true };
+          }
           const name = constructors.get(specifier);
           if (name == null) return resolved;
           const target = JSON.stringify(resolved.url);
@@ -203,7 +208,7 @@ describe("drfed-server", () => {
       // Both database branches must stay resource-free through early exits.
       for (const database of [
         `--data-path=${dataPath}`,
-        "--database-url=postgres://localhost/drfed",
+        "--database-url=postgres://user@localhost/drfed",
       ]) {
         for (const suffix of [
           ["--help"],
@@ -294,6 +299,63 @@ describe("drfed-server", () => {
       assert.equal(startup.code, 1);
       assert.match(startup.stderr, /EARLY_RESOURCE_CONSTRUCTION/u);
       await assert.rejects(access(dataPath), { code: "ENOENT" });
+    } finally {
+      await rm(parent, { recursive: true, force: true });
+    }
+  });
+  it("shares migration lock timeout across sources and diagnoses defaults without resources", async () => {
+    const parent = await mkdtemp(join(tmpdir(), "drfed-migration-setting-"));
+    const config = join(parent, "drfed.toml");
+    const preload = join(parent, "guard.mjs");
+    const base = [
+      "--root-origin=http://drfed.test",
+      "--login-origin=http://drfed.test",
+      "--print-config",
+    ];
+    try {
+      await writeResourceGuard(preload);
+      await writeFile(config, "[database]\nlock_timeout_ms = 7000\n");
+      for (const [args, environment, value, source] of [
+        [[], {}, 30000, "default"],
+        [["--config", config], {}, 7000, "config"],
+        [
+          ["--config", config],
+          { DRFED_MIGRATION_LOCK_TIMEOUT: "8000" },
+          8000,
+          "env",
+        ],
+        [
+          ["--config", config, "--migration-lock-timeout", "9000"],
+          { DRFED_MIGRATION_LOCK_TIMEOUT: "8000" },
+          9000,
+          "cli",
+        ],
+      ] as const) {
+        // oxlint-disable-next-line no-await-in-loop
+        const result = await run([...base, ...args], preload, environment);
+        assert.equal(result.code, 0, result.stderr);
+        const diagnostic = JSON.parse(result.stdout);
+        assert.equal(
+          diagnostic.settings["database.lock_timeout_ms"].value,
+          value,
+        );
+        assert.equal(
+          diagnostic.settings["database.lock_timeout_ms"].source,
+          source,
+        );
+        assert.equal(
+          diagnostic.settings["database.data_path"].source,
+          "default",
+        );
+      }
+      for (const value of ["0", "-1", "1.5", "2147483648", "bad"]) {
+        // oxlint-disable-next-line no-await-in-loop
+        const result = await run(base, preload, {
+          DRFED_MIGRATION_LOCK_TIMEOUT: value,
+        });
+        assert.equal(result.code, 1);
+        assert.doesNotMatch(result.stderr, /EARLY_RESOURCE_CONSTRUCTION/u);
+      }
     } finally {
       await rm(parent, { recursive: true, force: true });
     }

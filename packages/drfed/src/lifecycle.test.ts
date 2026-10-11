@@ -129,7 +129,8 @@ it("preserves a listen error when database cleanup rejects", async () => {
 const close = PGlite.prototype.close;
 PGlite.prototype.close = async function () {
   await close.call(this);
-  throw new Error("PRIVATE_CLEANUP_ERROR");
+  // PGlite initialization closes a separate transient in-memory helper.
+  if (this.dataDir !== undefined) throw new Error("PRIVATE_CLEANUP_ERROR");
 };
 `,
   );

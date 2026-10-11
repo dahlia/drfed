@@ -17,7 +17,7 @@ drfed-server --root-origin https://drfed.example.com \
   --login-origin https://drfed.example.com --data-path .pgdata
 drfed-server --root-origin https://drfed.example.com \
   --login-origin https://drfed.example.com \
-  --database-url postgres://localhost/drfed
+  --database-url postgres://user@localhost/drfed
 ~~~~
 
 The server listens on `localhost:8888` by default.  Pass `--listen HOST:PORT`
@@ -240,23 +240,29 @@ DRFED_LOGIN_ORIGINS='["https://frontend.example.com"]' \
 
 The example stores PGlite data at */etc/drfed/data*, relative to the file.
 Environment and CLI paths are relative to the command's working directory.
-A data directory or PostgreSQL URL is still required.
+When no database selector is given, PGlite uses a persistent OS data directory:
+*~/Library/Application Support/DrFed/data* on macOS,
+*$XDG\_DATA\_HOME/drfed/data* (or *~/.local/share/drfed/data*) on Linux, and
+*%LOCALAPPDATA%/DrFed/data* (or *%USERPROFILE%/AppData/Local/DrFed/data*) on
+Windows. Relative OS environment paths are ignored. Override the location
+with `--data-path`; selecting PostgreSQL still requires its URL.
 
-| Setting              | Environment variable    | TOML                   |
-| -------------------- | ----------------------- | ---------------------- |
-| Root origin          | `DRFED_ROOT_ORIGIN`     | `server.root_origin`   |
-| Listen address       | `DRFED_LISTEN`          | `server.listen`        |
-| Login origin array   | `DRFED_LOGIN_ORIGINS`   | `server.login_origins` |
-| Database driver      | `DRFED_DATABASE_DRIVER` | `database.driver`      |
-| PGlite path          | `DRFED_DATA_PATH`       | `database.data_path`   |
-| PostgreSQL URL       | `DRFED_POSTGRES_URL`    | `database.url`         |
-| Automatic migrations | `DRFED_MIGRATE`         | `database.migrate`     |
-| Mail sender          | `DRFED_EMAIL_FROM`      | `mail.from`            |
-| Mail transport       | `DRFED_MAIL_TRANSPORT`  | `mail.transport`       |
-| SMTP URL             | `DRFED_SMTP_URL`        | `mail.smtp.url`        |
-| Log level            | `DRFED_LOG_LEVEL`       | `telemetry.log_level`  |
-| Log formatter        | `DRFED_LOG_FORMAT`      | `telemetry.log_format` |
-| Log output           | `DRFED_LOG_OUTPUT`      | `telemetry.log_output` |
+| Setting              | Environment variable           | TOML                       |
+| -------------------- | ------------------------------ | -------------------------- |
+| Root origin          | `DRFED_ROOT_ORIGIN`            | `server.root_origin`       |
+| Listen address       | `DRFED_LISTEN`                 | `server.listen`            |
+| Login origin array   | `DRFED_LOGIN_ORIGINS`          | `server.login_origins`     |
+| Database driver      | `DRFED_DATABASE_DRIVER`        | `database.driver`          |
+| PGlite path          | `DRFED_DATA_PATH`              | `database.data_path`       |
+| PostgreSQL URL       | `DRFED_POSTGRES_URL`           | `database.url`             |
+| Migration lock wait  | `DRFED_MIGRATION_LOCK_TIMEOUT` | `database.lock_timeout_ms` |
+| Automatic migrations | `DRFED_MIGRATE`                | `database.migrate`         |
+| Mail sender          | `DRFED_EMAIL_FROM`             | `mail.from`                |
+| Mail transport       | `DRFED_MAIL_TRANSPORT`         | `mail.transport`           |
+| SMTP URL             | `DRFED_SMTP_URL`               | `mail.smtp.url`            |
+| Log level            | `DRFED_LOG_LEVEL`              | `telemetry.log_level`      |
+| Log formatter        | `DRFED_LOG_FORMAT`             | `telemetry.log_format`     |
+| Log output           | `DRFED_LOG_OUTPUT`             | `telemetry.log_output`     |
 
 Database selectors at the highest source choose `pglite` or `postgres`;
 selectors at that source must agree. A CLI PostgreSQL URL replaces a TOML
@@ -291,3 +297,55 @@ Invalid active settings still fail rather than falling back to another source.
 Help, version and GraphQL schema output ignore operational environment values
 and do not read the TOML file. Schema generation still accepts the historical
 logging options, but ignores them and does not create a log file.
+
+
+Database startup and updates
+----------------------------
+
+The server verifies bundled migration hashes and the database history before
+starting workers or accepting HTTP requests. Automatic migration applies only
+an exact known prefix, upgrades supported legacy metadata and requires ready
+history afterward. Modified, diverged, newer or unsupported histories fail
+without applying migration SQL. Restore or reconcile these histories after
+reviewing your backup; changing hashes to silence the check is unsafe.
+
+`--no-migrate` inspects history without applying SQL or upgrading metadata. It
+starts only when history is exactly ready; fresh, pending and legacy databases
+must first be prepared with automatic migration enabled. Opening a fresh
+PGlite directory still initializes PGlite's own database files and catalog.
+
+A persistent PGlite directory is exclusively owned for the lifetime of the
+server. A second process fails immediately, including through a symlink alias.
+The stable *.drfed.lock* file remains after shutdown and must not be deleted
+to work around an ownership error. Process exit releases the native lock.
+
+PostgreSQL migration uses a separate session, verifies history under its
+advisory lock and closes that session before creating the runtime connection
+pool. `--migration-lock-timeout 30000` sets the connection and lock acquisition
+limit in milliseconds, through the same CLI/environment/TOML precedence. It
+does not time out SQL already applying under the lock.
+
+PostgreSQL URLs must name one TCP host, a user and a database. Supported query
+parameters are `sslmode`, `search_path` and `application_name`; duplicate or
+unsupported parameters are rejected before connecting. The default TLS mode
+is `disable`, intended for local connections or a separately secured network.
+Use `sslmode=verify-full` for remote connections: both migration and runtime
+connections verify the certificate chain and host name using Node.js's trust
+store. Set Node.js's `NODE_EXTRA_CA_CERTS` before starting DrFed when a private
+CA is required; see [Node.js's CA configuration]. Modes that allow plaintext
+fallback or disable certificate verification, direct TLS negotiation and
+multi-host URLs are not supported.
+
+Both connections use the same `search_path` (default `public`) and
+`application_name` (default `drfed`). The migration session passes `search_path`
+through escaped PostgreSQL startup options, preserving quoted identifiers.
+
+Values range from 1 to 2,147,483,647; the default is 30,000. It does not change
+PGlite's immediate ownership conflict behavior.
+
+Before updating, back up the database and stop running DrFed processes. Install
+the new package, then start with automatic migration enabled and verify that
+it becomes ready. Use `--no-migrate` for later starts that should only inspect
+already prepared history. Keep your backup until you have verified the update.
+
+[Node.js's CA configuration]: https://nodejs.org/api/cli.html#node_extra_ca_certsfile

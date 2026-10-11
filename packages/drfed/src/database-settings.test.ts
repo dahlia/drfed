@@ -20,6 +20,7 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 
 import type { ConfigurationSource, Sourced } from "@drfed/drfed/configuration";
+import { defaultPgliteDataPath } from "@drfed/drfed/data-path";
 import { resolveDatabaseSettings } from "@drfed/drfed/database-settings";
 
 const workingDirectory = join(tmpdir(), "drfed-database-selector");
@@ -34,7 +35,7 @@ describe("database source selection", () => {
   it("selects CLI PostgreSQL over a TOML PGlite path", () => {
     const result = resolveDatabaseSettings({
       dataPath: input("data", "config"),
-      postgresUrl: input("postgres://db/drfed", "cli"),
+      postgresUrl: input("postgres://user@db/drfed", "cli"),
     });
     assert.equal(result.database.driver, "postgres");
     assert.deepEqual(result.ignored, [
@@ -64,7 +65,7 @@ describe("database source selection", () => {
         () =>
           resolveDatabaseSettings({
             dataPath: input("data", source),
-            postgresUrl: input("postgres://db/drfed", source),
+            postgresUrl: input("postgres://user@db/drfed", source),
           }),
         /same source/u,
       );
@@ -80,7 +81,7 @@ describe("database source selection", () => {
         () =>
           resolveDatabaseSettings({
             driver: input("pglite", source),
-            postgresUrl: input("postgres://db/drfed", source),
+            postgresUrl: input("postgres://user@db/drfed", source),
           }),
         /same source/u,
       );
@@ -95,28 +96,30 @@ describe("database source selection", () => {
         }),
       /PostgreSQL requires/u,
     );
-    assert.throws(
-      () =>
-        resolveDatabaseSettings({
-          driver: input("pglite", "cli"),
-          postgresUrl: input("postgres://db/drfed", "config"),
-        }),
-      /PGlite requires/u,
+    assert.deepEqual(
+      resolveDatabaseSettings({
+        driver: input("pglite", "cli"),
+        postgresUrl: input("postgres://user@db/drfed", "config"),
+      }).database,
+      { driver: "pglite", dataPath: defaultPgliteDataPath() },
     );
   });
   it("inherits same-kind values and lets the highest selector choose", () => {
     const result = resolveDatabaseSettings({
       driver: input("postgres", "cli"),
-      postgresUrl: input("postgres://db/drfed", "env"),
+      postgresUrl: input("postgres://user@db/drfed", "env"),
       dataPath: input("data", "config"),
     });
     assert.equal(result.database.driver, "postgres");
     if (result.database.driver === "postgres") {
-      assert.equal(result.database.databaseUrl.href, "postgres://db/drfed");
+      assert.equal(
+        result.database.databaseUrl.href,
+        "postgres://user@db/drfed",
+      );
     }
     const other = resolveDatabaseSettings({
       driver: input("not a driver", "config"),
-      postgresUrl: input("postgres://db/drfed", "env"),
+      postgresUrl: input("postgres://user@db/drfed", "env"),
     });
     assert.equal(other.database.driver, "postgres");
   });
@@ -133,7 +136,7 @@ describe("database source selection", () => {
       () =>
         resolveDatabaseSettings({
           driver: input("bogus", "cli"),
-          postgresUrl: input("postgres://db/drfed", "config"),
+          postgresUrl: input("postgres://user@db/drfed", "config"),
         }),
       /Invalid database\.driver/u,
     );

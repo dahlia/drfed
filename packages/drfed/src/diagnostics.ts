@@ -62,6 +62,7 @@ export function describeServerConfiguration(
     postgresUrl:
       options.drizzle.driver === "postgres" ? "<redacted>" : undefined,
     migrate: options.drizzle.migrate,
+    migrationLockTimeout: options.drizzle.lockTimeoutMs,
     mailTransport: options.smtpUrl === undefined ? "logtape" : "smtp",
     smtpUrl: options.smtpUrl === undefined ? undefined : "<redacted>",
     logLevel: options.logging.logLevel,

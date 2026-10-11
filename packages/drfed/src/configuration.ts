@@ -69,6 +69,7 @@ export const configurationSchema = table({
       data_path: v.optional(text),
       url: v.optional(text),
       migrate: v.optional(boolean),
+      lock_timeout_ms: v.optional(v.number("Expected a number.")),
     }),
   ),
   telemetry: v.optional(
@@ -212,6 +213,13 @@ export const configurationSettings = {
     ["server"],
     "Apply migrations at startup",
     (config) => config.database?.migrate,
+  ),
+  migrationLockTimeout: setting(
+    "database.lock_timeout_ms",
+    "MIGRATION_LOCK_TIMEOUT",
+    ["server", "migrate", "account"],
+    "Migration lock wait limit in milliseconds",
+    (config) => config.database?.lock_timeout_ms,
   ),
   emailFrom: setting(
     "mail.from",

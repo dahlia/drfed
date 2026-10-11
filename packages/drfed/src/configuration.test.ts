@@ -426,7 +426,12 @@ describe("command configuration projections", () => {
       assert.deepEqual(projection.areas, ["database"]);
       assert.deepEqual(
         projection.settings.map((entry) => entry.toml),
-        ["database.driver", "database.data_path", "database.url"],
+        [
+          "database.driver",
+          "database.data_path",
+          "database.url",
+          "database.lock_timeout_ms",
+        ],
       );
       assert.ok(projection.unusedAreas.includes("mail"));
       assert.ok(projection.unusedAreas.includes("telemetry"));

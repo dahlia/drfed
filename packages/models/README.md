@@ -201,3 +201,15 @@ thumbprints, and `observeKeyVersion`.  `keys` identifies each exact key IRI;
 an earlier key reuses its version.  Observation timestamps do not describe
 remote rotation times or continuous use.  Deliveries retain referenced versions
 with `ON DELETE RESTRICT`, independently of Fedify cache expiry.
+
+The `drfed-server` facade now uses these safe preparation APIs for automatic
+migration and `inspectMigrationState()` for `--no-migrate`. Its persistent
+PGlite owner remains held through preparation, serving and database cleanup.
+The older `migrate()` function remains a low-level compatibility API; it does
+not provide this facade ownership and history validation contract.
+
+`preparePostgresDatabase` also accepts explicit node-postgres connection
+settings as `credentials.connection`, without a `connectionString`. The facade
+uses this form so that decoded host names, database names, credentials and TLS
+policy are the same during migration and runtime. Both connections explicitly
+verify the configured host identity for TLS, including IP addresses.

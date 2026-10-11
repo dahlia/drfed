@@ -21,6 +21,7 @@ import type { InferValue } from "@optique/core/parser";
 import { flag, option } from "@optique/core/primitives";
 import {
   email,
+  integer,
   origin,
   socketAddress,
   string,
@@ -51,6 +52,7 @@ export const valueOptionNames = {
   databaseDriver: ["--database-driver"],
   dataPath: ["--pglite-data-path", "--data-path", "-d"],
   postgresUrl: ["--postgres-url", "--database-url", "-D"],
+  migrationLockTimeout: ["--migration-lock-timeout"],
   mailTransport: ["--mail-transport"],
   smtpUrl: ["--smtp-url", "-s"],
   logLevel: ["--log-level", "-L"],
@@ -73,6 +75,11 @@ export function createParser(
   const { bind } = bindings;
   const address = socketAddress({ requirePort: true });
   const root = rootOrigin({ metavar: "ORIGIN" });
+  const lockTimeout = integer({
+    min: 1,
+    max: 2_147_483_647,
+    metavar: "MILLISECONDS",
+  });
   const sender = email({ lowercase: true });
   const level = logLevel();
   const formatter = textFormatter();
@@ -180,7 +187,7 @@ export function createParser(
         }),
         map(
           flag("--no-migrate", "-M", {
-            description: message`Disable automatic database migrations.`,
+            description: message`Require exact ready migration history without applying SQL or upgrading metadata.`,
           }),
           () => false,
         ),
@@ -189,6 +196,15 @@ export function createParser(
       configurationBoolean(),
       String,
       true,
+    ),
+    migrationLockTimeout: bind(
+      option(...valueOptionNames.migrationLockTimeout, lockTimeout, {
+        description: message`Maximum PostgreSQL migration connection and lock wait in milliseconds. PGlite ownership conflicts fail immediately.`,
+      }),
+      settings.migrationLockTimeout,
+      lockTimeout,
+      String,
+      30_000,
     ),
     mailTransport: bind(
       option(
@@ -410,6 +426,10 @@ export function resolveOptions(options: RawOptions, cwd = process.cwd()) {
     drizzle: {
       ...database.database,
       migrate: required(server.migrate, "Missing migration policy."),
+      lockTimeoutMs: required(
+        server.migrationLockTimeout,
+        "Missing migration lock timeout.",
+      ),
     },
     provenance: configurationProvenance({
       rootOrigin: server.rootOrigin,
@@ -420,6 +440,7 @@ export function resolveOptions(options: RawOptions, cwd = process.cwd()) {
       dataPath: server.dataPath,
       postgresUrl: server.postgresUrl,
       migrate: server.migrate,
+      migrationLockTimeout: server.migrationLockTimeout,
       mailTransport: server.mailTransport,
       smtpUrl: server.smtpUrl,
       logLevel: server.logging.level,

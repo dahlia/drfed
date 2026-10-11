@@ -20,7 +20,6 @@ import process from "node:process";
 import createFederation, { createInboundRecorder } from "@drfed/federation";
 import { KeyGenerationQueue } from "@drfed/federation/task-queue";
 import { createYogaServer } from "@drfed/graphql";
-import { migrate } from "@drfed/models";
 import { PgliteKvStore } from "@fedify/pglite";
 import { PostgresKvStore } from "@fedify/postgres";
 import {
@@ -118,11 +117,10 @@ async function runServer(configuration: ServerOptions) {
   process.on("SIGTERM", shutdown);
 
   try {
-    const options = createServerRuntime(configuration, owner);
+    const options = await operations.run((signal) =>
+      createServerRuntime(configuration, owner, signal),
+    );
     const { credentials, db } = options.drizzle;
-    if (options.drizzle.migrate) {
-      await operations.run(() => migrate({ credentials }));
-    }
     if (options.seed) await operations.run(() => seedData(db));
     const kv =
       "driver" in credentials

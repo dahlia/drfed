@@ -17,7 +17,7 @@ import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { getLogger } from "@logtape/logtape";
-import type { Client } from "pg";
+import type { Client, ClientConfig } from "pg";
 
 import {
   type MigrationManifest,
@@ -40,8 +40,23 @@ export {
 export type MigrationClientFactory = () => Client;
 
 export type PostgresPreparationCredentials =
-  | { readonly url: string; readonly clientFactory?: never }
-  | { readonly clientFactory: MigrationClientFactory; readonly url?: never };
+  | {
+      readonly url: string;
+      readonly clientFactory?: never;
+      readonly connection?: never;
+    }
+  | {
+      readonly clientFactory: MigrationClientFactory;
+      readonly url?: never;
+      readonly connection?: never;
+    }
+  | {
+      readonly connection: Omit<ClientConfig, "connectionString"> & {
+        readonly connectionString?: never;
+      };
+      readonly url?: never;
+      readonly clientFactory?: never;
+    };
 
 export interface PreparePostgresOptions extends MigrationManifestPaths {
   readonly credentials: PostgresPreparationCredentials;
@@ -307,7 +322,9 @@ export async function preparePostgresDatabase(
       const { Client } = await import("pg");
       checkAbort(options.signal);
       client = new Client({
-        connectionString: options.credentials.url,
+        ...("connection" in options.credentials
+          ? options.credentials.connection
+          : { connectionString: options.credentials.url }),
         connectionTimeoutMillis: timeout,
       });
     }

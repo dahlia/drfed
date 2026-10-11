@@ -22,6 +22,8 @@ import {
   type Sourced,
   configurationPath,
 } from "./configuration.ts";
+import { defaultPgliteDataPath } from "./data-path.ts";
+import { resolvePostgresConnection } from "./postgres-settings.ts";
 
 const priority: Readonly<Record<ConfigurationSource, number>> = {
   default: 0,
@@ -103,15 +105,20 @@ export function resolveDatabaseSettings(
       allowedProtocols: ["postgres:", "postgresql:"],
     }).parse(value);
     if (!parsed.success) throw new Error("Invalid PostgreSQL connection URL.");
+    resolvePostgresConnection(parsed.value);
     return {
       database: { driver: "postgres" as const, databaseUrl: parsed.value },
       ignored,
     };
   }
   if (settings.dataPath?.value === undefined) {
-    throw new Error(
-      "PGlite requires --data-path, DRFED_DATA_PATH or database.data_path.",
-    );
+    return {
+      database: {
+        driver: "pglite" as const,
+        dataPath: defaultPgliteDataPath(),
+      },
+      ignored,
+    };
   }
   if (settings.dataPath.value.trim() === "") {
     throw new Error("PGlite data directory cannot be empty.");

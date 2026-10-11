@@ -77,6 +77,14 @@
     "./diagnostics": {
       "types": "./dist/diagnostics.d.mts",
       "default": "./dist/diagnostics.mjs"
+    },
+    "./data-path": {
+      "types": "./dist/data-path.d.mts",
+      "default": "./dist/data-path.mjs"
+    },
+    "./postgres-settings": {
+      "types": "./dist/postgres-settings.d.mts",
+      "default": "./dist/postgres-settings.mjs"
     }
   },
   "files": [
@@ -97,7 +105,9 @@
       "src/operations.ts",
       "src/configuration.ts",
       "src/database-settings.ts",
-      "src/diagnostics.ts"
+      "src/diagnostics.ts",
+      "src/data-path.ts",
+      "src/postgres-settings.ts"
     ],
     "dts": {
       "sourcemap": true,
