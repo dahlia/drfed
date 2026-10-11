@@ -1,67 +1,72 @@
 @drfed/web
 ==========
 
-Web frontend app for [DrFed], built with [SolidStart];
+SolidStart frontend and embedded Node.js runtime for [DrFed].
 
 [DrFed]: https://drfed.org/
-[SolidStart]: https://start.solidjs.com
 
 
-Usage
------
-
-~~~~ bash
-mise run dev:web
-
-# or start the server and open the app in a new browser tab
-mise run dev:web --open
-~~~~
-
-
-Building
---------
-
-~~~~ bash
-mise run build:web
-~~~~
-
-
-Running the build
------------------
-
-Pass the backend URL when starting the built server:
-
-~~~~ bash
-node .output/server/index.mjs --backend-url https://drfed.example
-~~~~
-
-Set `HOST` or `PORT` to change the listening address:
-
-~~~~ bash
-HOST=127.0.0.1 PORT=4000 node .output/server/index.mjs \
-  --backend-url https://drfed.example
-~~~~
-
-This project was created with the [Solid CLI]
-
-[Solid CLI]: https://github.com/solidjs-community/solid-cli
-
-
-Embedded runtime probe
+Development and builds
 ----------------------
 
-From the repository root, run:
+Run `mise run dev` from the repository root to start both development servers.
+`mise run dev:web` starts only Vite; its GraphQL backend must already be
+running. Development uses `DRFED_BACKEND_URL` (default
+`http://drfed.localhost:8888`) and `DRFED_PUBLIC_ORIGIN` (default
+`http://localhost:3000`). Add the public origin to the backend's login
+allowlist when using a different origin.
 
-~~~~ sh
-mise run probe:web-runtime
+Run `mise run build:web` to build the Node adapter, shared binding, SSR bundle
+and static assets. `mise run build:web-runtime` builds just the adapter and
+binding for Vite development.
+
+
+Embedded runtime
+----------------
+
+Initialize the web runtime with a public origin and GraphQL handler:
+
+~~~~ ts
+import { createWebRuntime } from "@drfed/web";
+
+const web = await createWebRuntime({
+  publicOrigin: new URL("https://drfed.example"),
+  graphqlFetch: (request) => yoga.fetch(request),
+});
+
+const response = await web.fetch(request);
+await web.close();
 ~~~~
 
-The probe builds a temporary copy of this app with a custom Nitro Node entry
-and verifies SSR, static assets, an external shared binding, and a close hook.
-It rejects HTTP listener creation and changes to process error or signal
-handlers.  GraphQL responses come from a local stub, without a backend server.
-Temporary files are removed when the probe finishes.
+Importing the package and creating the runtime open no listening socket or
+process signal/error handlers. `fetch()` serves SolidStart SSR, server functions
+and bundled static assets. Deployment settings live in one external Node module
+shared by the adapter and Nitro bundle, rather than argv or serialized runtime
+configuration. Each server-side Relay request reads its own SolidStart request
+context and forwards only a validated session token as Bearer authorization.
+Other cookies and incoming authorization/proxy headers are not forwarded.
 
-This checks the build boundary for future embedding; it does not change the
-published server or verify authentication, server-function security, HMR, or
-the final runtime binding API.
+Nitro uses process-wide state, so initialize one runtime per process. A second
+initialization is rejected, including after close. `close()` is idempotent,
+cancels active GraphQL work and waits for its response bodies to finish before
+running Nitro close hooks. An injected GraphQL handler remains caller-owned;
+a handler that ignores cancellation can delay close until the caller's deadline.
+Vite uses Nitro's in-process development runner so SSR shares the external
+binding. Frontend HMR retains it; a Vite config or environment restart installs
+a new development binding and drains the previous server's GraphQL work.
+
+The [Nitro configuration] controls the listener-free Node entry and external
+binding. [Solid's request context] supplies the request cancellation signal.
+
+[Nitro configuration]: https://nitro.build/docs/configuration
+[Solid's request context]: https://docs.solidjs.com/reference/server-utilities/get-request-event
+
+
+Verification
+------------
+
+`mise run test:web-runtime` checks SSR, static assets, binding identity,
+controlled GraphQL headers, cancellation, idempotent draining close and the
+absence of listeners or process-handler changes. `mise run test` includes this
+test after building the frontend. `mise run test:packaging` also exercises the
+runtime from local and global npm tarball installations.

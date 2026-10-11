@@ -47,14 +47,14 @@ depends = [
 dir = "./packages/web"
 run = "pnpm exec relay-compiler --noWatchman && pnpm run build"
 
-[tasks."probe:web-runtime"]
-description = "Probe an embedded SolidStart runtime without an HTTP listener"
+[tasks."test:web-runtime"]
+description = "Test the embedded SolidStart runtime without an HTTP listener"
 depends = ["build:web"]
-run = "node scripts/probe-web-runtime.mts"
+run = "node --test packages/web/src/runtime.test.ts"
 
 [tasks."test:packaging"]
 description = "Test local and global npm tarball installations"
-depends = ["build:server"]
+depends = ["build"]
 run = "node scripts/test-packaging.mts"
 
 [tasks.check]
@@ -126,7 +126,7 @@ node scripts/add-license/main.mts
 
 [tasks.test]
 description = "Run tests"
-depends = ["build:server"]
+depends = ["build"]
 usage = '''
 flag "-d --debug" help="Run tests in debug mode"
 '''
@@ -223,7 +223,13 @@ flag "-S --no-seed" help="Skip database seeding"
 '''
 run = "node scripts/dev.mts"
 
+[tasks."build:web-runtime"]
+description = "Build the external web binding and Node adapter"
+dir = "./packages/web"
+run = "pnpm exec tsdown"
+
 [tasks."dev:web"]
+depends = ["build:web-runtime"]
 raw_args = true
 description = "Run SolidStart frontend server"
 dir = "./packages/web"

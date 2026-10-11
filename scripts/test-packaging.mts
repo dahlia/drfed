@@ -38,7 +38,7 @@ import { promisify } from "node:util";
 const execute = promisify(execFile);
 const root = fileURLToPath(new URL("../", import.meta.url));
 const temporary = await mkdtemp(join(tmpdir(), "drfed-packaging-"));
-const packages = ["models", "federation", "graphql", "drfed"];
+const packages = ["models", "federation", "graphql", "web", "drfed"];
 const windows = process.platform === "win32";
 const npm = windows
   ? join(dirname(process.execPath), "node_modules/npm/bin/npm-cli.js")
@@ -445,6 +445,29 @@ try {
       );
       assert.ok(accountHelp.stdout.includes("create"));
     }
+    await run(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `
+import assert from "node:assert/strict";
+import { Server } from "node:net";
+Server.prototype.listen = function () { throw new Error("Unexpected web listener"); };
+const { createWebRuntime } = await import(${JSON.stringify(pathToFileURL(join(modules, "@drfed/web/dist/runtime.mjs")).href)});
+const web = await createWebRuntime({ publicOrigin: new URL("https://drfed.test"), graphqlFetch: () => Response.json({ data: { viewer: null } }) });
+try {
+  const page = await web.fetch(new Request("https://drfed.test/about"));
+  assert.equal(page.status, 200);
+  assert.match(await page.text(), /DrFed/);
+  const asset = await web.fetch(new Request("https://drfed.test/icon.svg"));
+  assert.equal(asset.status, 200);
+  assert.match(await asset.text(), /<svg/);
+} finally { await web.close(); }
+`,
+      ],
+      prefix,
+    );
     const dataPath = join(prefix, "data");
     await smoke(binary, prefix, dataPath, true);
     const accountArgs = [

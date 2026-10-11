@@ -34,5 +34,23 @@
     "unicorn/filename-case": "off",
     "unicorn/prefer-query-selector": "off",
     "promise/avoid-new": "off"
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/bridge.ts",
+        "src/runtime.ts",
+        "src/runtime-entry.mjs",
+        "src/runtime.test.ts",
+        "src/development-binding.test.ts",
+        "dev-plugin.ts"
+      ],
+      "env": {
+        "node": true
+      },
+      "rules": {
+        "unicorn/no-null": "off"
+      }
+    }
+  ]
 }

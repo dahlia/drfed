@@ -14,8 +14,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { parseArgs } from "node:util";
-
 import { getCookie } from "@solidjs/start/http";
 import {
   Environment,
@@ -25,9 +23,9 @@ import {
   RecordSource,
   Store,
 } from "relay-runtime";
+import { getRequestEvent } from "solid-js/web";
 
 const SESSION_COOKIE = "session";
-const ACCESS_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/u;
 
 // oxlint-disable no-async-await
 const fetchGraphQL = async (
@@ -36,42 +34,18 @@ const fetchGraphQL = async (
 ): Promise<GraphQLResponse> => {
   "use server";
 
-  const backendUrl = import.meta.env.DEV
-    ? import.meta.env.VITE_BACKEND_URL
-    : parseArgs({
-        options: {
-          "backend-url": { type: "string" },
-        },
-      }).values["backend-url"];
-  if (backendUrl == undefined) {
-    throw new Error("The --backend-url option is required.");
-  }
-
-  const accessToken = getCookie(SESSION_COOKIE);
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (accessToken !== undefined && ACCESS_TOKEN_PATTERN.test(accessToken)) {
-    headers.Authorization = `Bearer ${accessToken}`;
-  }
-
-  const url = new URL("/graphql", backendUrl);
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      query,
-      variables,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`GraphQL request failed (${response.status})`);
-  }
+  const request = getRequestEvent()?.request;
+  if (request === undefined) throw new Error("Missing web request context.");
+  const { queryGraphql } = await import("@drfed/web/bridge");
+  const result = await queryGraphql(
+    query,
+    variables,
+    getCookie(SESSION_COOKIE),
+    request.signal,
+  );
 
   // oxlint-disable return-await no-unsafe-return
-  return await response.json();
+  return result;
 };
 
 const fetchFn: FetchFunction = async (params, variables) => {
