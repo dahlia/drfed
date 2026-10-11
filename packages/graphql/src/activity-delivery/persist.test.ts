@@ -278,53 +278,51 @@ it("stores nothing for a Create without an ID, however often it arrives", async 
   });
 });
 
-it(
-  "rejects a verified Create claiming an IRI on another origin",
-  {
-    todo:
-      "Fedify 2.4.1 accepts an activity ID on another origin than its " +
-      "actor; this passes once Fedify rejects one with 401.",
-  },
-  async () => {
-    await withTestHarness(async ({ db }) => {
-      await seedLocalActor(db);
-      const localActivityId = "01990000-0000-7000-8000-000000000001";
-      await seedObjects(db, {
-        id: "01990000-0000-7000-8000-000000000002",
-        iri: `https://${hostA}/users/${localActorId}/notes/1`,
-        actorId: localActorId,
-        type: "Note",
-        contentHtml: "<p>local</p>",
-        activityId: localActivityId,
-      });
-      const documents: Documents = new Map();
-      const signer = await addActor(documents, alice);
-      const mallory = await addActor(
-        documents,
-        "https://evil.example/users/mallory",
-      );
-      const { send } = await createRecorder(db, documents);
-      assert.equal(
-        (await send(await signed(signer, createOf(alice, "1")))).status,
-        202,
-      );
-      const before = await counts(db);
-      for (const id of [
-        "https://remote.example/activities/1",
-        `https://${hostA}/ap/creates/${localActivityId}`,
-        "https://third.example/activities/1",
-      ]) {
-        const forged = createOf(mallory.iri, "1", { activity: { id } });
-        assert.equal((await send(await signed(mallory, forged))).status, 401);
-        const delivery = (await findDeliveries(db)).at(-1);
-        assert.equal(delivery?.status, "rejected");
-        assert.match(delivery?.error ?? "", /^activityOriginMismatch/u);
-        assert.equal(delivery?.activityId, null);
-      }
-      assert.deepEqual(await counts(db), before);
+it("rejects a verified Create claiming an IRI on another origin", async () => {
+  await withTestHarness(async ({ db }) => {
+    await seedLocalActor(db);
+    const localActivityId = "01990000-0000-7000-8000-000000000001";
+    await seedObjects(db, {
+      id: "01990000-0000-7000-8000-000000000002",
+      iri: `https://${hostA}/users/${localActorId}/notes/1`,
+      actorId: localActorId,
+      type: "Note",
+      contentHtml: "<p>local</p>",
+      activityId: localActivityId,
     });
-  },
-);
+    const documents: Documents = new Map();
+    const signer = await addActor(documents, alice);
+    const mallory = await addActor(
+      documents,
+      "https://evil.example/users/mallory",
+    );
+    const { send } = await createRecorder(db, documents);
+    assert.equal(
+      (await send(await signed(signer, createOf(alice, "1")))).status,
+      202,
+    );
+    const before = await counts(db);
+    for (const id of [
+      "https://remote.example/activities/1",
+      `https://${hostA}/ap/creates/${localActivityId}`,
+      "https://third.example/activities/1",
+    ]) {
+      const forged = createOf(mallory.iri, "1", { activity: { id } });
+      const response = await send(await signed(mallory, forged));
+      assert.equal(response.status, 401);
+      const delivery = (await findDeliveries(db)).at(-1);
+      assert.equal(delivery?.status, "rejected");
+      assert.equal(delivery?.statusCode, 401);
+      assert.equal(delivery?.verificationMechanism, "http_signature");
+      assert.equal(delivery?.verificationResult, "verified");
+      // Fedify reports this refusal as verificationFailed, with no reason of
+      // its own, so the error is the body of its response.
+      assert.equal(delivery?.error, await response.text());
+      assert.equal(delivery?.activityId, null);
+    }
+    assert.deepEqual(await counts(db), before);
+  });
+});
 
 it("stores an object only of its actor, of a supported type, from its origin", async () => {
   await withTestHarness(async ({ db }) => {

@@ -87,8 +87,9 @@ each; when it is not among them, the object is stored without its document,
 and the activity's document still holds it as received.
 A remote actor's `username` is its `preferredUsername`, which may be missing.
 
-Fedify authenticates an activity before answering it with 2xx, so every
-inbound delivery that was verified and answered with 2xx is linked to the
+Fedify authenticates an activity before answering it with 2xx, and Fedify
+2.4.3 or later refuses one whose ID is on another origin than its actors, so
+every inbound delivery that was verified and answered with 2xx is linked to the
 stored activity its ID names, a duplicate Fedify skips included.  An outbound
 delivery is linked to the activity it sends.
 
