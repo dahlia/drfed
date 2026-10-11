@@ -402,6 +402,66 @@ source-only metadata for ignored fields.
 [Upyo SMTP documentation]: https://upyo.org/transports/smtp
 
 
+JMAP mail
+---------
+
+Use [Upyo JMAP] with bearer authentication or basic authentication. A session
+URL selects JMAP at that source; an explicit `--mail-transport jmap` also
+selects it. Conflicting transport selectors at the same source are rejected.
+Higher sources can switch transports without reading the previous transport's
+credential files.
+
+~~~~ toml
+[mail]
+transport = "jmap"
+
+[mail.jmap]
+session_url = "https://mail.example.com/.well-known/jmap"
+bearer_token_file = "/run/secrets/jmap-token"
+~~~~
+
+Set `user` and `password_file` instead of `bearer_token_file` for basic
+authentication. Basic credentials must be printable ASCII because the pinned
+Upyo SDK does not encode non-ASCII credentials as UTF-8. The username cannot
+contain a colon. Literal and file credentials use the same source precedence
+and file rules as [SMTP](#shared-configuration-bindings); bearer and basic
+credentials at the same source are rejected. Secret values and paths are
+redacted from `--print-config`.
+
+| CLI option                 | Environment variable           | TOML field                       |
+| -------------------------- | ------------------------------ | -------------------------------- |
+| `--jmap-session-url`       | `DRFED_JMAP_SESSION_URL`       | `mail.jmap.session_url`          |
+| `--jmap-bearer-token`      | `DRFED_JMAP_BEARER_TOKEN`      | `mail.jmap.bearer_token`         |
+| `--jmap-bearer-token-file` | `DRFED_JMAP_BEARER_TOKEN_FILE` | `mail.jmap.bearer_token_file`    |
+| `--jmap-user`              | `DRFED_JMAP_USER`              | `mail.jmap.user`                 |
+| `--jmap-password`          | `DRFED_JMAP_PASSWORD`          | `mail.jmap.password`             |
+| `--jmap-password-file`     | `DRFED_JMAP_PASSWORD_FILE`     | `mail.jmap.password_file`        |
+| `--jmap-account-id`        | `DRFED_JMAP_ACCOUNT_ID`        | `mail.jmap.account_id`           |
+| `--jmap-identity-id`       | `DRFED_JMAP_IDENTITY_ID`       | `mail.jmap.identity_id`          |
+| `--jmap-base-url`          | `DRFED_JMAP_BASE_URL`          | `mail.jmap.base_url`             |
+| `--jmap-timeout`           | `DRFED_JMAP_TIMEOUT`           | `mail.jmap.timeout_ms`           |
+| `--jmap-session-cache-ttl` | `DRFED_JMAP_SESSION_CACHE_TTL` | `mail.jmap.session_cache_ttl_ms` |
+
+Session and base URLs require HTTPS, except HTTP on `localhost`, `127.0.0.1`,
+or `[::1]` for local testing. URL credentials and fragments are rejected.
+`base_url` is an origin used to rewrite endpoints discovered from the session,
+useful when the mail server advertises internal host names. Without
+`account_id` and `identity_id`, Upyo discovers a mail account and selects the
+identity matching the sender address.
+
+Duration options and their environment variables take milliseconds, matching
+the TOML fields.
+
+The whole delivery timeout defaults to 30 seconds, and session cache lifetime
+to five minutes. Automatic JMAP retries are disabled because the pinned SDK
+can replay a mail submission after an uncertain response. These settings apply
+only when JMAP is selected. Cancelling a request aborts the in-flight JMAP
+call. Delivery failures return the same opaque login response and produce the
+same mail outcome log entries as SMTP.
+
+[Upyo JMAP]: https://upyo.org/transports/jmap
+
+
 Configuration diagnostics
 -------------------------
 

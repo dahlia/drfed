@@ -141,6 +141,18 @@
     "./secret-source": {
       "types": "./dist/secret-source.d.mts",
       "default": "./dist/secret-source.mjs"
+    },
+    "./jmap-parser": {
+      "types": "./dist/jmap-parser.d.mts",
+      "default": "./dist/jmap-parser.mjs"
+    },
+    "./jmap-settings": {
+      "types": "./dist/jmap-settings.d.mts",
+      "default": "./dist/jmap-settings.mjs"
+    },
+    "./jmap-runtime": {
+      "types": "./dist/jmap-runtime.d.mts",
+      "default": "./dist/jmap-runtime.mjs"
     }
   },
   "files": [
@@ -180,7 +192,10 @@
       "src/mail-parser.ts",
       "src/mail-settings.ts",
       "src/mail-runtime.ts",
-      "src/secret-source.ts"
+      "src/secret-source.ts",
+      "src/jmap-parser.ts",
+      "src/jmap-settings.ts",
+      "src/jmap-runtime.ts"
     ],
     "dts": {
       "sourcemap": true,
@@ -217,6 +232,7 @@
     "@optique/logtape": "catalog:",
     "@optique/run": "catalog:",
     "@upyo/core": "catalog:",
+    "@upyo/jmap": "catalog:",
     "@upyo/logtape": "catalog:",
     "@upyo/smtp": "catalog:",
     "drizzle-orm": "catalog:",

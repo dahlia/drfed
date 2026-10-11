@@ -25,9 +25,11 @@ import {
   type createConfigurationBindings,
   configurationSettings as settings,
 } from "./configuration.ts";
+import { createJmapFields, jmapValueOptionNames } from "./jmap-parser.ts";
 
 /** Mail value-option spellings shared by parsing and metadata arity. */
 export const mailValueOptionNames = {
+  ...jmapValueOptionNames,
   mailTransport: ["--mail-transport"],
   smtpUrl: ["--smtp-url", "-s"],
   smtpHost: ["--smtp-host"],
@@ -57,12 +59,13 @@ export function createMailParser(
   const { bind } = bindings;
   const identity = (value: string) => value;
   return object("Mail delivery options", {
+    ...createJmapFields(bindings),
     mailTransport: bind(
       option(
         ...mailValueOptionNames.mailTransport,
         string({ metavar: "TRANSPORT" }),
         {
-          description: message`Select logtape or smtp. An SMTP URL or host also selects smtp.`,
+          description: message`Select logtape, smtp or jmap. SMTP host/URL and JMAP session URL select their provider.`,
         },
       ),
       settings.mailTransport,

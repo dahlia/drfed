@@ -23,6 +23,7 @@ import {
   configurationProvenance,
   configurationSettings,
 } from "./configuration.ts";
+import { type JmapSettings, resolveJmapSettings } from "./jmap-settings.ts";
 import type { RawMailOptions } from "./mail-parser.ts";
 import { type SecretSource, resolveSecretSource } from "./secret-source.ts";
 import { resolveSmtpConnection } from "./smtp-settings.ts";
@@ -44,6 +45,7 @@ export type MailAuthentication =
 
 /** Listener-independent mail configuration; secret files remain unopened. */
 export type MailSettings =
+  | JmapSettings
   | { readonly transport: "logtape"; readonly logContent: boolean }
   | {
       readonly transport: "smtp";
@@ -66,20 +68,31 @@ function selectTransport(raw: RawMailOptions) {
     rank(raw.mailTransport),
     rank(raw.smtpUrl),
     rank(raw.smtpHost),
+    rank(raw.jmapSessionUrl),
   );
   const explicit =
     rank(raw.mailTransport) === highest ? raw.mailTransport?.value : undefined;
   const smtp = rank(raw.smtpUrl) === highest || rank(raw.smtpHost) === highest;
-  const transport = explicit ?? (smtp && highest >= 0 ? "smtp" : "logtape");
-  if (transport !== "smtp" && transport !== "logtape") {
-    throw new Error("Unsupported mail transport; expected logtape or smtp.");
+  const jmap = rank(raw.jmapSessionUrl) === highest && highest >= 0;
+  const transport =
+    explicit ?? (jmap ? "jmap" : smtp && highest >= 0 ? "smtp" : "logtape");
+  if (transport !== "smtp" && transport !== "logtape" && transport !== "jmap") {
+    throw new Error(
+      "Unsupported mail transport; expected logtape, smtp or jmap.",
+    );
   }
-  if (transport === "logtape" && smtp && highest >= 0) {
+  if (
+    (smtp && highest >= 0 && transport !== "smtp") ||
+    (jmap && transport !== "jmap")
+  ) {
     throw new Error("Mail selectors at the same source disagree.");
   }
-  const selector = [raw.mailTransport, raw.smtpUrl, raw.smtpHost].find(
-    (value) => rank(value) === highest && value?.value !== undefined,
-  );
+  const selector = [
+    raw.mailTransport,
+    raw.smtpUrl,
+    raw.smtpHost,
+    raw.jmapSessionUrl,
+  ].find((value) => rank(value) === highest && value?.value !== undefined);
   return { transport, selector };
 }
 
@@ -486,24 +499,14 @@ function logContent(raw: RawMailOptions) {
   return parsed.value;
 }
 
-/** Resolve provider selection and safe diagnostics without reading credentials.
- * @returns Runtime settings, redacted diagnostics and ignored branch metadata.
- */
-export function resolveMailSettings(raw: RawMailOptions, cwd = process.cwd()) {
-  const selection = selectTransport(raw);
-  const smtp =
-    selection.transport === "smtp" ? smtpSettings(raw, cwd) : undefined;
-  const mail: MailSettings = smtp?.mail ?? {
-    transport: "logtape",
-    logContent: logContent(raw),
-  };
-  const provenance = configurationProvenance({
-    ...raw,
-    ...smtp?.sources,
-    mailTransport: selection.selector,
-  });
+function diagnosticValues(
+  mail: MailSettings,
+  smtp: ReturnType<typeof smtpSettings> | undefined,
+  jmap: ReturnType<typeof resolveJmapSettings> | undefined,
+) {
   const values: Record<string, unknown> = { mailTransport: mail.transport };
   if (mail.transport === "logtape") values.mailLogContent = mail.logContent;
+  else if (mail.transport === "jmap") Object.assign(values, jmap?.values);
   else {
     Object.assign(values, {
       smtpHost: mail.connection.host,
@@ -516,28 +519,12 @@ export function resolveMailSettings(raw: RawMailOptions, cwd = process.cwd()) {
       smtpAuthMethod: mail.authentication?.method,
     });
   }
-  const ignored = Object.entries(raw)
-    .filter(
-      ([key, value]) =>
-        value?.value !== undefined &&
-        value.source !== "default" &&
-        (mail.transport === "logtape"
-          ? key.startsWith("smtp")
-          : key === "mailLogContent" ||
-            (key === "smtpAuthMethod" &&
-              smtp?.sources.smtpAuthMethod?.source === "default") ||
-            (key.startsWith("smtp") &&
-              smtp?.sources[key as keyof typeof smtp.sources]?.value ===
-                undefined)),
-    )
-    .map(([key, value]) => ({
-      field:
-        configurationSettings[key as keyof typeof configurationSettings].toml,
-      source: value?.source ?? "default",
-    }));
-  if (mail.transport === "smtp") {
-    for (const [key, value] of Object.entries(smtp?.sources ?? {})) {
+  if (mail.transport !== "logtape") {
+    for (const [key, value] of Object.entries(
+      mail.transport === "smtp" ? (smtp?.sources ?? {}) : (jmap?.sources ?? {}),
+    )) {
       if (
+        key.startsWith(mail.transport) &&
         value?.value !== undefined &&
         configurationSettings[key as keyof typeof configurationSettings].secret
       ) {
@@ -545,6 +532,63 @@ export function resolveMailSettings(raw: RawMailOptions, cwd = process.cwd()) {
       }
     }
   }
+  return values;
+}
+
+function ignoredMailField(
+  key: string,
+  provider: MailSettings["transport"],
+  sources: Record<string, Input>,
+) {
+  if (key === "mailLogContent") return provider !== "logtape";
+  const branch = key.startsWith("smtp")
+    ? "smtp"
+    : key.startsWith("jmap")
+      ? "jmap"
+      : undefined;
+  if (branch === undefined) return false;
+  if (branch !== provider) return true;
+  if (key === "smtpAuthMethod" && sources[key]?.source === "default") {
+    return true;
+  }
+  return key in sources && sources[key]?.value === undefined;
+}
+
+/** Resolve provider selection and safe diagnostics without reading credentials.
+ * @returns Runtime settings, redacted diagnostics and ignored branch metadata.
+ */
+export function resolveMailSettings(raw: RawMailOptions, cwd = process.cwd()) {
+  const selection = selectTransport(raw);
+  const smtp =
+    selection.transport === "smtp" ? smtpSettings(raw, cwd) : undefined;
+  const jmap =
+    selection.transport === "jmap" ? resolveJmapSettings(raw, cwd) : undefined;
+  const mail: MailSettings = jmap?.mail ??
+    smtp?.mail ?? {
+      transport: "logtape",
+      logContent: logContent(raw),
+    };
+  const provenance = configurationProvenance({
+    ...raw,
+    ...smtp?.sources,
+    ...jmap?.sources,
+    mailTransport: selection.selector,
+  });
+  const values = diagnosticValues(mail, smtp, jmap);
+  const activeSources: Record<string, Input> =
+    mail.transport === "smtp" ? (smtp?.sources ?? {}) : (jmap?.sources ?? {});
+  const ignored = Object.entries(raw)
+    .filter(
+      ([key, value]) =>
+        value?.value !== undefined &&
+        value.source !== "default" &&
+        ignoredMailField(key, mail.transport, activeSources),
+    )
+    .map(([key, value]) => ({
+      field:
+        configurationSettings[key as keyof typeof configurationSettings].toml,
+      source: value?.source ?? "default",
+    }));
   const diagnostic = Object.fromEntries(
     Object.entries(values)
       .filter(([, value]) => value !== undefined)

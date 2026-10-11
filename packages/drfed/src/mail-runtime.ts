@@ -19,6 +19,7 @@ import { createSecureContext, getCACertificates } from "node:tls";
 
 import { getLogger } from "@logtape/logtape";
 import type { Transport } from "@upyo/core";
+import type { JmapConfig } from "@upyo/jmap";
 import { LogTapeTransport } from "@upyo/logtape";
 import {
   type SmtpConfig,
@@ -26,6 +27,8 @@ import {
   SmtpTransport,
 } from "@upyo/smtp";
 
+import { createJmapTransport } from "./jmap-runtime.ts";
+import { validateJmapCredential } from "./jmap-settings.ts";
 import {
   type MailAuthentication,
   type MailSettings,
@@ -36,6 +39,7 @@ import { readSecretSource } from "./secret-source.ts";
 
 /** Mail settings with operational credential reads completed before DB writes. */
 export type PreparedMail =
+  | { readonly transport: "jmap"; readonly connection: JmapConfig }
   | { readonly transport: "logtape"; readonly logContent: boolean }
   | { readonly transport: "smtp"; readonly connection: SmtpConfig };
 
@@ -83,6 +87,34 @@ export async function prepareMail(
 ): Promise<PreparedMail> {
   signal?.throwIfAborted();
   if (settings.transport === "logtape") return settings;
+  if (settings.transport === "jmap") {
+    const { authentication } = settings;
+    const credential = await readSecretSource(
+      authentication.secret,
+      "JMAP authentication",
+      signal,
+    );
+    validateJmapCredential(
+      authentication.type,
+      credential,
+      authentication.user,
+    );
+    signal?.throwIfAborted();
+    return {
+      transport: "jmap",
+      connection: {
+        ...settings.connection,
+        ...(authentication.type === "bearer"
+          ? { bearerToken: credential }
+          : {
+              basicAuth: {
+                username: authentication.user!,
+                password: credential,
+              },
+            }),
+      },
+    };
+  }
   const { authentication } = settings;
   const credential =
     authentication === undefined
@@ -154,11 +186,15 @@ export interface MailRuntime {
  */
 export function createMailRuntime(settings: PreparedMail): MailRuntime {
   const transport =
-    settings.transport === "smtp"
-      ? new SmtpTransport(settings.connection)
-      : new LogTapeTransport({
-          ...(settings.logContent ? { recordMessage: "inline" as const } : {}),
-        });
+    settings.transport === "jmap"
+      ? createJmapTransport(settings.connection)
+      : settings.transport === "smtp"
+        ? new SmtpTransport(settings.connection)
+        : new LogTapeTransport({
+            ...(settings.logContent
+              ? { recordMessage: "inline" as const }
+              : {}),
+          });
   if (settings.transport === "logtape") {
     getLogger(["drfed", "mail"]).warning(
       "Mail delivery is disabled. Select a delivery transport; use --mail-log-content only to inspect login codes in development logs.",
@@ -172,7 +208,9 @@ export function createMailRuntime(settings: PreparedMail): MailRuntime {
       // oxlint-disable-next-line promise/prefer-await-to-then
       return (closing ??= Promise.resolve().then(async () => {
         try {
-          await transport[Symbol.asyncDispose]();
+          if (Symbol.asyncDispose in transport) {
+            await transport[Symbol.asyncDispose]();
+          }
         } catch {
           throw new Error("Mail transport cleanup failed.");
         }
