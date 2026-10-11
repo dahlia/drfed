@@ -213,3 +213,21 @@ settings as `credentials.connection`, without a `connectionString`. The facade
 uses this form so that decoded host names, database names, credentials and TLS
 policy are the same during migration and runtime. Both connections explicitly
 verify the configured host identity for TLS, including IP addresses.
+
+Installed users can run `drfed-migrate` from `@drfed/drfed` to prepare the
+database; `drfed-migrate --check` only inspects history and exits 0 for ready
+or 1 for every other status/error. Both commands accept the facade's shared
+TOML and database environment/CLI settings. Stop a PGlite server before either
+command because its directory remains exclusively locked. For PostgreSQL
+inspection with a separate runtime role, grant `USAGE` on the migration schema
+and `SELECT` on its history table, for example:
+
+~~~~ sql
+GRANT USAGE ON SCHEMA drizzle TO drfed_runtime;
+GRANT SELECT ON TABLE drizzle.__drizzle_migrations TO drfed_runtime;
+~~~~
+
+Back up and stop DrFed before an update, install the updated package, run
+`drfed-migrate`, verify `drfed-migrate --check`, then start the server. Keep the
+backup until the updated application has been verified. Installed users do not
+need `drizzle-kit`; it is a developer tool for generating migration SQL.

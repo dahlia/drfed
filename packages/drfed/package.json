@@ -85,6 +85,18 @@
     "./postgres-settings": {
       "types": "./dist/postgres-settings.d.mts",
       "default": "./dist/postgres-settings.mjs"
+    },
+    "./database-runtime": {
+      "types": "./dist/database-runtime.d.mts",
+      "default": "./dist/database-runtime.mjs"
+    },
+    "./commands/migrate": {
+      "types": "./dist/commands/migrate.d.mts",
+      "default": "./dist/commands/migrate.mjs"
+    },
+    "./commands/migrate-program": {
+      "types": "./dist/commands/migrate-program.d.mts",
+      "default": "./dist/commands/migrate-program.mjs"
     }
   },
   "files": [
@@ -93,7 +105,8 @@
     "README.md"
   ],
   "bin": {
-    "drfed-server": "bin/drfed-server.mjs"
+    "drfed-server": "bin/drfed-server.mjs",
+    "drfed-migrate": "bin/drfed-migrate.mjs"
   },
   "tsdown": {
     "entry": [
@@ -107,7 +120,10 @@
       "src/database-settings.ts",
       "src/diagnostics.ts",
       "src/data-path.ts",
-      "src/postgres-settings.ts"
+      "src/postgres-settings.ts",
+      "src/database-runtime.ts",
+      "src/commands/migrate.ts",
+      "src/commands/migrate-program.ts"
     ],
     "dts": {
       "sourcemap": true,

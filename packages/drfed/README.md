@@ -324,6 +324,8 @@ advisory lock and closes that session before creating the runtime connection
 pool. `--migration-lock-timeout 30000` sets the connection and lock acquisition
 limit in milliseconds, through the same CLI/environment/TOML precedence. It
 does not time out SQL already applying under the lock.
+The timeout ranges from 1 to 2,147,483,647; the default is 30,000. It does not
+change PGlite's immediate ownership conflict behavior.
 
 PostgreSQL URLs must name one TCP host, a user and a database. Supported query
 parameters are `sslmode`, `search_path` and `application_name`; duplicate or
@@ -340,12 +342,43 @@ Both connections use the same `search_path` (default `public`) and
 `application_name` (default `drfed`). The migration session passes `search_path`
 through escaped PostgreSQL startup options, preserving quoted identifiers.
 
-Values range from 1 to 2,147,483,647; the default is 30,000. It does not change
-PGlite's immediate ownership conflict behavior.
+[Node.js's CA configuration]: https://nodejs.org/api/cli.html#node_extra_ca_certsfile
+
+
+Database preparation command
+----------------------------
+
+Use `drfed-migrate` to prepare a database without starting the server, mail,
+federation workers or web frontend. It uses the same `--config` TOML file,
+`DRFED_CONFIG`, database options and environment variables as `drfed-server`;
+server origins and mail settings are unnecessary for this command.
+
+~~~~ sh
+drfed-migrate --config /etc/drfed/drfed.toml --check
+drfed-migrate --config /etc/drfed/drfed.toml
+drfed-server --config /etc/drfed/drfed.toml --no-migrate
+~~~~
+
+The default invocation explicitly applies migrations even when the shared file
+sets `database.migrate = false` or `DRFED_MIGRATE` disables server migration.
+`--no-migrate` is a server option; use `--check` for database inspection.
+
+`--check` inspects migration history without applying DrFed SQL or upgrading
+legacy metadata. It exits 0 only when the database is ready, and exits 1 when
+preparation is needed, history is incompatible or inspection fails. Both modes
+print JSON with `status`, `format`, `applied` and `pending` on stdout;
+operational errors go to stderr. `--print-config` prints redacted effective
+settings and provenance without opening the database.
+
+PGlite uses the same default persistent directory and native ownership lock as
+the server. Stop a PGlite server before running either migration mode.
+Inspecting a fresh directory creates PGlite's own database files and system
+catalog, although it creates no DrFed tables or migration history. PostgreSQL
+`--check` uses the current command's read privileges and needs no schema-change
+grants.
 
 Before updating, back up the database and stop running DrFed processes. Install
-the new package, then start with automatic migration enabled and verify that
-it becomes ready. Use `--no-migrate` for later starts that should only inspect
-already prepared history. Keep your backup until you have verified the update.
-
-[Node.js's CA configuration]: https://nodejs.org/api/cli.html#node_extra_ca_certsfile
+the new package, run `drfed-migrate` and verify `drfed-migrate --check`, then
+start the server. Automatic migration at server startup is also available. Use
+`--no-migrate` for later starts that should only inspect already prepared
+history. Keep your backup until you have verified the update.

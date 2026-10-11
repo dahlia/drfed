@@ -81,6 +81,37 @@ async function run(command: string, args: string[], cwd: string) {
   });
 }
 
+async function smokeMigration(binary: string, cwd: string, dataPath: string) {
+  const config = join(cwd, "migrate.toml");
+  await writeFile(
+    config,
+    `[database]\ndata_path = ${JSON.stringify(dataPath)}\nmigrate = false\n`,
+  );
+  await assert.rejects(
+    run(process.execPath, [binary, "--config", config, "--check"], cwd),
+    (error: unknown) => {
+      const result = error as { code?: number; stdout?: string };
+      return (
+        result.code === 1 &&
+        JSON.parse(result.stdout ?? "{}").status === "uninitialized"
+      );
+    },
+  );
+  const applied = await run(
+    process.execPath,
+    [binary, "--config", config],
+    cwd,
+  );
+  assert.equal(JSON.parse(applied.stdout).status, "ready");
+  const checked = await run(
+    process.execPath,
+    [binary, "--config", config, "--check"],
+    cwd,
+  );
+  assert.equal(JSON.parse(checked.stdout).status, "ready");
+  assert.equal(JSON.parse(checked.stdout).applied, 20);
+}
+
 async function pack(name: string) {
   const { stdout } = await run(
     "pnpm",
@@ -344,6 +375,44 @@ try {
         )
       : await run(linked, ["--help"], prefix);
     assert.ok(help.stdout.includes("--root-origin"));
+    const migrationBinary = join(application, "bin/drfed-migrate.mjs");
+    const migrationLink = global
+      ? join(prefix, windows ? "drfed-migrate.cmd" : "bin/drfed-migrate")
+      : join(modules, ".bin", windows ? "drfed-migrate.cmd" : "drfed-migrate");
+    if (!windows) {
+      assert.equal(
+        await realpath(migrationLink),
+        await realpath(migrationBinary),
+      );
+      assert.ok(
+        (await run(migrationLink, ["--help"], prefix)).stdout.includes(
+          "--check",
+        ),
+      );
+    } else {
+      assert.ok(
+        (await readFile(migrationLink, "utf8")).includes("drfed-migrate.mjs"),
+      );
+      const migrationHelp = await run(
+        process.execPath,
+        [
+          npm,
+          "exec",
+          "--offline",
+          ...(global ? ["--global", "--prefix", prefix] : []),
+          "--",
+          "drfed-migrate",
+          "--help",
+        ],
+        prefix,
+      );
+      assert.ok(migrationHelp.stdout.includes("--check"));
+    }
+    await smokeMigration(
+      migrationBinary,
+      prefix,
+      join(prefix, "migration-data"),
+    );
     await smoke(binary, prefix, join(prefix, "data"), true);
     await smoke(binary, prefix, join(prefix, "data"), false);
     console.log(
