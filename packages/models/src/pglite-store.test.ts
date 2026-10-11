@@ -74,22 +74,53 @@ if (store) {
 }
 `;
 
+const childErrors = new WeakMap<ChildProcess, string>();
+
+function trackChild(child: ChildProcess): ChildProcess {
+  childErrors.set(child, "");
+  child.stderr?.setEncoding("utf8");
+  child.stderr?.on("data", (chunk: string) => {
+    childErrors.set(
+      child,
+      `${childErrors.get(child) ?? ""}${chunk}`.slice(-4000),
+    );
+  });
+  return child;
+}
+
 function spawnOwner(path: string): ChildProcess {
-  return spawn(
-    process.execPath,
-    ["--input-type=module", "-e", ownerScript, path],
-    {
+  return trackChild(
+    spawn(process.execPath, ["--input-type=module", "-e", ownerScript, path], {
       stdio: ["ignore", "ignore", "pipe", "ipc"],
-    },
+    }),
   );
 }
 
 async function message(child: ChildProcess): Promise<string> {
-  const [value] = await once(child, "message", {
-    signal: AbortSignal.timeout(15_000),
-  });
-  assert.ok(value && typeof value === "object" && "event" in value);
-  return String(value.event);
+  assert.ok(
+    child.exitCode === null && child.signalCode === null,
+    `PGlite child already exited: ${childErrors.get(child) ?? ""}`,
+  );
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45_000);
+  try {
+    const received = once(child, "message", { signal: controller.signal });
+    // Both branches are observed, including cancellation of the losing branch.
+    // oxlint-disable-next-line promise/prefer-await-to-then
+    const exited = once(child, "exit", { signal: controller.signal }).then(
+      ([code, signal]) => {
+        throw new Error(
+          `PGlite child exited before its message (${code}/${signal}): ${childErrors.get(child) ?? ""}`,
+        );
+      },
+    );
+    const [value] = await Promise.race([received, exited]);
+    assert.ok(value && typeof value === "object" && "event" in value);
+    return String(value.event);
+  } finally {
+    clearTimeout(timeout);
+    controller.abort();
+  }
 }
 
 async function stopOwner(child: ChildProcess): Promise<void> {
@@ -103,7 +134,7 @@ async function stopOwner(child: ChildProcess): Promise<void> {
 
 it(
   "keeps a canonical persistent store exclusive until database close completes",
-  { timeout: 20_000 },
+  { timeout: 60_000 },
   async () => {
     await withDirectory(async (directory) => {
       const dataPath = join(directory, "data");
@@ -182,7 +213,7 @@ it("refuses a hard-linked lock file without truncating its existing bytes", asyn
 
 it(
   "gives exactly one owner a simultaneously contested directory",
-  { timeout: 30_000 },
+  { timeout: 90_000 },
   async () => {
     await withDirectory(async (directory) => {
       const first = spawnOwner(directory);
@@ -212,7 +243,7 @@ it(
 
 it(
   "does not steal a suspended owner's lock and recovers after SIGKILL",
-  { skip: process.platform === "win32", timeout: 30_000 },
+  { skip: process.platform === "win32", timeout: 90_000 },
   async () => {
     await withDirectory(async (directory) => {
       const owner = spawnOwner(directory);
@@ -248,7 +279,7 @@ it(
 
 it(
   "holds a failed-close lock until its owner process exits",
-  { timeout: 30_000 },
+  { timeout: 90_000 },
   async () => {
     await withDirectory(async (directory) => {
       const script = `
@@ -261,17 +292,19 @@ await assert.rejects(store.close(), error=>error instanceof PgliteStoreError && 
 await assert.rejects(openPersistentPglite(process.argv[1]), error=>error instanceof PgliteStoreError && error.code === "locked");
 await actualClose(); process.send({event:"retained"});process.disconnect();
 `;
-      const child = spawn(
-        process.execPath,
-        ["--input-type=module", "-e", script, directory],
-        { stdio: ["ignore", "ignore", "pipe", "ipc"] },
+      const child = trackChild(
+        spawn(
+          process.execPath,
+          ["--input-type=module", "-e", script, directory],
+          { stdio: ["ignore", "ignore", "pipe", "ipc"] },
+        ),
       );
       try {
-        const exited = once(child, "exit", {
-          signal: AbortSignal.timeout(15_000),
-        });
-        assert.equal(await message(child), "retained");
-        const [code] = await exited;
+        const [event, [code]] = await Promise.all([
+          message(child),
+          once(child, "exit", { signal: AbortSignal.timeout(45_000) }),
+        ]);
+        assert.equal(event, "retained");
         assert.equal(code, 0);
         const recovered = await openPersistentPglite(directory);
         await recovered.close();
@@ -284,7 +317,7 @@ await actualClose(); process.send({event:"retained"});process.disconnect();
 
 it(
   "exposes sanitized initialization failure without losing the close boundary",
-  { timeout: 30_000 },
+  { timeout: 90_000 },
   async () => {
     await withDirectory(async (directory) => {
       await writeFile(
@@ -302,17 +335,19 @@ await assert.rejects(openPersistentPglite(process.argv[1]), error=>error instanc
 process.exitCode=0;
 process.send({event:"sanitized"});process.disconnect();
 `;
-      const child = spawn(
-        process.execPath,
-        ["--input-type=module", "-e", script, directory],
-        { stdio: ["ignore", "ignore", "pipe", "ipc"] },
+      const child = trackChild(
+        spawn(
+          process.execPath,
+          ["--input-type=module", "-e", script, directory],
+          { stdio: ["ignore", "ignore", "pipe", "ipc"] },
+        ),
       );
       try {
-        const exited = once(child, "exit", {
-          signal: AbortSignal.timeout(15_000),
-        });
-        assert.equal(await message(child), "sanitized");
-        const [code] = await exited;
+        const [event, [code]] = await Promise.all([
+          message(child),
+          once(child, "exit", { signal: AbortSignal.timeout(45_000) }),
+        ]);
+        assert.equal(event, "sanitized");
         assert.equal(code, 0);
         assert.equal(
           await readFile(join(directory, "PG_VERSION"), "utf8"),

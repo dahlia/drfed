@@ -79,6 +79,19 @@ and credentials; the `drfed.models.migration` debug category records the
 backend PID after locking. Use a direct database connection or a proxy that
 preserves sessions; transaction pooling is unsupported.
 
+`@drfed/models/pglite-preparation` exposes `preparePgliteDatabase({ store })`
+for a store returned by `openPersistentPglite()`. It verifies SQL and history,
+refuses incompatible or untracked schemas before metadata DDL, applies exact
+verified snapshots, then requires ready history. Verified legacy milliseconds
+are preserved during metadata upgrade. Preparers sharing one client are
+serialized, so a later request inspects the first request's committed history.
+
+The caller owns the store throughout preparation and must refrain from other
+queries until it settles. Preparation never closes the database or releases
+its native lock, even after failure. `signal` is checked at safe boundaries;
+active WASM SQL settles before an aborted operation completes. Drain preparation
+before `store.close()`. The CLI will use these APIs in the startup integration.
+
 The existing `migrate()` remains a low-level API whose caller must ensure
 exclusive access. Server startup still uses that API; the new PostgreSQL
 preparation API is not yet wired into the CLI.

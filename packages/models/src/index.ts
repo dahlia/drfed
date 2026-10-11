@@ -28,3 +28,4 @@ export * from "./migration-manifest.ts";
 export * from "./migration-state.ts";
 export * from "./migration-session.ts";
 export * from "./pglite-store.ts";
+export * from "./pglite-preparation.ts";

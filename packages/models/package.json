@@ -113,6 +113,10 @@
     "./pglite-store": {
       "types": "./dist/pglite-store.d.mts",
       "default": "./dist/pglite-store.mjs"
+    },
+    "./pglite-preparation": {
+      "types": "./dist/pglite-preparation.d.mts",
+      "default": "./dist/pglite-preparation.mjs"
     }
   },
   "files": [
@@ -139,7 +143,8 @@
       "src/migration-manifest.ts",
       "src/migration-state.ts",
       "src/migration-session.ts",
-      "src/pglite-store.ts"
+      "src/pglite-store.ts",
+      "src/pglite-preparation.ts"
     ],
     "dts": {
       "sourcemap": true,
