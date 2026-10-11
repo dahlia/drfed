@@ -547,6 +547,92 @@ it("keeps one row per delivery and actor and requires a role", async () => {
   }
 });
 
+it("marks only an inbound delivery carrying the stored activity as such", async () => {
+  const client = new PGlite();
+  try {
+    await migrate({ credentials: { driver: "pglite", client } });
+    const db = drizzle({ client, schema, relations });
+    const instanceId = uuidV7();
+    await db
+      .insert(schema.instances)
+      .values({ id: instanceId, host: "remote.example" });
+    const actorIri = "https://remote.example/users/alice";
+    const actorId = await promoteResource(
+      db,
+      actorIri,
+      "actor",
+      async (tx, r) => {
+        await tx.insert(schema.actors).values({
+          id: r.id,
+          instanceId,
+          type: "Person",
+          inboxUrl: `${actorIri}/inbox`,
+        });
+        return r.id;
+      },
+    );
+    const activityIri = "https://remote.example/activities/1";
+    const document = {
+      id: activityIri,
+      type: "Create",
+      actor: actorIri,
+      object: { type: "Note", content: "original" },
+    };
+    await promoteResource(db, activityIri, "activity", async (tx, r) => {
+      await tx.insert(schema.activities).values({
+        id: r.id,
+        type: "Create",
+        actorId,
+        published: Temporal.Now.instant(),
+        document,
+      });
+    });
+    const now = Temporal.Now.instant();
+    const inbound = (payload: unknown) =>
+      recordInbound(db, {
+        instanceId,
+        inboxUrl: "https://local.example/inbox",
+        activityIri,
+        status: "received",
+        verificationResult: "verified",
+        body: new Uint8Array(),
+        payload,
+        created: now,
+        completed: now,
+      });
+    const carrying = [
+      await inbound(document),
+      // Member order is not part of the document.
+      await inbound(Object.fromEntries(Object.entries(document).toReversed())),
+    ];
+    const other = [
+      await inbound({
+        ...document,
+        object: { type: "Note", content: "other" },
+      }),
+      // PostgreSQL's jsonb holds no U+0000, so the payload is not stored.
+      await inbound({ ...document, summary: "\0" }),
+      await inbound(undefined),
+    ];
+    for (const delivery of [...carrying, ...other]) {
+      assert.equal(await linkInboundActivity(db, delivery.id), true);
+    }
+    const rows = await db.query.activityDeliveries.findMany({
+      columns: { id: true, activityId: true, carriedSnapshot: true },
+    });
+    assert.ok(rows.every(({ activityId }) => activityId != null));
+    assert.deepEqual(
+      new Map(rows.map(({ id, carriedSnapshot }) => [id, carriedSnapshot])),
+      new Map([
+        ...carrying.map(({ id }) => [id, true] as const),
+        ...other.map(({ id }) => [id, false] as const),
+      ]),
+    );
+  } finally {
+    await client.close();
+  }
+});
+
 it("links only verified and accepted inbound deliveries to the activity they name", async () => {
   const client = new PGlite();
   try {

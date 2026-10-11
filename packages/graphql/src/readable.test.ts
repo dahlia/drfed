@@ -414,6 +414,112 @@ describe("Reading received content", () => {
     });
   });
 
+  it("never shows a stored activity to an instance that received the same IRI with other contents", async () => {
+    await withTestHarness(async ({ db, post: graphql }) => {
+      const viewers = await seedViewers(db);
+      const documents: Documents = new Map();
+      const alice = await addActor(documents, aliceIri);
+      const { send } = await createRecorder(db, documents);
+      const secret = createOf(alice.iri, "1", {
+        activity: direct,
+        object: { ...direct, content: "<p>SECRET ORIGINAL</p>" },
+      });
+      const redacted = createOf(alice.iri, "1", {
+        activity: direct,
+        object: { ...direct, content: "<p>REDACTED FOR B</p>" },
+      });
+      const query = `
+        query ($activity: ID!, $object: ID!) {
+          activity: node(id: $activity) { ... on Activity { document } }
+          object: node(id: $object) {
+            ... on Object { contentHtml document }
+          }
+        }
+      `;
+      assert.equal((await send(await signed(alice, secret))).status, 202);
+      const activityId = await idOf(db, "https://remote.example/activities/1");
+      const variables = {
+        activity: globalId("Activity", activityId),
+        object: globalId(
+          "Object",
+          await idOf(db, "https://remote.example/notes/1"),
+        ),
+      };
+      const hidden = { activity: null, object: null };
+      assert.deepEqual(
+        await read(graphql, query, variables, viewers.other),
+        hidden,
+      );
+      assert.equal(
+        (await send(await signed(alice, redacted, hostB))).status,
+        202,
+      );
+
+      assert.deepEqual(
+        await read(graphql, query, variables, viewers.other),
+        hidden,
+      );
+      assert.deepEqual(await read(graphql, query, variables, viewers.member), {
+        activity: { document: secret },
+        object: {
+          contentHtml: "<p>SECRET ORIGINAL</p>",
+          document: secret.object,
+        },
+      });
+      // A delivery's link opens no more than a node lookup.
+      const deliveriesQuery = `
+        query ($instance: ID!) {
+          node(id: $instance) {
+            ... on Instance {
+              activityDeliveries(first: 10) {
+                edges { node { activity { document } } }
+              }
+            }
+          }
+        }
+      `;
+      const linked = (document: unknown) => ({
+        node: {
+          activityDeliveries: {
+            edges: [
+              { node: { activity: document == null ? null : { document } } },
+            ],
+          },
+        },
+      });
+      assert.deepEqual(
+        await read(
+          graphql,
+          deliveriesQuery,
+          { instance: globalId("Instance", otherInstanceId) },
+          viewers.other,
+        ),
+        linked(null),
+      );
+      assert.deepEqual(
+        await read(
+          graphql,
+          deliveriesQuery,
+          { instance: globalId("Instance", localInstanceId) },
+          viewers.member,
+        ),
+        linked(secret),
+      );
+      // Both deliveries name the activity; only the first carried it.
+      const deliveries = await db.query.activityDeliveries.findMany({
+        columns: { instanceId: true, activityId: true, carriedSnapshot: true },
+        where: { direction: "inbound" },
+      });
+      assert.deepEqual(
+        new Map(deliveries.map(({ instanceId, ...row }) => [instanceId, row])),
+        new Map([
+          [localInstanceId, { activityId, carriedSnapshot: true }],
+          [otherInstanceId, { activityId, carriedSnapshot: false }],
+        ]),
+      );
+    });
+  });
+
   it("shows what a remote actor addresses to the public in any spelling", async () => {
     await withTestHarness(async ({ db, post: graphql }) => {
       const { admin } = await seedViewers(db);

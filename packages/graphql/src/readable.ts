@@ -138,6 +138,7 @@ const received = (viewer: Viewer, id: SQLWrapper): SQL => sql`exists (
   select 1 from ${activityDeliveries} ${deliveries}
   where ${deliveries.activityId} = ${id}
     and ${deliveries.direction} = 'inbound'
+    and ${deliveries.carriedSnapshot}
     and ${viewableInstance(viewer, deliveries.instanceId)}
 )`;
 
@@ -164,7 +165,9 @@ const readableObject = (viewer: Viewer, id: SQLWrapper): SQL =>
  *  -  An administrator reads everything.
  *  -  An activity of a remote actor is readable when it is addressed to the
  *     public, or when one of the local instances the viewer is a member of
- *     received it, i.e. an inbound delivery to it is linked to the activity.
+ *     received it, i.e. an inbound delivery to it is linked to the activity
+ *     and carried it as stored.  A delivery of the same IRI with other
+ *     contents stays linked but opens nothing.
  *  -  An object of a remote actor is readable when it is addressed to the
  *     public, or when the viewer may read the activity it was received in.
  *  -  Everything else, including the activities and objects of local actors

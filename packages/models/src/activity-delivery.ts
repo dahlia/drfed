@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import { isDeepStrictEqual } from "node:util";
+
 import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 
 import type { Database, Transaction } from "./db.ts";
@@ -270,30 +272,47 @@ export async function receiveInbound(db: Database, id: Uuid): Promise<boolean> {
  * authenticates an activity before accepting it, so its actor has the origin
  * of the activity's ID, whether an inbox listener ran or it was a duplicate.
  * A delivery that is already linked is left as is.
+ *
+ * The link names the activity whatever the delivery carried, but the delivery
+ * is marked as having carried the stored snapshot only when its payload is the
+ * stored document, since the same IRI may arrive again with other contents.
  * @returns Whether the delivery was linked.
  */
 export async function linkInboundActivity(
   db: Database | Transaction,
   deliveryId: Uuid,
 ): Promise<boolean> {
-  const rows = await db
-    .update(activityDeliveries)
-    .set({ activityId: resources.id })
-    .from(resources)
-    .innerJoin(activities, eq(activities.id, resources.id))
-    .where(
-      and(
-        eq(activityDeliveries.id, deliveryId),
-        eq(activityDeliveries.direction, "inbound"),
-        inArray(activityDeliveries.status, ["received", "acknowledged"]),
-        eq(activityDeliveries.verificationResult, "verified"),
-        isNull(activityDeliveries.activityId),
-        eq(resources.iri, activityDeliveries.activityIri),
-        eq(resources.kind, "activity"),
-      ),
-    )
-    .returning({ id: activityDeliveries.id });
-  return rows.length > 0;
+  return await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(activityDeliveries)
+      .set({ activityId: resources.id })
+      .from(resources)
+      .innerJoin(activities, eq(activities.id, resources.id))
+      .where(
+        and(
+          eq(activityDeliveries.id, deliveryId),
+          eq(activityDeliveries.direction, "inbound"),
+          inArray(activityDeliveries.status, ["received", "acknowledged"]),
+          eq(activityDeliveries.verificationResult, "verified"),
+          isNull(activityDeliveries.activityId),
+          eq(resources.iri, activityDeliveries.activityIri),
+          eq(resources.kind, "activity"),
+        ),
+      )
+      .returning({
+        payload: activityDeliveries.payload,
+        document: activities.document,
+      });
+    if (row == null) return false;
+    // A payload jsonb could not hold is stored as NULL and carries nothing.
+    if (row.payload != null && isDeepStrictEqual(row.payload, row.document)) {
+      await tx
+        .update(activityDeliveries)
+        .set({ carriedSnapshot: true })
+        .where(eq(activityDeliveries.id, deliveryId));
+    }
+    return true;
+  });
 }
 
 /**

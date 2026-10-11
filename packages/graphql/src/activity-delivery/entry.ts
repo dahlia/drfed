@@ -24,7 +24,7 @@ import type { Uuid } from "@drfed/models/uuid";
 import { drizzleConnectionHelpers } from "@pothos/plugin-drizzle";
 
 import builder, { type DrFedObjectRef } from "../builder.ts";
-import { viewableInstance } from "../readable.ts";
+import { readableResource, viewableInstance } from "../readable.ts";
 
 const ActivityDeliveryDirection = builder.enumType(
   "ActivityDeliveryDirection",
@@ -225,11 +225,17 @@ const ActivityDeliveryRef = builder.drizzleNode("activityDeliveries", {
     activityIri: t.expose("activityIri", { type: "URL", nullable: true }),
     activity: t.relation("activity", {
       nullable: true,
+      // The link names the activity whatever the delivery carried, so it
+      // opens no more than a node lookup would.
+      query: (_, ctx) => ({
+        where: { RAW: (table) => readableResource(ctx, table.id) },
+      }),
       description:
         "The stored activity `activityIri` names, for an inbound delivery " +
         "that was verified and accepted, or a delivery DrFed sent.  Null " +
         "when the activity has no ID, did not meet the rules for storing " +
-        "it, or the delivery was not verified.",
+        "it, the delivery was not verified, or the viewer may not read the " +
+        "activity.",
     }),
     objectType: t.exposeString("objectType", { nullable: true }),
     objectIri: t.expose("objectIri", { type: "URL", nullable: true }),

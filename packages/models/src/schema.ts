@@ -704,6 +704,12 @@ export const activityDeliveries = pgTable(
     activityId: uuid("activity_id")
       .$type<Uuid>()
       .references(() => activities.id, { onDelete: "set null" }),
+    /**
+     * Whether an inbound delivery carried the stored activity as it is, not
+     * only its IRI.  `linkInboundActivity()` decides it, and only such a
+     * delivery opens the activity to its instance.
+     */
+    carriedSnapshot: boolean("carried_snapshot").notNull().default(false),
     objectType: text("object_type"),
     objectIri: text("object_iri"),
     signedKeyIri: text("signed_key_iri"),
