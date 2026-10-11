@@ -27,19 +27,22 @@ import {
   string,
   url,
 } from "@optique/core/valueparser";
-import { type LogOutput, logLevel, textFormatter } from "@optique/logtape";
 import { path } from "@optique/run/valueparser";
 
 import {
   type Sourced,
   configurationBoolean,
-  configurationPath,
   configurationProvenance,
   type createConfigurationBindings,
   configurationSettings as settings,
   stringArray,
 } from "./configuration.ts";
 import { resolveDatabaseSettings } from "./database-settings.ts";
+import {
+  createLoggingParser,
+  loggingValueOptionNames,
+  resolveLogging,
+} from "./logging.ts";
 import { rootOrigin } from "./valueparser.ts";
 
 /** Shared value-option spellings for strict parsing and metadata arity. */
@@ -55,9 +58,9 @@ export const valueOptionNames = {
   migrationLockTimeout: ["--migration-lock-timeout"],
   mailTransport: ["--mail-transport"],
   smtpUrl: ["--smtp-url", "-s"],
-  logLevel: ["--log-level", "-L"],
-  logFormat: ["--log-format"],
-  logOutput: ["--log-output"],
+  logLevel: loggingValueOptionNames.logLevel,
+  logFormat: loggingValueOptionNames.logFormat,
+  logOutput: loggingValueOptionNames.logOutput,
   outputFile: ["--output-file", "-o"],
 } as const;
 
@@ -81,36 +84,7 @@ export function createParser(
     metavar: "MILLISECONDS",
   });
   const sender = email({ lowercase: true });
-  const level = logLevel();
-  const formatter = textFormatter();
-  const logging = object("Logging options", {
-    level: bind(
-      option(...valueOptionNames.logLevel, level, {
-        description: message`The lowest log level to record.`,
-      }),
-      settings.logLevel,
-      level,
-      identity,
-      "info",
-    ),
-    format: bind(
-      option(...valueOptionNames.logFormat, formatter, {
-        description: message`The log formatter.`,
-      }),
-      settings.logFormat,
-      formatter,
-      identity,
-    ),
-    output: bind(
-      option(...valueOptionNames.logOutput, string({ metavar: "FILE" }), {
-        description: message`Log output file. Use - for the console.`,
-      }),
-      settings.logOutput,
-      string(),
-      identity,
-      "-",
-    ),
-  });
+  const logging = createLoggingParser(bindings);
   const server = object("DrFed server", {
     address: bind(
       option(...valueOptionNames.address, address, {
@@ -315,25 +289,6 @@ function required<T>(
 ): T {
   if (value?.value === undefined) throw new Error(error);
   return value.value;
-}
-
-function resolveLogging(raw: RawServerOptions["logging"], cwd: string) {
-  const outputSetting = raw.output;
-  if (outputSetting?.value === undefined) {
-    throw new Error("Missing log output.");
-  }
-  const output = outputSetting.value;
-  if (output.trim() === "") throw new Error("Log output path cannot be empty.");
-  const formatter = raw.format?.value;
-  const logOutput: LogOutput =
-    output === "-"
-      ? { type: "console", ...(formatter === undefined ? {} : { formatter }) }
-      : {
-          type: "file",
-          path: configurationPath(outputSetting, cwd),
-          ...(formatter === undefined ? {} : { formatter }),
-        };
-  return { logLevel: required(raw.level, "Missing log level."), logOutput };
 }
 
 function resolveMail(options: RawServerOptions) {

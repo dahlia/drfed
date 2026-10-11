@@ -31,8 +31,8 @@ run = "pnpm --parallel -F @drfed/federation -F @drfed/graphql -F @drfed/models b
 silent = "stdout"
 
 [tasks."build:server"]
-description = "Build the backend and application CLI without the frontend"
-depends = ["build:backend"]
+description = "Build the application CLI after its backend and web dependencies"
+depends = ["build:backend", "build:web"]
 run = "pnpm -F @drfed/drfed build"
 silent = "stdout"
 

@@ -27,11 +27,13 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
+import { type IncomingHttpHeaders, request as httpRequest } from "node:http";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, relative, resolve } from "node:path";
 import process from "node:process";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
@@ -171,6 +173,199 @@ async function pack(name: string) {
   return { archive, manifest };
 }
 
+interface WebSmokeResponse {
+  readonly status: number;
+  readonly headers: IncomingHttpHeaders;
+  readonly body: string;
+}
+async function requestInstalledWeb(
+  port: number,
+  path: string,
+  headers: Readonly<Record<string, string>> = {},
+  body?: string,
+): Promise<WebSmokeResponse> {
+  const result = Promise.withResolvers<WebSmokeResponse>();
+  const request = httpRequest(
+    {
+      hostname: "127.0.0.1",
+      port,
+      path,
+      method: body === undefined ? "GET" : "POST",
+      headers: { host: "drfed.test", ...headers },
+    },
+    (response) => {
+      let output = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk: string) => {
+        output += chunk;
+      });
+      response.once("end", () =>
+        result.resolve({
+          status: response.statusCode ?? 0,
+          headers: response.headers,
+          body: output,
+        }),
+      );
+      response.once("error", result.reject);
+    },
+  );
+  request.once("error", result.reject);
+  request.setTimeout(10_000, () =>
+    request.destroy(new Error("Installed web request timed out.")),
+  );
+  request.end(body);
+  return await result.promise;
+}
+interface CrossJsonModule {
+  readonly toCrossJSON: (value: unknown) => unknown;
+}
+function isCrossJsonModule(value: unknown): value is CrossJsonModule {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "toCrossJSON" in value &&
+    typeof value.toCrossJSON === "function"
+  );
+}
+async function smokeInstalledWeb(
+  binary: string,
+  modules: string,
+  backendPort: number,
+  cwd: string,
+  challengeId: string,
+  logFile: string,
+): Promise<void> {
+  const socket = createServer();
+  socket.listen(0, "127.0.0.1");
+  await once(socket, "listening");
+  const address = socket.address();
+  assert.ok(address !== null && typeof address !== "string");
+  await socket[Symbol.asyncDispose]();
+  const child = spawn(
+    process.execPath,
+    [
+      binary,
+      "--public-origin=http://drfed.test",
+      `--backend-url=http://127.0.0.1:${backendPort}`,
+      `--listen=127.0.0.1:${address.port}`,
+      "--log-level=error",
+    ],
+    { cwd, env, stdio: ["ignore", "pipe", "pipe"] },
+  );
+  const ready = Promise.withResolvers<void>();
+  const closed = Promise.withResolvers<{
+    code: number | null;
+    signal: string | null;
+  }>();
+  let output = "";
+  child.stdout.on("data", (chunk: Buffer) => {
+    output += chunk.toString();
+    if (output.includes("Listening on:")) ready.resolve();
+  });
+  child.stderr.on("data", (chunk: Buffer) => {
+    output += chunk.toString();
+  });
+  child.once("error", ready.reject);
+  child.once("close", (code, signal) => {
+    ready.reject(new Error("Installed web exited before readiness."));
+    closed.resolve({ code, signal });
+  });
+  const startupTimer = setTimeout(() => child.kill("SIGKILL"), 30_000);
+  try {
+    await ready.promise;
+    clearTimeout(startupTimer);
+    const page = await requestInstalledWeb(address.port, "/about");
+    assert.equal(page.status, 200);
+    assert.match(page.body, /DrFed/u);
+    const asset = await requestInstalledWeb(address.port, "/icon.svg");
+    assert.equal(asset.status, 200);
+    assert.match(asset.body, /<svg/u);
+    let code: string | undefined;
+    const pattern = new RegExp(
+      `challengeId=${challengeId}&(?:amp;)?code=(?<code>[A-Za-z0-9]+)`,
+      "u",
+    );
+    // The blocking file sink flushes on a record after its five-second interval.
+    const mailDeadline = Date.now() + 10_000;
+    while (code === undefined && Date.now() < mailDeadline) {
+      code = pattern.exec(await readFile(logFile, "utf8"))?.groups?.code;
+      if (code === undefined) {
+        await delay(250);
+        // Keep producing public query logs so the buffered mail record flushes.
+        const probe = await fetch(`http://127.0.0.1:${backendPort}/graphql`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ query: "{ __typename }" }),
+          signal: AbortSignal.timeout(5_000),
+        });
+        assert.equal(probe.status, 200);
+        await probe.arrayBuffer();
+      }
+    }
+    assert.ok(code !== undefined, "Login mail contains its verification code.");
+    const webPackage = join(modules, "@drfed/web");
+    const bundle = await readFile(
+      join(webPackage, ".output/server/_ssr/ssr.mjs"),
+      "utf8",
+    );
+    const id =
+      /completeLoginChallengeMutation = [^;]+;[\s\S]*?createServerReference\("(?<id>[^"]+)"/u.exec(
+        bundle,
+      )?.groups?.id;
+    assert.ok(id !== undefined, "Installed login action is registered.");
+    const serializer: unknown = await import(
+      pathToFileURL(
+        createRequire(join(webPackage, "package.json")).resolve("seroval"),
+      ).href
+    );
+    assert.ok(isCrossJsonModule(serializer));
+    const payload = JSON.stringify(
+      serializer.toCrossJSON([{ challengeId, code }]),
+    );
+    const body = `;0x${new TextEncoder().encode(payload).length.toString(16).padStart(8, "0")};${payload}`;
+    const path = `/_server?id=${id}`;
+    const headers = { "x-start-type": "0", "x-server-instance": "installed" };
+    const denied = await requestInstalledWeb(
+      address.port,
+      path,
+      { ...headers, origin: "http://instance.drfed.test" },
+      body,
+    );
+    assert.equal(denied.status, 403);
+    const confirmed = await requestInstalledWeb(
+      address.port,
+      path,
+      { ...headers, origin: "http://drfed.test" },
+      body,
+    );
+    assert.equal(confirmed.status, 200);
+    const cookie = confirmed.headers["set-cookie"]?.find((value) =>
+      value.startsWith("session="),
+    );
+    assert.ok(
+      cookie !== undefined,
+      "Installed login confirmation sets a session cookie.",
+    );
+    assert.match(cookie, /HttpOnly/u);
+    assert.match(cookie, /SameSite=Lax/u);
+    const authenticated = await requestInstalledWeb(address.port, "/about", {
+      cookie: cookie.split(";")[0] ?? "",
+    });
+    assert.equal(authenticated.status, 200);
+    assert.match(authenticated.body, /Operator/u);
+  } finally {
+    clearTimeout(startupTimer);
+    child.kill("SIGTERM");
+    const timer = setTimeout(() => child.kill("SIGKILL"), 15_000);
+    try {
+      const result = await closed.promise;
+      if (!windows) assert.deepEqual(result, { code: 0, signal: null }, output);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
 // oxlint-disable-next-line max-statements
 async function smoke(
   binary: string,
@@ -178,6 +373,7 @@ async function smoke(
   dataPath: string,
   migrate: boolean,
   loginEmail = "unknown@example.com",
+  web?: { readonly binary: string; readonly modules: string },
 ) {
   const socket = createServer();
   socket.listen(0, "127.0.0.1");
@@ -284,6 +480,16 @@ log_output = "server.log"
     assert.equal(body.errors, undefined, JSON.stringify(body));
     assert.ok(body.data.loginByEmail.challengeId);
     challengeId = body.data.loginByEmail.challengeId;
+    if (web !== undefined && challengeId !== undefined) {
+      await smokeInstalledWeb(
+        web.binary,
+        web.modules,
+        address.port,
+        cwd,
+        challengeId,
+        join(configDirectory, "server.log"),
+      );
+    }
   } finally {
     child.kill("SIGTERM");
     const timer = setTimeout(() => child.kill("SIGKILL"), 15_000);
@@ -417,6 +623,37 @@ try {
       prefix,
       join(prefix, "migration-data"),
     );
+    const webBinary = join(application, "bin/drfed-web.mjs");
+    const webLink = global
+      ? join(prefix, windows ? "drfed-web.cmd" : "bin/drfed-web")
+      : join(modules, ".bin", windows ? "drfed-web.cmd" : "drfed-web");
+    if (!windows) {
+      assert.equal(await realpath(webLink), await realpath(webBinary));
+      assert.match(
+        (await run(webLink, ["--help"], prefix)).stdout,
+        /--backend-url/u,
+      );
+    } else {
+      assert.match(await readFile(webLink, "utf8"), /drfed-web.mjs/u);
+      assert.match(
+        (
+          await run(
+            process.execPath,
+            [
+              npm,
+              "exec",
+              "--offline",
+              ...(global ? ["--global", "--prefix", prefix] : []),
+              "--",
+              "drfed-web",
+              "--help",
+            ],
+            prefix,
+          )
+        ).stdout,
+        /--backend-url/u,
+      );
+    }
     const accountBinary = join(application, "bin/drfed-account.mjs");
     const accountLink = global
       ? join(prefix, windows ? "drfed-account.cmd" : "bin/drfed-account")
@@ -495,6 +732,7 @@ try {
       dataPath,
       false,
       "operator@example.com",
+      { binary: webBinary, modules },
     );
     assert.ok(challengeId);
     await run(

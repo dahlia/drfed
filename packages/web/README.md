@@ -6,6 +6,33 @@ SolidStart frontend and embedded Node.js runtime for [DrFed].
 [DrFed]: https://drfed.org/
 
 
+Installed standalone frontend
+-----------------------------
+
+Install the application package to obtain the `drfed-web` command:
+
+~~~~ sh
+npm install --global @drfed/drfed
+drfed-web --backend-url http://localhost:8888 \
+  --public-origin https://drfed.example --listen localhost:3000
+~~~~
+
+The backend must already be running, and its `--login-origin` allowlist must
+include the frontend's public origin. The backend value is normalized to an
+origin; requests always use its `/graphql` endpoint. Frontend deployment
+settings are resolved at startup and do not require rebuilding the frontend.
+
+All DrFed commands read the same explicit TOML file through `--config FILE` or
+`DRFED_CONFIG`, with CLI values overriding environment values and TOML.
+`drfed-web` uses `web.public_origin`/`DRFED_PUBLIC_ORIGIN`,
+`web.backend_url`/`DRFED_BACKEND_URL` and
+`web.listen`/`DRFED_WEB_LISTEN`. Its default listen address is
+`localhost:3000`; `server.listen`/`DRFED_LISTEN` belongs to the backend.
+The common `telemetry` settings control logging. Database and mail sections are
+unused by this command. `--print-config` explains effective settings and sources
+without starting the runtime or opening log files.
+
+
 Development and builds
 ----------------------
 

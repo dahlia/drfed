@@ -29,6 +29,24 @@ CLI parsing validates settings before opening database or mail resources.
 the server; invalid options also exit before creating those resources.
 
 
+Standalone web frontend
+-----------------------
+
+`drfed-web` runs the installed frontend against a separate GraphQL backend:
+
+~~~~ sh
+drfed-web --backend-url http://localhost:8888 \
+  --public-origin https://drfed.example.com --listen localhost:3000
+~~~~
+
+Add the public frontend origin to the backend's `--login-origin` allowlist.
+The command consumes the shared TOML file's `web` and `telemetry` sections,
+without opening database or mail resources. Its listen setting is
+`web.listen`/`DRFED_WEB_LISTEN`, independent of
+`server.listen`/`DRFED_LISTEN`. See [the web package's README](../web/README.md)
+for the complete runtime and request policy.
+
+
 Root origin
 -----------
 

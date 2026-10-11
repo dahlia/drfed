@@ -134,6 +134,9 @@ importers:
       '@drfed/models':
         specifier: workspace:*
         version: link:../models
+      '@drfed/web':
+        specifier: workspace:*
+        version: link:../web
       '@electric-sql/pglite':
         specifier: 'catalog:'
         version: 0.5.3

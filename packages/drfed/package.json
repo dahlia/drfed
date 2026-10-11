@@ -109,6 +109,18 @@
     "./commands/account-create": {
       "types": "./dist/commands/account-create.d.mts",
       "default": "./dist/commands/account-create.mjs"
+    },
+    "./logging": {
+      "types": "./dist/logging.d.mts",
+      "default": "./dist/logging.mjs"
+    },
+    "./commands/web": {
+      "types": "./dist/commands/web.d.mts",
+      "default": "./dist/commands/web.mjs"
+    },
+    "./commands/web-program": {
+      "types": "./dist/commands/web-program.d.mts",
+      "default": "./dist/commands/web-program.mjs"
     }
   },
   "files": [
@@ -119,7 +131,8 @@
   "bin": {
     "drfed-server": "bin/drfed-server.mjs",
     "drfed-migrate": "bin/drfed-migrate.mjs",
-    "drfed-account": "bin/drfed-account.mjs"
+    "drfed-account": "bin/drfed-account.mjs",
+    "drfed-web": "bin/drfed-web.mjs"
   },
   "tsdown": {
     "entry": [
@@ -139,7 +152,10 @@
       "src/commands/migrate-program.ts",
       "src/commands/account.ts",
       "src/commands/account-program.ts",
-      "src/commands/account-create.ts"
+      "src/commands/account-create.ts",
+      "src/logging.ts",
+      "src/commands/web.ts",
+      "src/commands/web-program.ts"
     ],
     "dts": {
       "sourcemap": true,
@@ -180,6 +196,7 @@
     "postgres": "catalog:",
     "smol-toml": "^1.9.1",
     "srvx": "^0.11.16",
-    "valibot": "1.4.2"
+    "valibot": "1.4.2",
+    "@drfed/web": "workspace:*"
   }
 }
