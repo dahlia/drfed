@@ -361,6 +361,50 @@ describe("Reading received content", () => {
         });
         assert.deepEqual(data.object, stored);
       }
+      // Nor through the classifications of its addressing.
+      const classificationsQuery = `
+        query ($activity: ID!) {
+          node(id: $activity) {
+            ... on Activity {
+              expectedClassifications { implementation classification }
+            }
+          }
+        }
+      `;
+      for (const viewer of [
+        undefined,
+        viewers.stranger,
+        viewers.pending,
+        viewers.other,
+      ]) {
+        assert.deepEqual(
+          await read(
+            graphql,
+            classificationsQuery,
+            { activity: variables.activity },
+            viewer,
+          ),
+          { node: { expectedClassifications: [] } },
+        );
+      }
+      for (const viewer of [viewers.member, viewers.admin]) {
+        assert.deepEqual(
+          await read(
+            graphql,
+            classificationsQuery,
+            { activity: variables.activity },
+            viewer,
+          ),
+          {
+            node: {
+              expectedClassifications: [
+                { implementation: "MASTODON", classification: "direct" },
+                { implementation: "MISSKEY", classification: "specified" },
+              ],
+            },
+          },
+        );
+      }
     });
   });
 

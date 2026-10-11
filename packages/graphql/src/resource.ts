@@ -375,7 +375,13 @@ const ActivityRef = builder.drizzleNode("activities", {
           where: { id: activity.id },
           with: activitySelection,
         });
-        if (row?.objectId == null) return [];
+        // As hidden from this viewer as `object` is, its addressing included.
+        if (
+          row?.objectId == null ||
+          !(await isReadableResource(ctx, row.objectId))
+        ) {
+          return [];
+        }
         const object = await ctx.db.query.objects.findFirst({
           where: {
             id: row.objectId,
