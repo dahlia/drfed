@@ -27,6 +27,7 @@ catalog:
   "@types/node": ^26.0.0
   "@upyo/core": 0.6.0
   "@upyo/jmap": 0.6.0
+  "@upyo/lettermint": 0.6.0
   "@upyo/logtape": 0.6.0
   "@upyo/mock": 0.6.0
   "@upyo/smtp": 0.6.0
@@ -58,6 +59,7 @@ minimumReleaseAgeExclude:
   - "@optique/run@1.3.0"
   - "@upyo/core@0.6.0"
   - "@upyo/jmap@0.6.0"
+  - "@upyo/lettermint@0.6.0"
   - "@upyo/logtape@0.6.0"
   - "@upyo/mock@0.6.0"
   - "@upyo/smtp@0.6.0"

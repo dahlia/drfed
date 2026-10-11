@@ -153,6 +153,18 @@
     "./jmap-runtime": {
       "types": "./dist/jmap-runtime.d.mts",
       "default": "./dist/jmap-runtime.mjs"
+    },
+    "./api-mail-parser": {
+      "types": "./dist/api-mail-parser.d.mts",
+      "default": "./dist/api-mail-parser.mjs"
+    },
+    "./api-mail-settings": {
+      "types": "./dist/api-mail-settings.d.mts",
+      "default": "./dist/api-mail-settings.mjs"
+    },
+    "./bounded-mail-runtime": {
+      "types": "./dist/bounded-mail-runtime.d.mts",
+      "default": "./dist/bounded-mail-runtime.mjs"
     }
   },
   "files": [
@@ -195,7 +207,10 @@
       "src/secret-source.ts",
       "src/jmap-parser.ts",
       "src/jmap-settings.ts",
-      "src/jmap-runtime.ts"
+      "src/jmap-runtime.ts",
+      "src/api-mail-parser.ts",
+      "src/api-mail-settings.ts",
+      "src/bounded-mail-runtime.ts"
     ],
     "dts": {
       "sourcemap": true,
@@ -233,6 +248,7 @@
     "@optique/run": "catalog:",
     "@upyo/core": "catalog:",
     "@upyo/jmap": "catalog:",
+    "@upyo/lettermint": "catalog:",
     "@upyo/logtape": "catalog:",
     "@upyo/smtp": "catalog:",
     "drizzle-orm": "catalog:",

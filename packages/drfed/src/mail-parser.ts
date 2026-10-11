@@ -22,6 +22,10 @@ import { flag, option } from "@optique/core/primitives";
 import { integer, string } from "@optique/core/valueparser";
 
 import {
+  apiMailValueOptionNames,
+  createApiMailFields,
+} from "./api-mail-parser.ts";
+import {
   type createConfigurationBindings,
   configurationSettings as settings,
 } from "./configuration.ts";
@@ -29,6 +33,7 @@ import { createJmapFields, jmapValueOptionNames } from "./jmap-parser.ts";
 
 /** Mail value-option spellings shared by parsing and metadata arity. */
 export const mailValueOptionNames = {
+  ...apiMailValueOptionNames,
   ...jmapValueOptionNames,
   mailTransport: ["--mail-transport"],
   smtpUrl: ["--smtp-url", "-s"],
@@ -59,13 +64,14 @@ export function createMailParser(
   const { bind } = bindings;
   const identity = (value: string) => value;
   return object("Mail delivery options", {
+    ...createApiMailFields(bindings),
     ...createJmapFields(bindings),
     mailTransport: bind(
       option(
         ...mailValueOptionNames.mailTransport,
         string({ metavar: "TRANSPORT" }),
         {
-          description: message`Select logtape, smtp or jmap. SMTP host/URL and JMAP session URL select their provider.`,
+          description: message`Select logtape, smtp, jmap or lettermint. SMTP host/URL and JMAP session URL select their provider.`,
         },
       ),
       settings.mailTransport,

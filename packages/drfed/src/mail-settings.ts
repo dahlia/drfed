@@ -18,6 +18,10 @@ import { url } from "@optique/core/valueparser";
 import type { SmtpConfig } from "@upyo/smtp";
 
 import {
+  type ApiMailSettings,
+  resolveApiMailSettings,
+} from "./api-mail-settings.ts";
+import {
   type Sourced,
   configurationBoolean,
   configurationProvenance,
@@ -45,6 +49,7 @@ export type MailAuthentication =
 
 /** Listener-independent mail configuration; secret files remain unopened. */
 export type MailSettings =
+  | ApiMailSettings
   | JmapSettings
   | { readonly transport: "logtape"; readonly logContent: boolean }
   | {
@@ -63,7 +68,10 @@ const priority = { default: 0, config: 1, env: 2, cli: 3 } as const;
 const rank = (value: Sourced<unknown> | undefined) =>
   value?.value === undefined ? -1 : priority[value.source];
 
-function selectTransport(raw: RawMailOptions) {
+function selectTransport(raw: RawMailOptions): {
+  transport: MailSettings["transport"];
+  selector: Input;
+} {
   const highest = Math.max(
     rank(raw.mailTransport),
     rank(raw.smtpUrl),
@@ -76,9 +84,14 @@ function selectTransport(raw: RawMailOptions) {
   const jmap = rank(raw.jmapSessionUrl) === highest && highest >= 0;
   const transport =
     explicit ?? (jmap ? "jmap" : smtp && highest >= 0 ? "smtp" : "logtape");
-  if (transport !== "smtp" && transport !== "logtape" && transport !== "jmap") {
+  if (
+    transport !== "smtp" &&
+    transport !== "logtape" &&
+    transport !== "jmap" &&
+    transport !== "lettermint"
+  ) {
     throw new Error(
-      "Unsupported mail transport; expected logtape, smtp or jmap.",
+      "Unsupported mail transport; expected logtape, smtp, jmap or lettermint.",
     );
   }
   if (
@@ -499,40 +512,52 @@ function logContent(raw: RawMailOptions) {
   return parsed.value;
 }
 
-function diagnosticValues(
-  mail: MailSettings,
-  smtp: ReturnType<typeof smtpSettings> | undefined,
-  jmap: ReturnType<typeof resolveJmapSettings> | undefined,
-) {
-  const values: Record<string, unknown> = { mailTransport: mail.transport };
-  if (mail.transport === "logtape") values.mailLogContent = mail.logContent;
-  else if (mail.transport === "jmap") Object.assign(values, jmap?.values);
-  else {
-    Object.assign(values, {
+function selectedMailSettings(
+  transport: MailSettings["transport"],
+  raw: RawMailOptions,
+  cwd: string,
+): {
+  mail: MailSettings;
+  sources: Record<string, Input>;
+  values: Record<string, unknown>;
+} {
+  if (transport === "lettermint") return resolveApiMailSettings(raw, cwd);
+  if (transport === "jmap") return resolveJmapSettings(raw, cwd);
+  if (transport === "logtape") {
+    const logContentValue = logContent(raw);
+    return {
+      mail: { transport, logContent: logContentValue },
+      sources: {},
+      values: { mailLogContent: logContentValue },
+    };
+  }
+  const smtp = smtpSettings(raw, cwd);
+  const { mail } = smtp;
+  return {
+    mail,
+    sources: smtp.sources,
+    values: {
       smtpHost: mail.connection.host,
       smtpPort: mail.connection.port,
-      smtpTls: smtp?.mode,
+      smtpTls: smtp.mode,
       smtpConnectionTimeout: mail.connection.connectionTimeout,
       smtpSocketTimeout: mail.connection.socketTimeout,
       smtpPoolSize: mail.connection.poolSize,
       smtpLocalName: mail.connection.localName,
       smtpAuthMethod: mail.authentication?.method,
-    });
-  }
-  if (mail.transport !== "logtape") {
-    for (const [key, value] of Object.entries(
-      mail.transport === "smtp" ? (smtp?.sources ?? {}) : (jmap?.sources ?? {}),
-    )) {
-      if (
-        key.startsWith(mail.transport) &&
-        value?.value !== undefined &&
-        configurationSettings[key as keyof typeof configurationSettings].secret
-      ) {
-        values[key] = "<redacted>";
-      }
-    }
-  }
-  return values;
+    },
+  };
+}
+
+function secretFieldForTransport(
+  key: string,
+  transport: MailSettings["transport"],
+) {
+  if (key.startsWith(transport)) return true;
+  return (
+    transport === "lettermint" &&
+    (key === "mailApiKey" || key === "mailApiKeyFile")
+  );
 }
 
 function ignoredMailField(
@@ -541,11 +566,12 @@ function ignoredMailField(
   sources: Record<string, Input>,
 ) {
   if (key === "mailLogContent") return provider !== "logtape";
-  const branch = key.startsWith("smtp")
-    ? "smtp"
-    : key.startsWith("jmap")
-      ? "jmap"
-      : undefined;
+  if (key === "mailApiKey" || key === "mailApiKeyFile") {
+    return provider !== "lettermint" || sources[key]?.value === undefined;
+  }
+  const branch = ["smtp", "jmap", "lettermint"].find((name) =>
+    key.startsWith(name),
+  );
   if (branch === undefined) return false;
   if (branch !== provider) return true;
   if (key === "smtpAuthMethod" && sources[key]?.source === "default") {
@@ -559,24 +585,26 @@ function ignoredMailField(
  */
 export function resolveMailSettings(raw: RawMailOptions, cwd = process.cwd()) {
   const selection = selectTransport(raw);
-  const smtp =
-    selection.transport === "smtp" ? smtpSettings(raw, cwd) : undefined;
-  const jmap =
-    selection.transport === "jmap" ? resolveJmapSettings(raw, cwd) : undefined;
-  const mail: MailSettings = jmap?.mail ??
-    smtp?.mail ?? {
-      transport: "logtape",
-      logContent: logContent(raw),
-    };
+  const resolved = selectedMailSettings(selection.transport, raw, cwd);
+  const { mail, sources: activeSources } = resolved;
   const provenance = configurationProvenance({
     ...raw,
-    ...smtp?.sources,
-    ...jmap?.sources,
+    ...activeSources,
     mailTransport: selection.selector,
   });
-  const values = diagnosticValues(mail, smtp, jmap);
-  const activeSources: Record<string, Input> =
-    mail.transport === "smtp" ? (smtp?.sources ?? {}) : (jmap?.sources ?? {});
+  const values: Record<string, unknown> = {
+    mailTransport: mail.transport,
+    ...resolved.values,
+  };
+  for (const [key, value] of Object.entries(activeSources)) {
+    if (
+      secretFieldForTransport(key, mail.transport) &&
+      value?.value !== undefined &&
+      configurationSettings[key as keyof typeof configurationSettings].secret
+    ) {
+      values[key] = "<redacted>";
+    }
+  }
   const ignored = Object.entries(raw)
     .filter(
       ([key, value]) =>

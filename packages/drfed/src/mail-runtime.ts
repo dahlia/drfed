@@ -20,6 +20,7 @@ import { createSecureContext, getCACertificates } from "node:tls";
 import { getLogger } from "@logtape/logtape";
 import type { Transport } from "@upyo/core";
 import type { JmapConfig } from "@upyo/jmap";
+import { type LettermintConfig, LettermintTransport } from "@upyo/lettermint";
 import { LogTapeTransport } from "@upyo/logtape";
 import {
   type SmtpConfig,
@@ -27,6 +28,8 @@ import {
   SmtpTransport,
 } from "@upyo/smtp";
 
+import { validateApiMailCredential } from "./api-mail-settings.ts";
+import { createBoundedTransport } from "./bounded-mail-runtime.ts";
 import { createJmapTransport } from "./jmap-runtime.ts";
 import { validateJmapCredential } from "./jmap-settings.ts";
 import {
@@ -39,6 +42,7 @@ import { readSecretSource } from "./secret-source.ts";
 
 /** Mail settings with operational credential reads completed before DB writes. */
 export type PreparedMail =
+  | { readonly transport: "lettermint"; readonly connection: LettermintConfig }
   | { readonly transport: "jmap"; readonly connection: JmapConfig }
   | { readonly transport: "logtape"; readonly logContent: boolean }
   | { readonly transport: "smtp"; readonly connection: SmtpConfig };
@@ -87,6 +91,19 @@ export async function prepareMail(
 ): Promise<PreparedMail> {
   signal?.throwIfAborted();
   if (settings.transport === "logtape") return settings;
+  if (settings.transport === "lettermint") {
+    const credential = await readSecretSource(
+      settings.credential,
+      "mail API credential",
+      signal,
+    );
+    validateApiMailCredential(credential);
+    signal?.throwIfAborted();
+    return {
+      transport: "lettermint",
+      connection: { ...settings.connection, apiToken: credential },
+    };
+  }
   if (settings.transport === "jmap") {
     const { authentication } = settings;
     const credential = await readSecretSource(
@@ -186,15 +203,21 @@ export interface MailRuntime {
  */
 export function createMailRuntime(settings: PreparedMail): MailRuntime {
   const transport =
-    settings.transport === "jmap"
-      ? createJmapTransport(settings.connection)
-      : settings.transport === "smtp"
-        ? new SmtpTransport(settings.connection)
-        : new LogTapeTransport({
-            ...(settings.logContent
-              ? { recordMessage: "inline" as const }
-              : {}),
-          });
+    settings.transport === "lettermint"
+      ? createBoundedTransport(
+          new LettermintTransport(settings.connection),
+          settings.connection.timeout ?? 30_000,
+          "Lettermint",
+        )
+      : settings.transport === "jmap"
+        ? createJmapTransport(settings.connection)
+        : settings.transport === "smtp"
+          ? new SmtpTransport(settings.connection)
+          : new LogTapeTransport({
+              ...(settings.logContent
+                ? { recordMessage: "inline" as const }
+                : {}),
+            });
   if (settings.transport === "logtape") {
     getLogger(["drfed", "mail"]).warning(
       "Mail delivery is disabled. Select a delivery transport; use --mail-log-content only to inspect login codes in development logs.",

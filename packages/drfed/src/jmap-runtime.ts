@@ -14,93 +14,20 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import {
-  type Message,
-  type Receipt,
-  type Transport,
-  type TransportOptions,
-  createFailedReceipt,
-} from "@upyo/core";
+import { type Transport } from "@upyo/core";
 import { type JmapConfig, JmapTransport } from "@upyo/jmap";
 
-/** Bound JMAP delivery through JSON body parsing without replaying submissions.
- * @returns A transport owning its active sends and idempotent disposal.
+import { createBoundedTransport } from "./bounded-mail-runtime.ts";
+
+/** Bound JMAP delivery and prevent replaying uncertain submissions.
+ * @returns An owned transport with whole-send deadlines and draining cleanup.
  */
 export function createJmapTransport(
   config: JmapConfig,
 ): Transport<"jmap"> & AsyncDisposable {
-  const sdk = new JmapTransport({ ...config, retries: 0 });
-  const controllers = new Set<AbortController>();
-  const pending = new Set<Promise<Receipt<"jmap">>>();
-  let closing: Promise<void> | undefined;
-  function send(message: Message, options?: TransportOptions) {
-    if (closing !== undefined) {
-      return Promise.reject(new Error("JMAP transport is closed."));
-    }
-    const controller = new AbortController();
-    const signal =
-      options?.signal === undefined
-        ? controller.signal
-        : AbortSignal.any([controller.signal, options.signal]);
-    const timer = setTimeout(
-      () =>
-        controller.abort(
-          new DOMException("JMAP delivery timed out.", "TimeoutError"),
-        ),
-      config.timeout ?? 30_000,
-    );
-    timer.unref();
-    controllers.add(controller);
-    const work = (async () => {
-      try {
-        return await sdk.send(message, { signal });
-      } catch (error) {
-        options?.signal?.throwIfAborted();
-        if (
-          controller.signal.aborted &&
-          controller.signal.reason instanceof DOMException &&
-          controller.signal.reason.name === "TimeoutError"
-        ) {
-          return createFailedReceipt("JMAP delivery timed out.", {
-            provider: "jmap",
-            category: "timeout",
-            retryable: false,
-          });
-        }
-        throw error;
-      } finally {
-        clearTimeout(timer);
-        controllers.delete(controller);
-      }
-    })();
-    pending.add(work);
-    const settled = () => {
-      pending.delete(work);
-    };
-    // Both handlers settle normally; no detached rejection is created.
-    // oxlint-disable-next-line promise/prefer-await-to-then
-    void work.then(settled, settled);
-    return work;
-  }
-  return {
-    id: "jmap",
-    send,
-    async *sendMany(
-      messages: Iterable<Message> | AsyncIterable<Message>,
-      options?: TransportOptions,
-    ) {
-      for await (const message of messages) yield await send(message, options);
-    },
-    [Symbol.asyncDispose]() {
-      // Memoize before abort callbacks can reenter disposal.
-      // oxlint-disable-next-line promise/prefer-await-to-then
-      return (closing ??= Promise.resolve().then(async () => {
-        for (const controller of controllers) {
-          controller.abort(new Error("JMAP transport is closed."));
-        }
-        await Promise.allSettled(pending);
-        return undefined;
-      }));
-    },
-  };
+  return createBoundedTransport(
+    new JmapTransport({ ...config, retries: 0 }),
+    config.timeout ?? 30_000,
+    "JMAP",
+  );
 }

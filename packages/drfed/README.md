@@ -146,7 +146,7 @@ Options
 | `--config FILE`                   |       | Explicit TOML configuration file                                     |
 | `--database-driver KIND`          |       | Select `pglite` or `postgres`                                        |
 | `--migrate`                       |       | Enable automatic migrations                                          |
-| `--mail-transport KIND`           |       | Select `logtape` or `smtp`                                           |
+| `--mail-transport KIND`           |       | Select `logtape`, `smtp`, `jmap` or `lettermint`                     |
 | `--root-origin ORIGIN`            | `-r`  | Origin instances are subdomains of (required)                        |
 | `--login-origin ORIGIN`           |       | Origin allowed in login links (required with `--no-web`; repeatable) |
 | `--listen HOST:PORT`              | `-l`  | Address to listen on (default: `localhost:8888`)                     |
@@ -390,8 +390,8 @@ configure both `cert_file` and `key_file`; the files contain PEM certificates
 and an unencrypted PEM private key. Certificate verification cannot be disabled.
 See the [Upyo SMTP documentation] for the underlying transport.
 
-Only `smtp` and `logtape` are currently available. `--migrate` and
-`--no-migrate` explicitly override the selected migration policy.
+`--migrate` and `--no-migrate` explicitly override the selected migration
+policy.
 
 `@drfed/drfed/database-settings` exposes `resolveDatabaseSettings()` for the
 same database selection contract, returning plain runtime settings and
@@ -460,6 +460,58 @@ call. Delivery failures return the same opaque login response and produce the
 same mail outcome log entries as SMTP.
 
 [Upyo JMAP]: https://upyo.org/transports/jmap
+
+
+Lettermint mail
+---------------
+
+Set `transport = "lettermint"` under `[mail]` and supply a sending API token:
+
+~~~~ toml
+[mail]
+transport = "lettermint"
+
+[mail.lettermint]
+api_token_file = "/run/secrets/lettermint-token"
+route = "transactional"
+~~~~
+
+The optional `route` selects a route configured in Lettermint; omit it to leave
+route selection to the service. Delivery uses [Upyo Lettermint].
+
+You can use the common API credential options instead of the Lettermint-specific
+ones. For example, `--mail-api-key-file /run/secrets/lettermint-token` overrides
+a Lettermint token from a lower-priority source. Of the four credential settings
+(common or Lettermint, literal or file), only the highest-priority source is
+used. Supplying more than one at that source is rejected. See the [shared
+configuration](#shared-configuration-bindings) for the source order and secret
+file rules. Only the selected file is read. Values and paths are redacted from
+`--print-config`.
+
+| CLI option                    | Environment variable              | TOML field                       |
+| ----------------------------- | --------------------------------- | -------------------------------- |
+| `--mail-api-key`              | `DRFED_MAIL_API_KEY`              | `mail.api_key`                   |
+| `--mail-api-key-file`         | `DRFED_MAIL_API_KEY_FILE`         | `mail.api_key_file`              |
+| `--lettermint-api-token`      | `DRFED_LETTERMINT_API_TOKEN`      | `mail.lettermint.api_token`      |
+| `--lettermint-api-token-file` | `DRFED_LETTERMINT_API_TOKEN_FILE` | `mail.lettermint.api_token_file` |
+| `--lettermint-base-url`       | `DRFED_LETTERMINT_BASE_URL`       | `mail.lettermint.base_url`       |
+| `--lettermint-route`          | `DRFED_LETTERMINT_ROUTE`          | `mail.lettermint.route`          |
+| `--lettermint-timeout`        | `DRFED_LETTERMINT_TIMEOUT`        | `mail.lettermint.timeout_ms`     |
+| `--lettermint-retries`        | `DRFED_LETTERMINT_RETRIES`        | `mail.lettermint.retries`        |
+
+The base URL defaults to `https://api.lettermint.co` and must be a bare origin:
+HTTPS, or HTTP on loopback for local testing, with no credentials, path, query,
+or fragment. All timeout forms take milliseconds. The whole delivery timeout
+defaults to 30,000 milliseconds, including response bodies and retry delays.
+When that deadline expires, DrFed reports a delivery failure and does not
+automatically resend.
+
+After the first attempt, up to three retries are made by default, with a
+maximum of ten. Upyo generates one idempotency key per delivery and reuses it
+across retries. A permanently rejected request is not retried. Cancelling a
+delivery or shutting the transport down aborts in-flight requests.
+
+[Upyo Lettermint]: https://upyo.org/transports/lettermint
 
 
 Configuration diagnostics
