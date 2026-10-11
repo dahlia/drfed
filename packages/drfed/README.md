@@ -301,6 +301,22 @@ Foreign lower-source fields are removed before domain validation.
 
 The mail transport follows the same rule: an SMTP URL selects `smtp`, and
 a higher-source `--mail-transport logtape` disables a configured SMTP URL.
+SMTP URLs accept `smtp://` (port 587 by default) and `smtps://` (implicit TLS,
+port 465 by default). URL usernames and passwords are percent-decoded and used
+for authentication. Authenticated `smtp://` connections require successful
+STARTTLS before sending credentials; certificates are always verified and TLS
+1.2 or newer is required. Unauthenticated `smtp://` may upgrade
+opportunistically. Non-root paths, query parameters, and fragments are
+rejected. SMTP usernames and passwords currently require printable ASCII
+because Upyo 0.6.0's password authentication does not encode Unicode
+credentials as UTF-8. Unsupported credentials are rejected before creating
+runtime resources. For example:
+
+~~~~ sh
+drfed-server --root-origin https://drfed.example \
+  --smtp-url 'smtps://operator:password@smtp.example:465'
+~~~~
+
 Only `smtp` and `logtape` are currently available. `--migrate` and
 `--no-migrate` explicitly override the selected migration policy.
 

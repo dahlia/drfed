@@ -24,6 +24,7 @@ import {
 } from "./database-runtime.ts";
 import type { ServerOptions } from "./parser.ts";
 import type { ResourceOwner } from "./resources.ts";
+import { resolveSmtpConnection } from "./smtp-settings.ts";
 
 interface ServerRuntime extends Omit<ServerOptions, "drizzle"> {
   readonly drizzle: DatabaseRuntime & { readonly migrate: boolean };
@@ -52,11 +53,7 @@ export async function createServerRuntime(
   const mailer =
     options.smtpUrl == null
       ? new LogTapeTransport({ recordMessage: "inline" })
-      : new SmtpTransport({
-          host: options.smtpUrl.hostname,
-          port: options.smtpUrl.port === "" ? 25 : Number(options.smtpUrl.port),
-          secure: false,
-        });
+      : new SmtpTransport(resolveSmtpConnection(options.smtpUrl));
   owner.register(mailer, (transport) => transport[Symbol.asyncDispose](), {
     owned: true,
   });

@@ -61,17 +61,17 @@ catalogs:
       specifier: ^26.0.0
       version: 26.0.0
     '@upyo/core':
-      specifier: 0.6.0-dev.263+e633e1e6
-      version: 0.6.0-dev.263
+      specifier: 0.6.0
+      version: 0.6.0
     '@upyo/logtape':
-      specifier: 0.6.0-dev.263+e633e1e6
-      version: 0.6.0-dev.263
+      specifier: 0.6.0
+      version: 0.6.0
     '@upyo/mock':
-      specifier: 0.6.0-dev.263+e633e1e6
-      version: 0.6.0-dev.263
+      specifier: 0.6.0
+      version: 0.6.0
     '@upyo/smtp':
-      specifier: 0.6.0-dev.263+e633e1e6
-      version: 0.6.0-dev.263
+      specifier: 0.6.0
+      version: 0.6.0
     drizzle-orm:
       specifier: 1.0.0-beta.22
       version: 1.0.0-beta.22
@@ -175,10 +175,10 @@ importers:
         version: 1.3.0
       '@upyo/logtape':
         specifier: 'catalog:'
-        version: 0.6.0-dev.263(@logtape/logtape@2.3.0-dev.840)(@upyo/core@0.6.0-dev.263)
+        version: 0.6.0(@logtape/logtape@2.3.0-dev.840)(@upyo/core@0.6.0)
       '@upyo/smtp':
         specifier: 'catalog:'
-        version: 0.6.0-dev.263(@upyo/core@0.6.0-dev.263)
+        version: 0.6.0(@upyo/core@0.6.0)
       drizzle-orm:
         specifier: 'catalog:'
         version: 1.0.0-beta.22(@electric-sql/pglite@0.5.3)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(pg@8.21.0)(postgres@3.4.9)(valibot@1.4.2(typescript@7.0.2))
@@ -297,10 +297,10 @@ importers:
         version: 4.1.7(@pothos/core@4.13.0(graphql@16.14.2))(graphql@16.14.2)
       '@upyo/core':
         specifier: 'catalog:'
-        version: 0.6.0-dev.263
+        version: 0.6.0
       '@upyo/mock':
         specifier: 'catalog:'
-        version: 0.6.0-dev.263(@upyo/core@0.6.0-dev.263)
+        version: 0.6.0(@upyo/core@0.6.0)
       drizzle-orm:
         specifier: 'catalog:'
         version: 1.0.0-beta.22(@electric-sql/pglite@0.5.3)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(pg@8.21.0)(postgres@3.4.9)(valibot@1.4.2(typescript@7.0.2))
@@ -1156,6 +1156,10 @@ packages:
   '@noble/hashes@1.4.0':
     resolution: {integrity: sha512-V1JJ1WTRUqHHrOSh597hURcMqVKVGL/ea3kv0gSnEdsEZ0/+VyPghM1lMNGc00z7CIQorSvbKpuJkxvuHbvdbg==}
     engines: {node: '>= 16'}
+
+  '@noble/hashes@1.8.0':
+    resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
+    engines: {node: ^14.21.3 || >=16}
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -2102,28 +2106,34 @@ packages:
   '@ungap/structured-clone@1.3.3':
     resolution: {integrity: sha512-60YRaenCQcVjYEKOcG824+DRGGIQ3VKErcBoAEDJZz5bKIs2ZG+X/H9Nk+Q6EVkwJk5QNApxbrc5QtBSwtrXAg==}
 
-  '@upyo/core@0.6.0-dev.263':
-    resolution: {integrity: sha512-8oA53ECfpvizlVDn5j/+S9gTxFZWqxonoyjLiJtV47Xiq0Jq1WCBQWTrGAsefNqjR4Y7+5loeWOnGZThZf2FkQ==}
+  '@upyo/core@0.6.0':
+    resolution: {integrity: sha512-zgNNXOcUe5662vQ5qmGJcwioy7KvrOKUeuDifb6oA23MYz3MvRWmhaMlbjAnZWt6OzutKAP/lR3C9/afTld7EQ==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
 
-  '@upyo/logtape@0.6.0-dev.263':
-    resolution: {integrity: sha512-7WI9Q7C5DU9xX6vKCU3EhszRUqO5BE4zAegotvSxmZCNbrnOWnEJqC4nFmthNVUcFgKyI4QgCT8BSqlIhde7nA==}
+  '@upyo/logtape@0.6.0':
+    resolution: {integrity: sha512-z4YajIOBTtJHbbcDnpap8CFV6vS6nE2y/6T675fFbHt9rQPsjk/XH+3CzOSJELV/Dpnj1xdAfeTgshfYUidB8A==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
     peerDependencies:
       '@logtape/logtape': ^2.2.4
-      '@upyo/core': 0.6.0-dev.263+e633e1e6
+      '@upyo/core': 0.6.0
 
-  '@upyo/mock@0.6.0-dev.263':
-    resolution: {integrity: sha512-8HZ2m3Pm9BqyICIhhriRqy4AXhYbWZwgCEey6KuswOyMQE/GTX1J3QRE/cmj5jLifVCx1Wk4s1R/ZnaeN2bbpA==}
+  '@upyo/mime@0.6.0':
+    resolution: {integrity: sha512-mcRKpQpGEEkVcOGIch0jg9qa8g6D/NoAm7IGieE7+DLUekYC9xpGC7XrRfHFIyXrgKNpPxqVlVKrZm+B2rdaHw==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
     peerDependencies:
-      '@upyo/core': 0.6.0-dev.263+e633e1e6
+      '@upyo/core': 0.6.0
 
-  '@upyo/smtp@0.6.0-dev.263':
-    resolution: {integrity: sha512-cqbKQamkUU9qszmhQ7KjlQ3focPpf3Wqzyt9abowsjRw6VG1d4fGJc2qmmznTo5K8agqQOt6kpxHWzuwdvxClA==}
+  '@upyo/mock@0.6.0':
+    resolution: {integrity: sha512-oEF6vkr1WPWVYdHSm5vVQ+LrMBdRbw3McN5f+ha0ijaYHpwWstqSNJzXITcSJylAoSqWKHhnEk1c4nZMn49ifg==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
     peerDependencies:
-      '@upyo/core': 0.6.0-dev.263+e633e1e6
+      '@upyo/core': 0.6.0
+
+  '@upyo/smtp@0.6.0':
+    resolution: {integrity: sha512-0x9IhMYXoQjMDSwe0gu4t6q6IMMUZg9f9zrvTdW57dIwATik8ejp1uv1gyK3zZoSa6IOdWboPgCfvdo9993F/g==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@upyo/core': 0.6.0
 
   '@whatwg-node/disposablestack@0.0.6':
     resolution: {integrity: sha512-LOtTn+JgJvX8WfBVJtF08TGrdjuFzGJc4mkP8EdDI8ADbvO7kiexYep1o8dwnt0okb0jYclCDXF13xU7Ge4zSw==}
@@ -4762,6 +4772,8 @@ snapshots:
 
   '@noble/hashes@1.4.0': {}
 
+  '@noble/hashes@1.8.0': {}
+
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
       '@nodelib/fs.stat': 2.0.5
@@ -5455,20 +5467,26 @@ snapshots:
 
   '@ungap/structured-clone@1.3.3': {}
 
-  '@upyo/core@0.6.0-dev.263': {}
+  '@upyo/core@0.6.0': {}
 
-  '@upyo/logtape@0.6.0-dev.263(@logtape/logtape@2.3.0-dev.840)(@upyo/core@0.6.0-dev.263)':
+  '@upyo/logtape@0.6.0(@logtape/logtape@2.3.0-dev.840)(@upyo/core@0.6.0)':
     dependencies:
       '@logtape/logtape': 2.3.0-dev.840
-      '@upyo/core': 0.6.0-dev.263
+      '@upyo/core': 0.6.0
 
-  '@upyo/mock@0.6.0-dev.263(@upyo/core@0.6.0-dev.263)':
+  '@upyo/mime@0.6.0(@upyo/core@0.6.0)':
     dependencies:
-      '@upyo/core': 0.6.0-dev.263
+      '@noble/hashes': 1.8.0
+      '@upyo/core': 0.6.0
 
-  '@upyo/smtp@0.6.0-dev.263(@upyo/core@0.6.0-dev.263)':
+  '@upyo/mock@0.6.0(@upyo/core@0.6.0)':
     dependencies:
-      '@upyo/core': 0.6.0-dev.263
+      '@upyo/core': 0.6.0
+
+  '@upyo/smtp@0.6.0(@upyo/core@0.6.0)':
+    dependencies:
+      '@upyo/core': 0.6.0
+      '@upyo/mime': 0.6.0(@upyo/core@0.6.0)
 
   '@whatwg-node/disposablestack@0.0.6':
     dependencies:

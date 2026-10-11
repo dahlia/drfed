@@ -44,6 +44,7 @@ import {
   loggingValueOptionNames,
   resolveLogging,
 } from "./logging.ts";
+import { resolveSmtpConnection } from "./smtp-settings.ts";
 import { rootOrigin } from "./valueparser.ts";
 
 /** Shared value-option spellings for strict parsing and metadata arity. */
@@ -356,8 +357,9 @@ function resolveMail(options: RawServerOptions) {
       "SMTP transport requires --smtp-url, DRFED_SMTP_URL or mail.smtp.url.",
     );
   }
-  const parsed = url({ allowedProtocols: ["smtp:"] }).parse(smtp);
+  const parsed = url({ allowedProtocols: ["smtp:", "smtps:"] }).parse(smtp);
   if (!parsed.success) throw new Error("Invalid SMTP connection URL.");
+  resolveSmtpConnection(parsed.value);
   return parsed.value;
 }
 

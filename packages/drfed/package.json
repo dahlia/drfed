@@ -121,6 +121,10 @@
     "./commands/web-program": {
       "types": "./dist/commands/web-program.d.mts",
       "default": "./dist/commands/web-program.mjs"
+    },
+    "./smtp-settings": {
+      "types": "./dist/smtp-settings.d.mts",
+      "default": "./dist/smtp-settings.mjs"
     }
   },
   "files": [
@@ -155,7 +159,8 @@
       "src/commands/account-create.ts",
       "src/logging.ts",
       "src/commands/web.ts",
-      "src/commands/web-program.ts"
+      "src/commands/web-program.ts",
+      "src/smtp-settings.ts"
     ],
     "dts": {
       "sourcemap": true,
