@@ -85,6 +85,14 @@ export const configurationSchema = table({
       transport: v.optional(text),
       api_key: v.optional(text),
       api_key_file: v.optional(text),
+      plunk: v.optional(
+        table({
+          api_key: v.optional(text),
+          api_key_file: v.optional(text),
+          base_url: v.optional(text),
+          timeout_ms: v.optional(v.number("Expected a number.")),
+        }),
+      ),
       mailgun: v.optional(
         table({
           api_key: v.optional(text),
@@ -327,6 +335,38 @@ export const configurationSettings = {
     "File containing the selected mail API service credential",
     (config) => config.mail?.api_key_file,
     true,
+  ),
+  plunkApiKey: setting(
+    "mail.plunk.api_key",
+    "PLUNK_API_KEY",
+    ["server"],
+    "Plunk sending API key",
+    (config) => config.mail?.plunk?.api_key,
+    true,
+  ),
+  plunkApiKeyFile: setting(
+    "mail.plunk.api_key_file",
+    "PLUNK_API_KEY_FILE",
+    ["server"],
+    "File containing the Plunk API key",
+    (config) => config.mail?.plunk?.api_key_file,
+    true,
+  ),
+  plunkBaseUrl: setting(
+    "mail.plunk.base_url",
+    "PLUNK_BASE_URL",
+    ["server"],
+    "Plunk API base URL including a self-hosted path",
+    (config) => config.mail?.plunk?.base_url,
+    false,
+  ),
+  plunkTimeout: setting(
+    "mail.plunk.timeout_ms",
+    "PLUNK_TIMEOUT",
+    ["server"],
+    "Whole Plunk delivery timeout in milliseconds",
+    (config) => config.mail?.plunk?.timeout_ms,
+    false,
   ),
   mailgunApiKey: setting(
     "mail.mailgun.api_key",

@@ -71,7 +71,7 @@ export function createMailParser(
         ...mailValueOptionNames.mailTransport,
         string({ metavar: "TRANSPORT" }),
         {
-          description: message`Select logtape, smtp, jmap, lettermint, maileroo, mailtrap or mailgun. SMTP host/URL and JMAP session URL select their provider.`,
+          description: message`Select logtape, smtp, jmap, lettermint, maileroo, mailtrap, mailgun or plunk. SMTP host/URL and JMAP session URL select their provider.`,
         },
       ),
       settings.mailTransport,

@@ -138,43 +138,43 @@ setup, which is what makes per-instance subdomains usable locally.
 Options
 -------
 
-| Option                            | Short | Description                                                                         |
-| --------------------------------- | ----- | ----------------------------------------------------------------------------------- |
-| `--web` / `--no-web`              |       | Enable or disable the frontend (default: enabled)                                   |
-| `--public-origin ORIGIN`          |       | Frontend origin (default: root origin; unused with `--no-web`)                      |
-| `--print-config`                  |       | Print effective settings and sources with secrets redacted; exit                    |
-| `--config FILE`                   |       | Explicit TOML configuration file                                                    |
-| `--database-driver KIND`          |       | Select `pglite` or `postgres`                                                       |
-| `--migrate`                       |       | Enable automatic migrations                                                         |
-| `--mail-transport KIND`           |       | Select `logtape`, `smtp`, `jmap`, `lettermint`, `maileroo`, `mailtrap` or `mailgun` |
-| `--root-origin ORIGIN`            | `-r`  | Origin instances are subdomains of (required)                                       |
-| `--login-origin ORIGIN`           |       | Origin allowed in login links (required with `--no-web`; repeatable)                |
-| `--listen HOST:PORT`              | `-l`  | Address to listen on (default: `localhost:8888`)                                    |
-| `--pglite-data-path PATH`         | `-d`  | Directory for PGlite storage                                                        |
-| `--postgres-url URL`              | `-D`  | PostgreSQL connection URL                                                           |
-| `--no-migrate`                    | `-M`  | Skip automatic migrations                                                           |
-| `--email-from ADDRESS`            | `-f`  | Sender of login mail (default: `noreply@` at the root origin's host)                |
-| `--smtp-url URL`                  | `-s`  | SMTP server to deliver mail through                                                 |
-| `--mail-log-content`              |       | Include subject/body and login codes in log-only output                             |
-| `--no-mail-log-content`           |       | Exclude mail subject/body (default)                                                 |
-| `--smtp-host VALUE`               |       | SMTP server hostname                                                                |
-| `--smtp-port VALUE`               |       | SMTP server port                                                                    |
-| `--smtp-tls VALUE`                |       | SMTP TLS mode: direct, starttls-required or opportunistic                           |
-| `--smtp-user VALUE`               |       | SMTP authentication username                                                        |
-| `--smtp-password VALUE`           |       | SMTP authentication password                                                        |
-| `--smtp-password-file VALUE`      |       | File containing the SMTP password                                                   |
-| `--smtp-auth-method VALUE`        |       | SMTP authentication method                                                          |
-| `--smtp-access-token VALUE`       |       | Static SMTP OAuth access token                                                      |
-| `--smtp-access-token-file VALUE`  |       | File containing the SMTP OAuth access token                                         |
-| `--smtp-connection-timeout VALUE` |       | SMTP connection timeout in milliseconds                                             |
-| `--smtp-socket-timeout VALUE`     |       | SMTP socket timeout in milliseconds                                                 |
-| `--smtp-pool-size VALUE`          |       | Maximum owned SMTP connections                                                      |
-| `--smtp-local-name VALUE`         |       | Local name for SMTP EHLO                                                            |
-| `--smtp-ca-file VALUE`            |       | File containing additional SMTP certificate authorities                             |
-| `--smtp-cert-file VALUE`          |       | File containing the SMTP client certificate                                         |
-| `--smtp-key-file VALUE`           |       | File containing the SMTP client private key                                         |
-| `--help`                          |       | Show help                                                                           |
-| `--version`                       |       | Show version                                                                        |
+| Option                            | Short | Description                                                                                  |
+| --------------------------------- | ----- | -------------------------------------------------------------------------------------------- |
+| `--web` / `--no-web`              |       | Enable or disable the frontend (default: enabled)                                            |
+| `--public-origin ORIGIN`          |       | Frontend origin (default: root origin; unused with `--no-web`)                               |
+| `--print-config`                  |       | Print effective settings and sources with secrets redacted; exit                             |
+| `--config FILE`                   |       | Explicit TOML configuration file                                                             |
+| `--database-driver KIND`          |       | Select `pglite` or `postgres`                                                                |
+| `--migrate`                       |       | Enable automatic migrations                                                                  |
+| `--mail-transport KIND`           |       | Select `logtape`, `smtp`, `jmap`, `lettermint`, `maileroo`, `mailtrap`, `mailgun` or `plunk` |
+| `--root-origin ORIGIN`            | `-r`  | Origin instances are subdomains of (required)                                                |
+| `--login-origin ORIGIN`           |       | Origin allowed in login links (required with `--no-web`; repeatable)                         |
+| `--listen HOST:PORT`              | `-l`  | Address to listen on (default: `localhost:8888`)                                             |
+| `--pglite-data-path PATH`         | `-d`  | Directory for PGlite storage                                                                 |
+| `--postgres-url URL`              | `-D`  | PostgreSQL connection URL                                                                    |
+| `--no-migrate`                    | `-M`  | Skip automatic migrations                                                                    |
+| `--email-from ADDRESS`            | `-f`  | Sender of login mail (default: `noreply@` at the root origin's host)                         |
+| `--smtp-url URL`                  | `-s`  | SMTP server to deliver mail through                                                          |
+| `--mail-log-content`              |       | Include subject/body and login codes in log-only output                                      |
+| `--no-mail-log-content`           |       | Exclude mail subject/body (default)                                                          |
+| `--smtp-host VALUE`               |       | SMTP server hostname                                                                         |
+| `--smtp-port VALUE`               |       | SMTP server port                                                                             |
+| `--smtp-tls VALUE`                |       | SMTP TLS mode: direct, starttls-required or opportunistic                                    |
+| `--smtp-user VALUE`               |       | SMTP authentication username                                                                 |
+| `--smtp-password VALUE`           |       | SMTP authentication password                                                                 |
+| `--smtp-password-file VALUE`      |       | File containing the SMTP password                                                            |
+| `--smtp-auth-method VALUE`        |       | SMTP authentication method                                                                   |
+| `--smtp-access-token VALUE`       |       | Static SMTP OAuth access token                                                               |
+| `--smtp-access-token-file VALUE`  |       | File containing the SMTP OAuth access token                                                  |
+| `--smtp-connection-timeout VALUE` |       | SMTP connection timeout in milliseconds                                                      |
+| `--smtp-socket-timeout VALUE`     |       | SMTP socket timeout in milliseconds                                                          |
+| `--smtp-pool-size VALUE`          |       | Maximum owned SMTP connections                                                               |
+| `--smtp-local-name VALUE`         |       | Local name for SMTP EHLO                                                                     |
+| `--smtp-ca-file VALUE`            |       | File containing additional SMTP certificate authorities                                      |
+| `--smtp-cert-file VALUE`          |       | File containing the SMTP client certificate                                                  |
+| `--smtp-key-file VALUE`           |       | File containing the SMTP client private key                                                  |
+| `--help`                          |       | Show help                                                                                    |
+| `--version`                       |       | Show version                                                                                 |
 
 `--pglite-data-path` and `--postgres-url` conflict at the winning input source.
 Provide the path or URL for the selected database through CLI, environment or
@@ -797,3 +797,48 @@ and [click tracking].
 [Upyo Mailgun]: https://upyo.org/transports/mailgun
 [Mailgun sending options]: https://documentation.mailgun.com/docs/mailgun/api-reference/send/mailgun/messages
 [click tracking]: https://documentation.mailgun.com/docs/mailgun/user-manual/tracking-messages/tracking-clicks
+
+
+Plunk mail
+----------
+
+Set the mail transport to `plunk` and provide a sending API key through the
+shared `--mail-api-key`/`--mail-api-key-file` options or the Plunk-specific
+options below. CLI values take precedence over environment variables, which
+take precedence over TOML. In the highest-precedence source that supplies a
+credential, set exactly one of the key or key-file options. Credential files
+from lower sources or other providers are not opened.
+
+~~~~ toml
+[mail]
+transport = "plunk"
+
+[mail.plunk]
+api_key_file = "/run/secrets/plunk"
+base_url = "https://mail.example.com/api"
+~~~~
+
+| CLI option             | Environment variable       | TOML setting              |
+| ---------------------- | -------------------------- | ------------------------- |
+| `--plunk-api-key`      | `DRFED_PLUNK_API_KEY`      | `mail.plunk.api_key`      |
+| `--plunk-api-key-file` | `DRFED_PLUNK_API_KEY_FILE` | `mail.plunk.api_key_file` |
+| `--plunk-base-url`     | `DRFED_PLUNK_BASE_URL`     | `mail.plunk.base_url`     |
+| `--plunk-timeout`      | `DRFED_PLUNK_TIMEOUT`      | `mail.plunk.timeout_ms`   |
+
+The base URL defaults to the hosted API at `https://next-api.useplunk.com`. For
+a self-hosted server, override the base URL, including its API path if needed.
+Upyo appends `/v1/send`, so the example above sends to
+`https://mail.example.com/api/v1/send`. Overrides must use HTTPS, or HTTP only
+for a loopback address, and must not contain credentials, a query or a
+fragment. Certificate verification remains enabled.
+
+DrFed disables Upyo's Plunk retries because an uncertain API response leaves
+acceptance unknown, and automatic resubmission could send duplicate mail. The
+timeout covers the whole delivery, including reading the response body, and
+defaults to 30,000 milliseconds. CLI options, environment variables and TOML
+all use milliseconds; values must be positive and at most 2,147,483,647.
+Cancellation and shutdown abort active sends and wait for them to settle.
+
+See [Upyo Plunk] for transport details, including self-hosted servers.
+
+[Upyo Plunk]: https://upyo.org/transports/plunk

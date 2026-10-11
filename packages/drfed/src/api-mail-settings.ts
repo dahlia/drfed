@@ -22,6 +22,7 @@ import type { LettermintConfig } from "@upyo/lettermint";
 import type { MailerooConfig } from "@upyo/maileroo";
 import type { MailgunConfig } from "@upyo/mailgun";
 import type { MailtrapConfig } from "@upyo/mailtrap";
+import type { PlunkConfig } from "@upyo/plunk";
 
 import type { Sourced } from "./configuration.ts";
 import type { RawMailOptions } from "./mail-parser.ts";
@@ -60,6 +61,11 @@ export type ApiMailSettings =
         "apiKey" | "headers" | "tracking" | "clickTracking" | "openTracking"
       >;
       readonly credential: SecretSource;
+    }
+  | {
+      readonly transport: "plunk";
+      readonly connection: Omit<PlunkConfig, "apiKey" | "headers">;
+      readonly credential: SecretSource;
     };
 
 type Input = Sourced<string | undefined> | undefined;
@@ -80,25 +86,30 @@ function credential(
   provider: ApiMailSettings["transport"],
 ) {
   const specific =
-    provider === "mailgun"
+    provider === "plunk"
       ? ([
-          ["mailgunApiKey", raw.mailgunApiKey, false],
-          ["mailgunApiKeyFile", raw.mailgunApiKeyFile, true],
+          ["plunkApiKey", raw.plunkApiKey, false],
+          ["plunkApiKeyFile", raw.plunkApiKeyFile, true],
         ] as const)
-      : provider === "mailtrap"
+      : provider === "mailgun"
         ? ([
-            ["mailtrapApiToken", raw.mailtrapApiToken, false],
-            ["mailtrapApiTokenFile", raw.mailtrapApiTokenFile, true],
+            ["mailgunApiKey", raw.mailgunApiKey, false],
+            ["mailgunApiKeyFile", raw.mailgunApiKeyFile, true],
           ] as const)
-        : provider === "lettermint"
+        : provider === "mailtrap"
           ? ([
-              ["lettermintApiToken", raw.lettermintApiToken, false],
-              ["lettermintApiTokenFile", raw.lettermintApiTokenFile, true],
+              ["mailtrapApiToken", raw.mailtrapApiToken, false],
+              ["mailtrapApiTokenFile", raw.mailtrapApiTokenFile, true],
             ] as const)
-          : ([
-              ["mailerooApiKey", raw.mailerooApiKey, false],
-              ["mailerooApiKeyFile", raw.mailerooApiKeyFile, true],
-            ] as const);
+          : provider === "lettermint"
+            ? ([
+                ["lettermintApiToken", raw.lettermintApiToken, false],
+                ["lettermintApiTokenFile", raw.lettermintApiTokenFile, true],
+              ] as const)
+            : ([
+                ["mailerooApiKey", raw.mailerooApiKey, false],
+                ["mailerooApiKeyFile", raw.mailerooApiKeyFile, true],
+              ] as const);
   const variants = [
     ["mailApiKey", raw.mailApiKey, false],
     ["mailApiKeyFile", raw.mailApiKeyFile, true],
@@ -184,7 +195,7 @@ function number(
     value > maximum
   ) {
     throw new Error(
-      `Invalid ${provider === "lettermint" ? "Lettermint" : provider === "mailtrap" ? "Mailtrap" : provider === "mailgun" ? "Mailgun" : "Maileroo"} ${field}.`,
+      `Invalid ${provider[0]!.toUpperCase() + provider.slice(1)} ${field}.`,
     );
   }
   return value;
@@ -325,6 +336,42 @@ function mailgunSettings(
   };
 }
 
+function plunkSettings(
+  raw: RawMailOptions,
+  auth: ReturnType<typeof credential>,
+) {
+  const connection = {
+    baseUrl: endpoint(
+      raw.plunkBaseUrl,
+      "plunk",
+      "https://next-api.useplunk.com",
+    ),
+    timeout: number(
+      raw.plunkTimeout,
+      30000,
+      1,
+      2147483647,
+      "delivery timeout",
+      "plunk",
+    ),
+    retries: 0,
+    validateSsl: true,
+  };
+  const mail: ApiMailSettings = {
+    transport: "plunk",
+    connection,
+    credential: auth.secret,
+  };
+  return {
+    mail,
+    sources: auth.sources,
+    values: {
+      plunkBaseUrl: connection.baseUrl,
+      plunkTimeout: connection.timeout,
+    },
+  };
+}
+
 /** Resolve only the selected API service; credentials remain unopened.
  * @returns Prepared meaning, safe diagnostic values and effective source tags.
  */
@@ -334,6 +381,7 @@ export function resolveApiMailSettings(
   provider: ApiMailSettings["transport"] = "lettermint",
 ) {
   const auth = credential(raw, cwd, provider);
+  if (provider === "plunk") return plunkSettings(raw, auth);
   if (provider === "mailgun") return mailgunSettings(raw, auth);
   if (provider === "mailtrap") return mailtrapSettings(raw, auth);
   if (provider === "maileroo") {

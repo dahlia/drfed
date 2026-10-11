@@ -27,6 +27,7 @@ catalog:
   "@types/node": ^26.0.0
   "@upyo/core": 0.6.0
   "@upyo/jmap": 0.6.0
+  "@upyo/plunk": 0.6.0
   "@upyo/mailgun": 0.6.0
   "@upyo/mailtrap": 0.6.0
   "@upyo/maileroo": 0.6.0
@@ -62,6 +63,7 @@ minimumReleaseAgeExclude:
   - "@optique/run@1.3.0"
   - "@upyo/core@0.6.0"
   - "@upyo/jmap@0.6.0"
+  - "@upyo/plunk@0.6.0"
   - "@upyo/mailgun@0.6.0"
   - "@upyo/mailtrap@0.6.0"
   - "@upyo/maileroo@0.6.0"

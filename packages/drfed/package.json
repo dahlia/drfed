@@ -259,6 +259,7 @@
     "valibot": "1.4.2",
     "@upyo/maileroo": "catalog:",
     "@upyo/mailtrap": "catalog:",
-    "@upyo/mailgun": "catalog:"
+    "@upyo/mailgun": "catalog:",
+    "@upyo/plunk": "catalog:"
   }
 }

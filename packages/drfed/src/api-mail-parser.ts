@@ -29,6 +29,10 @@ import {
 export const apiMailValueOptionNames = {
   mailApiKey: ["--mail-api-key"],
   mailApiKeyFile: ["--mail-api-key-file"],
+  plunkApiKey: ["--plunk-api-key"],
+  plunkApiKeyFile: ["--plunk-api-key-file"],
+  plunkBaseUrl: ["--plunk-base-url"],
+  plunkTimeout: ["--plunk-timeout"],
   mailgunApiKey: ["--mailgun-api-key"],
   mailgunApiKeyFile: ["--mailgun-api-key-file"],
   mailgunDomain: ["--mailgun-domain"],
@@ -81,6 +85,53 @@ export function createApiMailFields(
         },
       ),
       settings.mailApiKeyFile,
+      string(),
+      String,
+    ),
+    plunkApiKey: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.plunkApiKey,
+        string({ metavar: "VALUE" }),
+        { description: message`Plunk sending API key.` },
+      ),
+      settings.plunkApiKey,
+      string(),
+      String,
+    ),
+    plunkApiKeyFile: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.plunkApiKeyFile,
+        string({ metavar: "VALUE" }),
+        { description: message`File containing the Plunk API key.` },
+      ),
+      settings.plunkApiKeyFile,
+      string(),
+      String,
+    ),
+    plunkBaseUrl: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.plunkBaseUrl,
+        string({ metavar: "VALUE" }),
+        {
+          description: message`Plunk API base URL including a self-hosted path.`,
+        },
+      ),
+      settings.plunkBaseUrl,
+      string(),
+      String,
+    ),
+    plunkTimeout: bindings.bind(
+      map(
+        option(
+          ...apiMailValueOptionNames.plunkTimeout,
+          integer({ min: 1, max: 2147483647 }),
+          {
+            description: message`Whole Plunk delivery timeout in milliseconds.`,
+          },
+        ),
+        String,
+      ),
+      settings.plunkTimeout,
       string(),
       String,
     ),
