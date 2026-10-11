@@ -65,8 +65,7 @@ export function describeServerConfiguration(
       options.drizzle.driver === "postgres" ? "<redacted>" : undefined,
     migrate: options.drizzle.migrate,
     migrationLockTimeout: options.drizzle.lockTimeoutMs,
-    mailTransport: options.smtpUrl === undefined ? "logtape" : "smtp",
-    smtpUrl: options.smtpUrl === undefined ? undefined : "<redacted>",
+
     logLevel: options.logging.logLevel,
     logFormat:
       formatter === undefined ? "default" : textFormatter().format(formatter),
@@ -83,7 +82,6 @@ export function describeServerConfiguration(
       .sort((left, right) => rank[right.source] - rank[left.source])[0];
   const selected = {
     databaseDriver: highest("databaseDriver", "dataPath", "postgresUrl"),
-    mailTransport: highest("mailTransport", "smtpUrl"),
   };
   const provenanceKeys: Record<string, string> = { listen: "address" };
   const settings = Object.fromEntries(
@@ -93,7 +91,7 @@ export function describeServerConfiguration(
         const definition =
           configurationSettings[key as keyof typeof configurationSettings];
         const provenanceKey = provenanceKeys[key] ?? key;
-        const provenance = (key === "databaseDriver" || key === "mailTransport"
+        const provenance = (key === "databaseDriver"
           ? selected[key]
           : options.provenance[provenanceKey]) ?? {
           source: "default" as const,
@@ -106,18 +104,9 @@ export function describeServerConfiguration(
   );
   return {
     command: "server",
-    settings,
+    settings: { ...settings, ...options.mailDiagnostic },
     ignored: [
       ...options.ignored,
-      ...(options.smtpUrl === undefined &&
-      options.provenance.smtpUrl !== undefined
-        ? [
-            {
-              field: "mail.smtp.url",
-              source: options.provenance.smtpUrl.source,
-            },
-          ]
-        : []),
       ...configurationProjection(
         "server",
         options.web ? [] : ["web"],

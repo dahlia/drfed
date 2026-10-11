@@ -331,6 +331,7 @@ try {
     "--watch",
     "bin/drfed-server.mjs",
     "--no-web",
+    "--mail-log-content",
     "--pglite-data-path",
     "../../.pgdata",
     "--listen=0.0.0.0:8888",

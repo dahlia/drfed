@@ -26,7 +26,6 @@ import {
   origin,
   socketAddress,
   string,
-  url,
 } from "@optique/core/valueparser";
 import { path } from "@optique/run/valueparser";
 
@@ -44,7 +43,8 @@ import {
   loggingValueOptionNames,
   resolveLogging,
 } from "./logging.ts";
-import { resolveSmtpConnection } from "./smtp-settings.ts";
+import { createMailParser, mailValueOptionNames } from "./mail-parser.ts";
+import { resolveMailSettings } from "./mail-settings.ts";
 import { rootOrigin } from "./valueparser.ts";
 
 /** Shared value-option spellings for strict parsing and metadata arity. */
@@ -59,8 +59,7 @@ export const valueOptionNames = {
   dataPath: ["--pglite-data-path", "--data-path", "-d"],
   postgresUrl: ["--postgres-url", "--database-url", "-D"],
   migrationLockTimeout: ["--migration-lock-timeout"],
-  mailTransport: ["--mail-transport"],
-  smtpUrl: ["--smtp-url", "-s"],
+  ...mailValueOptionNames,
   logLevel: loggingValueOptionNames.logLevel,
   logFormat: loggingValueOptionNames.logFormat,
   logOutput: loggingValueOptionNames.logOutput,
@@ -218,26 +217,7 @@ export function createParser(
       String,
       30_000,
     ),
-    mailTransport: bind(
-      option(
-        ...valueOptionNames.mailTransport,
-        string({ metavar: "TRANSPORT" }),
-        {
-          description: message`Select logtape or smtp. An SMTP URL also selects smtp.`,
-        },
-      ),
-      settings.mailTransport,
-      string(),
-      identity,
-    ),
-    smtpUrl: bind(
-      option(...valueOptionNames.smtpUrl, string({ metavar: "URL" }), {
-        description: message`SMTP connection URL. A higher-priority logtape selector disables it.`,
-      }),
-      settings.smtpUrl,
-      string(),
-      identity,
-    ),
+    mail: createMailParser(bindings),
     seed: option("--dev-seed", {
       description: message`Seed initial development data.`,
       hidden: true,
@@ -312,10 +292,6 @@ export function createParser(
 }
 
 type RawOptions = InferValue<ReturnType<typeof createParser>>;
-type RawServerOptions = Extract<
-  RawOptions["mode"],
-  readonly [undefined, unknown]
->[1];
 export type SchemaGeneratorOptions = {
   readonly generateGraphqlSchema: true;
   readonly outputFile: string;
@@ -327,40 +303,6 @@ function required<T>(
 ): T {
   if (value?.value === undefined) throw new Error(error);
   return value.value;
-}
-
-function resolveMail(options: RawServerOptions) {
-  const rank = { default: 0, config: 1, env: 2, cli: 3 };
-  const explicit = options.mailTransport?.value;
-  const smtp = options.smtpUrl?.value;
-  const transportRank =
-    options.mailTransport?.value === undefined
-      ? -1
-      : rank[options.mailTransport.source];
-  const smtpRank =
-    options.smtpUrl?.value === undefined ? -1 : rank[options.smtpUrl.source];
-  const transport =
-    smtpRank > transportRank
-      ? "smtp"
-      : (explicit ?? (smtp === undefined ? "logtape" : "smtp"));
-  if (transport !== "logtape" && transport !== "smtp") {
-    throw new Error("Unsupported mail transport; expected logtape or smtp.");
-  }
-  if (transport === "logtape") {
-    if (smtp !== undefined && smtpRank === transportRank) {
-      throw new Error("Mail selectors at the same source disagree.");
-    }
-    return undefined;
-  }
-  if (smtp === undefined) {
-    throw new Error(
-      "SMTP transport requires --smtp-url, DRFED_SMTP_URL or mail.smtp.url.",
-    );
-  }
-  const parsed = url({ allowedProtocols: ["smtp:", "smtps:"] }).parse(smtp);
-  if (!parsed.success) throw new Error("Invalid SMTP connection URL.");
-  resolveSmtpConnection(parsed.value);
-  return parsed.value;
 }
 
 /**
@@ -434,6 +376,7 @@ export function resolveOptions(options: RawOptions, cwd = process.cwd()) {
     },
     cwd,
   );
+  const mail = resolveMailSettings(server.mail, cwd);
   return {
     printConfig: server.printConfig,
     address: required(server.address, "Missing listen address."),
@@ -442,7 +385,8 @@ export function resolveOptions(options: RawOptions, cwd = process.cwd()) {
     publicOrigin,
     loginOrigins,
     emailFrom: server.emailFrom?.value,
-    smtpUrl: resolveMail(server),
+    mail: mail.mail,
+    mailDiagnostic: mail.diagnostic,
     seed: server.seed,
     logging,
     drizzle: {
@@ -465,13 +409,12 @@ export function resolveOptions(options: RawOptions, cwd = process.cwd()) {
       postgresUrl: server.postgresUrl,
       migrate: server.migrate,
       migrationLockTimeout: server.migrationLockTimeout,
-      mailTransport: server.mailTransport,
-      smtpUrl: server.smtpUrl,
+      ...server.mail,
       logLevel: server.logging.level,
       logFormat: server.logging.format,
       logOutput: server.logging.output,
     }),
-    ignored: database.ignored,
+    ignored: [...database.ignored, ...mail.ignored],
   };
 }
 

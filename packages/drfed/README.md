@@ -138,32 +138,52 @@ setup, which is what makes per-instance subdomains usable locally.
 Options
 -------
 
-| Option                    | Short | Description                                                          |
-| ------------------------- | ----- | -------------------------------------------------------------------- |
-| `--web` / `--no-web`      |       | Enable or disable the frontend (default: enabled)                    |
-| `--public-origin ORIGIN`  |       | Frontend origin (default: root origin; unused with `--no-web`)       |
-| `--print-config`          |       | Print effective settings and sources with secrets redacted; exit     |
-| `--config FILE`           |       | Explicit TOML configuration file                                     |
-| `--database-driver KIND`  |       | Select `pglite` or `postgres`                                        |
-| `--migrate`               |       | Enable automatic migrations                                          |
-| `--mail-transport KIND`   |       | Select `logtape` or `smtp`                                           |
-| `--root-origin ORIGIN`    | `-r`  | Origin instances are subdomains of (required)                        |
-| `--login-origin ORIGIN`   |       | Origin allowed in login links (required with `--no-web`; repeatable) |
-| `--listen HOST:PORT`      | `-l`  | Address to listen on (default: `localhost:8888`)                     |
-| `--pglite-data-path PATH` | `-d`  | Directory for PGlite storage                                         |
-| `--postgres-url URL`      | `-D`  | PostgreSQL connection URL                                            |
-| `--no-migrate`            | `-M`  | Skip automatic migrations                                            |
-| `--email-from ADDRESS`    | `-f`  | Sender of login mail (default: `noreply@` at the root origin's host) |
-| `--smtp-url URL`          | `-s`  | SMTP server to deliver mail through                                  |
-| `--help`                  |       | Show help                                                            |
-| `--version`               |       | Show version                                                         |
+| Option                            | Short | Description                                                          |
+| --------------------------------- | ----- | -------------------------------------------------------------------- |
+| `--web` / `--no-web`              |       | Enable or disable the frontend (default: enabled)                    |
+| `--public-origin ORIGIN`          |       | Frontend origin (default: root origin; unused with `--no-web`)       |
+| `--print-config`                  |       | Print effective settings and sources with secrets redacted; exit     |
+| `--config FILE`                   |       | Explicit TOML configuration file                                     |
+| `--database-driver KIND`          |       | Select `pglite` or `postgres`                                        |
+| `--migrate`                       |       | Enable automatic migrations                                          |
+| `--mail-transport KIND`           |       | Select `logtape` or `smtp`                                           |
+| `--root-origin ORIGIN`            | `-r`  | Origin instances are subdomains of (required)                        |
+| `--login-origin ORIGIN`           |       | Origin allowed in login links (required with `--no-web`; repeatable) |
+| `--listen HOST:PORT`              | `-l`  | Address to listen on (default: `localhost:8888`)                     |
+| `--pglite-data-path PATH`         | `-d`  | Directory for PGlite storage                                         |
+| `--postgres-url URL`              | `-D`  | PostgreSQL connection URL                                            |
+| `--no-migrate`                    | `-M`  | Skip automatic migrations                                            |
+| `--email-from ADDRESS`            | `-f`  | Sender of login mail (default: `noreply@` at the root origin's host) |
+| `--smtp-url URL`                  | `-s`  | SMTP server to deliver mail through                                  |
+| `--mail-log-content`              |       | Include subject/body and login codes in log-only output              |
+| `--no-mail-log-content`           |       | Exclude mail subject/body (default)                                  |
+| `--smtp-host VALUE`               |       | SMTP server hostname                                                 |
+| `--smtp-port VALUE`               |       | SMTP server port                                                     |
+| `--smtp-tls VALUE`                |       | SMTP TLS mode: direct, starttls-required or opportunistic            |
+| `--smtp-user VALUE`               |       | SMTP authentication username                                         |
+| `--smtp-password VALUE`           |       | SMTP authentication password                                         |
+| `--smtp-password-file VALUE`      |       | File containing the SMTP password                                    |
+| `--smtp-auth-method VALUE`        |       | SMTP authentication method                                           |
+| `--smtp-access-token VALUE`       |       | Static SMTP OAuth access token                                       |
+| `--smtp-access-token-file VALUE`  |       | File containing the SMTP OAuth access token                          |
+| `--smtp-connection-timeout VALUE` |       | SMTP connection timeout in milliseconds                              |
+| `--smtp-socket-timeout VALUE`     |       | SMTP socket timeout in milliseconds                                  |
+| `--smtp-pool-size VALUE`          |       | Maximum owned SMTP connections                                       |
+| `--smtp-local-name VALUE`         |       | Local name for SMTP EHLO                                             |
+| `--smtp-ca-file VALUE`            |       | File containing additional SMTP certificate authorities              |
+| `--smtp-cert-file VALUE`          |       | File containing the SMTP client certificate                          |
+| `--smtp-key-file VALUE`           |       | File containing the SMTP client private key                          |
+| `--help`                          |       | Show help                                                            |
+| `--version`                       |       | Show version                                                         |
 
 `--pglite-data-path` and `--postgres-url` conflict at the winning input source.
 Provide the path or URL for the selected database through CLI, environment or
 TOML; the source selection rules are described below.
 
-Without `--smtp-url`, mail is written to the log instead of being delivered,
-which is why a development server can sign you in without a mail server.
+Without a mail delivery transport, DrFed logs mail lifecycle events and warns
+that delivery is disabled. Subject and body are excluded by default. For local
+login links, explicitly pass `--mail-log-content`; `mise run dev` does this for
+the development server.
 
 
 Testing npm installation
@@ -275,22 +295,39 @@ When no database selector is given, PGlite uses a persistent OS data directory:
 Windows. Relative OS environment paths are ignored. Override the location
 with `--data-path`; selecting PostgreSQL still requires its URL.
 
-| Setting              | Environment variable           | TOML                       |
-| -------------------- | ------------------------------ | -------------------------- |
-| Root origin          | `DRFED_ROOT_ORIGIN`            | `server.root_origin`       |
-| Listen address       | `DRFED_LISTEN`                 | `server.listen`            |
-| Login origin array   | `DRFED_LOGIN_ORIGINS`          | `server.login_origins`     |
-| Database driver      | `DRFED_DATABASE_DRIVER`        | `database.driver`          |
-| PGlite path          | `DRFED_DATA_PATH`              | `database.data_path`       |
-| PostgreSQL URL       | `DRFED_POSTGRES_URL`           | `database.url`             |
-| Migration lock wait  | `DRFED_MIGRATION_LOCK_TIMEOUT` | `database.lock_timeout_ms` |
-| Automatic migrations | `DRFED_MIGRATE`                | `database.migrate`         |
-| Mail sender          | `DRFED_EMAIL_FROM`             | `mail.from`                |
-| Mail transport       | `DRFED_MAIL_TRANSPORT`         | `mail.transport`           |
-| SMTP URL             | `DRFED_SMTP_URL`               | `mail.smtp.url`            |
-| Log level            | `DRFED_LOG_LEVEL`              | `telemetry.log_level`      |
-| Log formatter        | `DRFED_LOG_FORMAT`             | `telemetry.log_format`     |
-| Log output           | `DRFED_LOG_OUTPUT`             | `telemetry.log_output`     |
+| Setting                                                   | Environment variable            | TOML                              |
+| --------------------------------------------------------- | ------------------------------- | --------------------------------- |
+| Root origin                                               | `DRFED_ROOT_ORIGIN`             | `server.root_origin`              |
+| Listen address                                            | `DRFED_LISTEN`                  | `server.listen`                   |
+| Login origin array                                        | `DRFED_LOGIN_ORIGINS`           | `server.login_origins`            |
+| Database driver                                           | `DRFED_DATABASE_DRIVER`         | `database.driver`                 |
+| PGlite path                                               | `DRFED_DATA_PATH`               | `database.data_path`              |
+| PostgreSQL URL                                            | `DRFED_POSTGRES_URL`            | `database.url`                    |
+| Migration lock wait                                       | `DRFED_MIGRATION_LOCK_TIMEOUT`  | `database.lock_timeout_ms`        |
+| Automatic migrations                                      | `DRFED_MIGRATE`                 | `database.migrate`                |
+| Mail sender                                               | `DRFED_EMAIL_FROM`              | `mail.from`                       |
+| Mail transport                                            | `DRFED_MAIL_TRANSPORT`          | `mail.transport`                  |
+| SMTP URL                                                  | `DRFED_SMTP_URL`                | `mail.smtp.url`                   |
+| Mail content logging                                      | `DRFED_MAIL_LOG_CONTENT`        | `mail.log_content`                |
+| SMTP server hostname                                      | `DRFED_SMTP_HOST`               | `mail.smtp.host`                  |
+| SMTP server port                                          | `DRFED_SMTP_PORT`               | `mail.smtp.port`                  |
+| SMTP TLS mode: direct, starttls-required or opportunistic | `DRFED_SMTP_TLS`                | `mail.smtp.tls`                   |
+| SMTP authentication username                              | `DRFED_SMTP_USER`               | `mail.smtp.user`                  |
+| SMTP authentication password                              | `DRFED_SMTP_PASSWORD`           | `mail.smtp.password`              |
+| File containing the SMTP password                         | `DRFED_SMTP_PASSWORD_FILE`      | `mail.smtp.password_file`         |
+| SMTP authentication method                                | `DRFED_SMTP_AUTH_METHOD`        | `mail.smtp.auth_method`           |
+| Static SMTP OAuth access token                            | `DRFED_SMTP_ACCESS_TOKEN`       | `mail.smtp.access_token`          |
+| File containing the SMTP OAuth access token               | `DRFED_SMTP_ACCESS_TOKEN_FILE`  | `mail.smtp.access_token_file`     |
+| SMTP connection timeout in milliseconds                   | `DRFED_SMTP_CONNECTION_TIMEOUT` | `mail.smtp.connection_timeout_ms` |
+| SMTP socket timeout in milliseconds                       | `DRFED_SMTP_SOCKET_TIMEOUT`     | `mail.smtp.socket_timeout_ms`     |
+| Maximum owned SMTP connections                            | `DRFED_SMTP_POOL_SIZE`          | `mail.smtp.pool_size`             |
+| Local name for SMTP EHLO                                  | `DRFED_SMTP_LOCAL_NAME`         | `mail.smtp.local_name`            |
+| File containing additional SMTP certificate authorities   | `DRFED_SMTP_CA_FILE`            | `mail.smtp.ca_file`               |
+| File containing the SMTP client certificate               | `DRFED_SMTP_CERT_FILE`          | `mail.smtp.cert_file`             |
+| File containing the SMTP client private key               | `DRFED_SMTP_KEY_FILE`           | `mail.smtp.key_file`              |
+| Log level                                                 | `DRFED_LOG_LEVEL`               | `telemetry.log_level`             |
+| Log formatter                                             | `DRFED_LOG_FORMAT`              | `telemetry.log_format`            |
+| Log output                                                | `DRFED_LOG_OUTPUT`              | `telemetry.log_output`            |
 
 Database selectors at the highest source choose `pglite` or `postgres`;
 selectors at that source must agree. A CLI PostgreSQL URL replaces a TOML
@@ -299,23 +336,59 @@ PGlite path, and a CLI PGlite path replaces a TOML PostgreSQL URL. An explicit
 a PGlite fallback. Same-kind values can be inherited from lower sources.
 Foreign lower-source fields are removed before domain validation.
 
-The mail transport follows the same rule: an SMTP URL selects `smtp`, and
-a higher-source `--mail-transport logtape` disables a configured SMTP URL.
-SMTP URLs accept `smtp://` (port 587 by default) and `smtps://` (implicit TLS,
-port 465 by default). URL usernames and passwords are percent-decoded and used
-for authentication. Authenticated `smtp://` connections require successful
-STARTTLS before sending credentials; certificates are always verified and TLS
-1.2 or newer is required. Unauthenticated `smtp://` may upgrade
-opportunistically. Non-root paths, query parameters, and fragments are
-rejected. SMTP usernames and passwords currently require printable ASCII
-because Upyo 0.6.0's password authentication does not encode Unicode
-credentials as UTF-8. Unsupported credentials are rejected before creating
-runtime resources. For example:
+The mail transport follows the same precedence: an SMTP URL or `--smtp-host`
+selects `smtp`, and a higher-source `--mail-transport logtape` disables
+configured SMTP settings. SMTP URLs accept `smtp://` (port 587 by default) and
+`smtps://` (implicit TLS, port 465 by default). URL credentials are
+percent-decoded. A URL and separate host/port/TLS or credentials at the same
+source cannot specify the same component twice. Higher-source fields replace
+individual lower URL components; for example, a CLI password file replaces the
+TOML URL password while keeping its host and port.
 
-~~~~ sh
-drfed-server --root-origin https://drfed.example \
-  --smtp-url 'smtps://operator:password@smtp.example:465'
+With separate SMTP fields, TLS defaults to `starttls-required`. `direct` uses
+implicit TLS, and `opportunistic` upgrades only when supported. Authenticated
+`smtp://` URLs require STARTTLS even when it is not advertised; explicitly
+choosing opportunistic TLS with authentication is rejected. Certificates are
+verified and TLS 1.2 or newer is required. Connection and socket timeouts
+default to 30 seconds, with at most five owned SMTP connections.
+
+Password authentication supports `plain` and `login`. Static OAuth
+access tokens support `xoauth2` and `oauthbearer`; dynamic token callbacks are
+library APIs rather than CLI settings. For password authentication, usernames
+and passwords must currently be printable ASCII because Upyo 0.6.0 does not
+encode Unicode password credentials as UTF-8. Non-root URL paths, query
+parameters and fragments are rejected before runtime resources are created.
+
+~~~~ toml
+[mail]
+transport = "smtp"
+from = "noreply@drfed.example"
+
+[mail.smtp]
+host = "smtp.example"
+port = 587
+tls = "starttls-required"
+user = "operator"
+password_file = "secrets/smtp-password"
+connection_timeout_ms = 30000
+socket_timeout_ms = 30000
+pool_size = 5
 ~~~~
+
+Literal credentials and credential files are variants of one setting: a higher
+source wins, while both at the same source are an error. Only files named by
+the effective configuration are read, after configuration diagnostics and
+before database preparation. Relative TOML paths use the configuration
+directory; CLI/env paths use the working directory. Files must be regular UTF-8
+files of at most 64 KiB; projected secret symlinks are supported. Exactly one
+final LF or CRLF is removed, preserving spaces and any additional newline. File
+paths and contents do not appear in credential read errors or `--print-config`
+output.
+
+`ca_file` adds certificate authorities to Node's default roots. For mutual TLS,
+configure both `cert_file` and `key_file`; the files contain PEM certificates
+and an unencrypted PEM private key. Certificate verification cannot be disabled.
+See the [Upyo SMTP documentation] for the underlying transport.
 
 Only `smtp` and `logtape` are currently available. `--migrate` and
 `--no-migrate` explicitly override the selected migration policy.
@@ -326,6 +399,7 @@ source-only metadata for ignored fields.
 
 [Optique environment]: https://optique.dev/integrations/env.md
 [configuration]: https://optique.dev/integrations/config.md
+[Upyo SMTP documentation]: https://upyo.org/transports/smtp
 
 
 Configuration diagnostics

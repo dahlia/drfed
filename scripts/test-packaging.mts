@@ -442,6 +442,7 @@ log_output = "server.log"
     [
       binary,
       ...(web !== undefined && !web.combined ? ["--no-web"] : []),
+      "--mail-log-content",
       ...(migrate ? ["--config", configFile] : ["--no-migrate"]),
     ],
     {

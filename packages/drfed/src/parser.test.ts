@@ -581,7 +581,7 @@ it("defaults to the combined web origin and validates the active projection", as
   const base = ["--root-origin=https://drfed.test", "--print-config"];
   const combined = await run(base);
   assert.equal(combined.code, 0, combined.stderr);
-  const settings = JSON.parse(combined.stdout).settings;
+  const { settings } = JSON.parse(combined.stdout);
   assert.equal(settings["server.web"].value, true);
   assert.equal(settings["web.public_origin"].value, "https://drfed.test");
   assert.deepEqual(settings["server.login_origins"].value, [
@@ -621,4 +621,42 @@ it("defaults to the combined web origin and validates the active projection", as
   const excluded = await run([...base, "--login-origin=https://other.example"]);
   assert.equal(excluded.code, 1);
   assert.match(excluded.stderr, /must include the public web origin/u);
+});
+
+it("keeps mail diagnostics pure and rejects missing credentials before database creation", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "drfed-mail-preflight-"));
+  const dataPath = join(directory, "database");
+  const secretPath = join(directory, "PRIVATE_CREDENTIAL_PATH");
+  const args = [
+    "--root-origin=https://drfed.example",
+    "--data-path",
+    dataPath,
+    "--smtp-host=localhost",
+    "--smtp-user=operator",
+    "--smtp-password-file",
+    secretPath,
+  ];
+  try {
+    const diagnostic = await run([...args, "--print-config"]);
+    assert.equal(diagnostic.code, 0, diagnostic.stderr);
+    assert.match(diagnostic.stdout, /<redacted>/u);
+    assert.doesNotMatch(
+      diagnostic.stdout + diagnostic.stderr,
+      /PRIVATE_CREDENTIAL_PATH/u,
+    );
+    await assert.rejects(access(dataPath), { code: "ENOENT" });
+    const startup = await run(args);
+    assert.equal(startup.code, 1);
+    assert.match(
+      startup.stderr,
+      /Unable to read secret for SMTP authentication/u,
+    );
+    assert.doesNotMatch(
+      startup.stdout + startup.stderr,
+      /PRIVATE_CREDENTIAL_PATH/u,
+    );
+    await assert.rejects(access(dataPath), { code: "ENOENT" });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });

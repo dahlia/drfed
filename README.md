@@ -30,7 +30,7 @@ Install the CLI through npm:
 ~~~~ sh
 npm install --global @drfed/drfed
 drfed-server --root-origin http://drfed.localhost:8888 \
-  --data-path .pgdata
+  --data-path .pgdata --mail-log-content
 ~~~~
 
 Open `http://drfed.localhost:8888` for the frontend. The same listener serves
@@ -42,9 +42,12 @@ drfed-account create --data-path .pgdata \
   --email operator@example.com --name Operator
 ~~~~
 
-Login mail goes to the log by default. Configure SMTP for delivery, or copy the
-logged verification URL when developing locally. Repository development uses
-`mise run dev` with separate backend and frontend processes.
+The default mail transport does not deliver messages. `--mail-log-content`
+in the local example prints verification links so you can sign in during
+development. Configure SMTP for delivery in service deployments; message
+contents are excluded from logs by default. Repository development uses
+`mise run dev` with separate backend and frontend processes and explicitly
+enables login mail contents.
 
 For a service deployment, select a TOML file with `--config` or `DRFED_CONFIG`.
 CLI settings override `DRFED_*` environment variables, which override TOML
@@ -64,6 +67,7 @@ drfed-server --config drfed.toml
 drfed-server --config drfed.toml --no-migrate
 ~~~~
 
+Use `--no-migrate` to require an already migrated database.
 TOML paths are relative to that file. See the [CLI package documentation]
 for the environment variable names, PostgreSQL selection and mail settings.
 

@@ -15,20 +15,19 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { MigrationPreparationError } from "@drfed/models";
-import { LogTapeTransport } from "@upyo/logtape";
-import { SmtpTransport } from "@upyo/smtp";
+import type { Transport } from "@upyo/core";
 
 import {
   type DatabaseRuntime,
   openDatabaseRuntime,
 } from "./database-runtime.ts";
+import { createMailRuntime, prepareMail } from "./mail-runtime.ts";
 import type { ServerOptions } from "./parser.ts";
 import type { ResourceOwner } from "./resources.ts";
-import { resolveSmtpConnection } from "./smtp-settings.ts";
 
 interface ServerRuntime extends Omit<ServerOptions, "drizzle"> {
   readonly drizzle: DatabaseRuntime & { readonly migrate: boolean };
-  readonly mailer: LogTapeTransport | SmtpTransport;
+  readonly mailer: Transport;
 }
 
 /**
@@ -40,6 +39,7 @@ export async function createServerRuntime(
   owner: ResourceOwner,
   signal?: AbortSignal,
 ): Promise<ServerRuntime> {
+  const preparedMail = await prepareMail(options.mail, signal);
   const database = await openDatabaseRuntime(
     options.drizzle,
     owner,
@@ -50,16 +50,11 @@ export async function createServerRuntime(
     throw new MigrationPreparationError("incompatible-history", database.state);
   }
   if (signal?.aborted) throw new MigrationPreparationError("aborted");
-  const mailer =
-    options.smtpUrl == null
-      ? new LogTapeTransport({ recordMessage: "inline" })
-      : new SmtpTransport(resolveSmtpConnection(options.smtpUrl));
-  owner.register(mailer, (transport) => transport[Symbol.asyncDispose](), {
-    owned: true,
-  });
+  const mail = createMailRuntime(preparedMail);
+  owner.register(mail, (runtime) => runtime.close(), { owned: true });
   return {
     ...options,
     drizzle: { ...database, migrate: options.drizzle.migrate },
-    mailer,
+    mailer: mail.transport,
   };
 }

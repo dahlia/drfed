@@ -125,6 +125,22 @@
     "./smtp-settings": {
       "types": "./dist/smtp-settings.d.mts",
       "default": "./dist/smtp-settings.mjs"
+    },
+    "./mail-parser": {
+      "types": "./dist/mail-parser.d.mts",
+      "default": "./dist/mail-parser.mjs"
+    },
+    "./mail-settings": {
+      "types": "./dist/mail-settings.d.mts",
+      "default": "./dist/mail-settings.mjs"
+    },
+    "./mail-runtime": {
+      "types": "./dist/mail-runtime.d.mts",
+      "default": "./dist/mail-runtime.mjs"
+    },
+    "./secret-source": {
+      "types": "./dist/secret-source.d.mts",
+      "default": "./dist/secret-source.mjs"
     }
   },
   "files": [
@@ -160,7 +176,11 @@
       "src/logging.ts",
       "src/commands/web.ts",
       "src/commands/web-program.ts",
-      "src/smtp-settings.ts"
+      "src/smtp-settings.ts",
+      "src/mail-parser.ts",
+      "src/mail-settings.ts",
+      "src/mail-runtime.ts",
+      "src/secret-source.ts"
     ],
     "dts": {
       "sourcemap": true,
@@ -196,6 +216,7 @@
     "@optique/env": "catalog:",
     "@optique/logtape": "catalog:",
     "@optique/run": "catalog:",
+    "@upyo/core": "catalog:",
     "@upyo/logtape": "catalog:",
     "@upyo/smtp": "catalog:",
     "drizzle-orm": "catalog:",
