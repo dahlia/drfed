@@ -109,6 +109,10 @@
     "./migration-session": {
       "types": "./dist/migration-session.d.mts",
       "default": "./dist/migration-session.mjs"
+    },
+    "./pglite-store": {
+      "types": "./dist/pglite-store.d.mts",
+      "default": "./dist/pglite-store.mjs"
     }
   },
   "files": [
@@ -134,7 +138,8 @@
       "src/text.ts",
       "src/migration-manifest.ts",
       "src/migration-state.ts",
-      "src/migration-session.ts"
+      "src/migration-session.ts",
+      "src/pglite-store.ts"
     ],
     "dts": {
       "sourcemap": true,
@@ -158,6 +163,7 @@
     "@logtape/logtape": "catalog:",
     "@types/pg": "8.20.0",
     "drizzle-orm": "catalog:",
+    "fs-native-extensions": "1.5.1",
     "pg": "catalog:",
     "postgres": "catalog:",
     "uuid": "catalog:"

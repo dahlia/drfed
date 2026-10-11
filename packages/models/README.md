@@ -99,6 +99,40 @@ installed users can run migrations without access to the repository source.
 [`pg.Client`]: https://node-postgres.com/apis/client
 
 
+Persistent PGlite ownership
+---------------------------
+
+`@drfed/models/pglite-store` exposes `openPersistentPglite(dataPath)`. It
+creates the directory, resolves its real absolute path, acquires an exclusive
+native file lock, then constructs PGlite. Register the returned `close()`
+immediately and await `ready` before querying. This promise maps asynchronous
+initialization failures to the fixed `PgliteStoreError` code `open-failed`;
+`close()` remains available even after an initialization failure. The shared
+close promise shuts PGlite down before releasing its lock. If database close
+fails, the lock stays held until that owner process exits.
+
+[fs-native-extensions] supplies prebuilt Node addons for macOS, Windows and
+Linux on x64/ARM64. Its file-description locks prevent another owner in the
+same or a different process; suspension does not make a lock stale, and process
+exit releases it. Loading an unavailable addon fails closed; there is no
+compiler, heartbeat or PID-based fallback. Use a local filesystem. Network
+filesystems and shared directories across container/PID namespaces are
+unsupported.
+
+The stable *.drfed.lock* file stays in the data directory after shutdown. Never
+remove or replace it while an owner may be alive: two different inodes would
+allow separate owners. A leftover file is harmless once the OS has released
+its lock. After a failed close, stop that owner before reopening. Other code
+that directly constructs PGlite bypasses this ownership API; coordinate all
+access through it. CLI integration follows in the database startup change.
+
+The ordinary test task covers duplicate owners, a simultaneous process race,
+symlink aliases, close ordering and failed-close ownership. POSIX-only tests
+also suspend and forcibly terminate an owned child process before reopening.
+
+[fs-native-extensions]: https://github.com/holepunchto/fs-native-extensions
+
+
 Activity delivery storage
 -------------------------
 
