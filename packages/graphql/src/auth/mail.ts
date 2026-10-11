@@ -19,20 +19,38 @@ import { type MessageContent, type Receipt, createMessage } from "@upyo/core";
 
 import type { UserContext } from "../builder.ts";
 
-export const sendMail = async (
+/** Send login mail without exposing non-cancellation provider failures. */
+export async function sendMail(
   to: string,
   loginUrl: string,
   ctx: UserContext,
-) =>
-  await ctx.mailer.send(
-    createMessage({
-      from: ctx.emailFrom,
-      to,
-      // FIXME: https://github.com/fedify-dev/drfed/issues/35
-      subject: "Sign in to DrFed",
-      content: renderLoginEmail(loginUrl),
-    }),
-  );
+): Promise<void> {
+  const signal = ctx.operationSignal ?? ctx.request.signal;
+  if (signal.aborted) {
+    throw new DOMException("Mail sending cancelled.", "AbortError");
+  }
+  try {
+    const receipt = await ctx.mailer.send(
+      createMessage({
+        from: ctx.emailFrom,
+        to,
+        // FIXME: https://github.com/fedify-dev/drfed/issues/35
+        subject: "Sign in to DrFed",
+        content: renderLoginEmail(loginUrl),
+      }),
+      { signal },
+    );
+    if (signal.aborted) {
+      throw new DOMException("Mail sending cancelled.", "AbortError");
+    }
+    logReceipt(receipt);
+  } catch {
+    if (signal.aborted) {
+      throw new DOMException("Mail sending cancelled.", "AbortError");
+    }
+    logger.warn("Login mail delivery failed.", { outcome: "exception" });
+  }
+}
 
 const renderLoginEmail = (loginUrl: string): MessageContent => ({
   // FIXME: https://github.com/fedify-dev/drfed/issues/35
@@ -45,10 +63,10 @@ Otherwise, please just ignore this mail.`,
 
 export function logReceipt(receipt: Receipt<string>): void {
   if (receipt.successful) {
-    logger.debug(`${receipt.messageId} sent successfully.`);
+    logger.debug("Login mail delivery succeeded.", { outcome: "sent" });
     return;
   }
-  logger.warn(`Sending a mail failed: ${receipt.errorMessages.join("\n")}`);
+  logger.warn("Login mail delivery failed.", { outcome: "failed" });
 }
 
 const logger = getLogger(["drfed", "graphql", "auth"]);

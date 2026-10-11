@@ -37,6 +37,9 @@ export type { OperationTracker } from "./operations.ts";
  * Options for Yoga server.
  */
 export interface YogaServerOptions {
+  /** Runtime shutdown cancellation, combined with each request signal. */
+  shutdownSignal?: AbortSignal | undefined;
+
   /**
    * Track context loading and field resolvers until their actual work settles,
    * including resolvers still running after Yoga cancels the HTTP response.
@@ -90,8 +93,20 @@ export function createYogaServer(
   return createYoga({
     cors: false,
     async context(ctx) {
-      const loadContext = async () => {
-        const anonymous = { db, federation, request: ctx.request, ...options };
+      const loadContext = async (): Promise<UserContext> => {
+        const anonymous = {
+          db,
+          federation,
+          request: ctx.request,
+          ...options,
+          operationSignal:
+            rawOptions.shutdownSignal == null
+              ? ctx.request.signal
+              : AbortSignal.any([
+                  ctx.request.signal,
+                  rawOptions.shutdownSignal,
+                ]),
+        };
         const accessToken = getAccessToken(ctx.request.headers);
         if (accessToken == null) {
           return anonymous;

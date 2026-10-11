@@ -156,6 +156,7 @@ async function runServer(configuration: ServerOptions) {
       mailer,
       loginOrigins,
       trackOperation: (operation) => operations.track(operation),
+      shutdownSignal: operations.signal,
     });
     await operations.run(() => warnAboutStrandedInstances(db, rootOrigin));
     const fetchHandler = createFetchHandler({

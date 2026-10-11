@@ -22,7 +22,7 @@ import { type Uuid, uuidV7 } from "@drfed/models/uuid";
 import builder, { type UserContext } from "../builder.ts";
 import expandVerifyUrl from "./expand.ts";
 import { generateBase36Code } from "./hash.ts";
-import { logReceipt, sendMail } from "./mail.ts";
+import { sendMail } from "./mail.ts";
 
 interface LoginChallengeShape {
   readonly challengeId: Uuid;
@@ -82,7 +82,7 @@ builder.mutationFields((t) => ({
       await insertChallenge(account.id, verifier, ctx);
       // Do not check the email was sent. Instructs users to request a resend if
       // the email does not arrive after a few minutes at the web page.
-      logReceipt(await sendMail(account.email, loginUrl, ctx));
+      await sendMail(account.email, loginUrl, ctx);
 
       return { challengeId };
     },

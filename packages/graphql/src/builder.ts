@@ -39,6 +39,9 @@ import { hideUnreadableNodes, memberInstances } from "./readable.ts";
  * and mutations.
  */
 export interface ServerContext {
+  /** Combined request and runtime shutdown cancellation for active work. */
+  readonly operationSignal?: AbortSignal | undefined;
+
   /** Optional runtime owner for work that survives HTTP cancellation. */
   readonly trackOperation?: OperationTracker | undefined;
 

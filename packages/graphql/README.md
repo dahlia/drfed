@@ -77,6 +77,26 @@ before paging, so that neither cursors nor `totalCount` tell of it.
 [ActivityPub]: https://www.w3.org/TR/activitypub/
 
 
+Login mail and shutdown
+-----------------------
+
+`loginByEmail` returns a challenge ID for both known and unknown accounts.
+A failed mail receipt or a provider exception keeps this response unchanged;
+operators receive a fixed outcome diagnostic without provider error text or
+message IDs. Users can request another link if mail does not arrive.
+
+Pass `shutdownSignal` to `createYogaServer` to combine runtime shutdown with
+each request's cancellation signal. The combined signal reaches Upyo's send
+options. `trackOperation` keeps resolver work registered until the provider
+settles, including a provider that ignores cancellation after the HTTP response
+ends. The runtime owner must drain these operations before closing resources;
+passing a signal alone does not guarantee that a transport stops.
+See [Yoga execution cancellation] for the distinction between canceling an
+HTTP response and stopping resolver work.
+
+[Yoga execution cancellation]: https://the-guild.dev/graphql/yoga-server/docs/features/execution-cancellation
+
+
 Activity deliveries
 -------------------
 
