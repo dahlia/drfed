@@ -28,6 +28,10 @@ import {
 export const apiMailValueOptionNames = {
   mailApiKey: ["--mail-api-key"],
   mailApiKeyFile: ["--mail-api-key-file"],
+  mailerooApiKey: ["--maileroo-api-key"],
+  mailerooApiKeyFile: ["--maileroo-api-key-file"],
+  mailerooBaseUrl: ["--maileroo-base-url"],
+  mailerooTimeout: ["--maileroo-timeout"],
   lettermintApiToken: ["--lettermint-api-token"],
   lettermintApiTokenFile: ["--lettermint-api-token-file"],
   lettermintBaseUrl: ["--lettermint-base-url"],
@@ -64,6 +68,51 @@ export function createApiMailFields(
         },
       ),
       settings.mailApiKeyFile,
+      string(),
+      String,
+    ),
+    mailerooApiKey: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.mailerooApiKey,
+        string({ metavar: "VALUE" }),
+        { description: message`Maileroo API sending key.` },
+      ),
+      settings.mailerooApiKey,
+      string(),
+      String,
+    ),
+    mailerooApiKeyFile: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.mailerooApiKeyFile,
+        string({ metavar: "VALUE" }),
+        { description: message`Maileroo File containing the API sending key.` },
+      ),
+      settings.mailerooApiKeyFile,
+      string(),
+      String,
+    ),
+    mailerooBaseUrl: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.mailerooBaseUrl,
+        string({ metavar: "VALUE" }),
+        { description: message`Maileroo API base URL including its path.` },
+      ),
+      settings.mailerooBaseUrl,
+      string(),
+      String,
+    ),
+    mailerooTimeout: bindings.bind(
+      map(
+        option(
+          ...apiMailValueOptionNames.mailerooTimeout,
+          integer({ min: 1, max: 2147483647 }),
+          {
+            description: message`Maileroo Whole delivery timeout in milliseconds.`,
+          },
+        ),
+        String,
+      ),
+      settings.mailerooTimeout,
       string(),
       String,
     ),

@@ -146,7 +146,7 @@ Options
 | `--config FILE`                   |       | Explicit TOML configuration file                                     |
 | `--database-driver KIND`          |       | Select `pglite` or `postgres`                                        |
 | `--migrate`                       |       | Enable automatic migrations                                          |
-| `--mail-transport KIND`           |       | Select `logtape`, `smtp`, `jmap` or `lettermint`                     |
+| `--mail-transport KIND`           |       | Select `logtape`, `smtp`, `jmap`, `lettermint` or `maileroo`         |
 | `--root-origin ORIGIN`            | `-r`  | Origin instances are subdomains of (required)                        |
 | `--login-origin ORIGIN`           |       | Origin allowed in login links (required with `--no-web`; repeatable) |
 | `--listen HOST:PORT`              | `-l`  | Address to listen on (default: `localhost:8888`)                     |
@@ -642,3 +642,48 @@ write and cleanup failures exit 1. Interruption also exits 1 after draining
 admitted work; an in-flight write may complete, and retrying preserves an
 account that was already created. `--print-config` shows redacted database
 settings without acquiring resources. Server/mail settings are unused.
+
+
+Maileroo mail
+-------------
+
+Set the mail transport to `maileroo` and provide a sending key for a verified
+Maileroo domain. Use the common `--mail-api-key`/`--mail-api-key-file` options
+or the Maileroo-specific options below. CLI values take precedence over
+environment variables, then TOML. At the highest source level that provides
+a key, exactly one of `--mail-api-key`, `--mail-api-key-file`,
+`--maileroo-api-key`, or `--maileroo-api-key-file` may be present. Lower sources
+are ignored before validation or file access.
+
+| CLI option                | Environment variable          | TOML setting                 |
+| ------------------------- | ----------------------------- | ---------------------------- |
+| `--maileroo-api-key`      | `DRFED_MAILEROO_API_KEY`      | `mail.maileroo.api_key`      |
+| `--maileroo-api-key-file` | `DRFED_MAILEROO_API_KEY_FILE` | `mail.maileroo.api_key_file` |
+| `--maileroo-base-url`     | `DRFED_MAILEROO_BASE_URL`     | `mail.maileroo.base_url`     |
+| `--maileroo-timeout`      | `DRFED_MAILEROO_TIMEOUT`      | `mail.maileroo.timeout_ms`   |
+
+~~~~ toml
+[mail]
+transport = "maileroo"
+
+[mail.maileroo]
+api_key_file = "/run/secrets/maileroo"
+~~~~
+
+The default API URL is `https://smtp.maileroo.com/api/v2`. An override replaces
+this URL; Upyo appends `/emails` after removing trailing slashes. It must use
+HTTPS or local loopback HTTP, without credentials, a query or a fragment.
+The timeout covers the whole delivery, including the response body. Values
+use milliseconds in all three sources and default to 30,000.
+Timeouts must be positive and at most 2,147,483,647 milliseconds.
+
+DrFed disables retries in Upyo's Maileroo transport. Maileroo's reference ID
+is a tracking identifier;
+it does not establish that resending an uncertain submission is safe. If the
+response is lost or a request times out, DrFed cannot tell whether Maileroo
+accepted the message. Login produces the same response as other mail failures,
+and DrFed does not automatically resend the message. See the
+[Upyo Maileroo documentation] and [Maileroo reference ID documentation].
+
+[Upyo Maileroo documentation]: https://upyo.org/transports/maileroo
+[Maileroo reference ID documentation]: https://maileroo.com/docs/smtp-relay/advanced-message-options

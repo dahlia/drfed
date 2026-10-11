@@ -85,6 +85,14 @@ export const configurationSchema = table({
       transport: v.optional(text),
       api_key: v.optional(text),
       api_key_file: v.optional(text),
+      maileroo: v.optional(
+        table({
+          api_key: v.optional(text),
+          api_key_file: v.optional(text),
+          base_url: v.optional(text),
+          timeout_ms: v.optional(v.number("Expected a number.")),
+        }),
+      ),
       lettermint: v.optional(
         table({
           api_token: v.optional(text),
@@ -298,6 +306,38 @@ export const configurationSettings = {
     "File containing the selected mail API service credential",
     (config) => config.mail?.api_key_file,
     true,
+  ),
+  mailerooApiKey: setting(
+    "mail.maileroo.api_key",
+    "MAILEROO_API_KEY",
+    ["server"],
+    "Maileroo API sending key",
+    (config) => config.mail?.maileroo?.api_key,
+    true,
+  ),
+  mailerooApiKeyFile: setting(
+    "mail.maileroo.api_key_file",
+    "MAILEROO_API_KEY_FILE",
+    ["server"],
+    "Maileroo File containing the API sending key",
+    (config) => config.mail?.maileroo?.api_key_file,
+    true,
+  ),
+  mailerooBaseUrl: setting(
+    "mail.maileroo.base_url",
+    "MAILEROO_BASE_URL",
+    ["server"],
+    "Maileroo API base URL including its path",
+    (config) => config.mail?.maileroo?.base_url,
+    false,
+  ),
+  mailerooTimeout: setting(
+    "mail.maileroo.timeout_ms",
+    "MAILEROO_TIMEOUT",
+    ["server"],
+    "Maileroo Whole delivery timeout in milliseconds",
+    (config) => config.mail?.maileroo?.timeout_ms,
+    false,
   ),
   lettermintApiToken: setting(
     "mail.lettermint.api_token",

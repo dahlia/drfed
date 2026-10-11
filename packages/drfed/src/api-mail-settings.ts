@@ -15,20 +15,30 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import type { LettermintConfig } from "@upyo/lettermint";
+import type { MailerooConfig } from "@upyo/maileroo";
 
 import type { Sourced } from "./configuration.ts";
 import type { RawMailOptions } from "./mail-parser.ts";
 import { type SecretSource, resolveSecretSource } from "./secret-source.ts";
 
 /** Selected API service configuration before secret files are opened. */
-export interface ApiMailSettings {
-  readonly transport: "lettermint";
-  readonly connection: Omit<
-    LettermintConfig,
-    "apiToken" | "headers" | "tag" | "metadata" | "settings"
-  >;
-  readonly credential: SecretSource;
-}
+export type ApiMailSettings =
+  | {
+      readonly transport: "lettermint";
+      readonly connection: Omit<
+        LettermintConfig,
+        "apiToken" | "headers" | "tag" | "metadata" | "settings"
+      >;
+      readonly credential: SecretSource;
+    }
+  | {
+      readonly transport: "maileroo";
+      readonly connection: Omit<
+        MailerooConfig,
+        "apiKey" | "headers" | "tracking" | "tags"
+      >;
+      readonly credential: SecretSource;
+    };
 
 type Input = Sourced<string | undefined> | undefined;
 const priority = { default: 0, config: 1, env: 2, cli: 3 } as const;
@@ -42,15 +52,28 @@ export function validateApiMailCredential(value: string) {
   }
 }
 
-function credential(raw: RawMailOptions, cwd: string) {
+function credential(
+  raw: RawMailOptions,
+  cwd: string,
+  provider: ApiMailSettings["transport"],
+) {
+  const specific =
+    provider === "lettermint"
+      ? ([
+          ["lettermintApiToken", raw.lettermintApiToken, false],
+          ["lettermintApiTokenFile", raw.lettermintApiTokenFile, true],
+        ] as const)
+      : ([
+          ["mailerooApiKey", raw.mailerooApiKey, false],
+          ["mailerooApiKeyFile", raw.mailerooApiKeyFile, true],
+        ] as const);
   const variants = [
     ["mailApiKey", raw.mailApiKey, false],
     ["mailApiKeyFile", raw.mailApiKeyFile, true],
-    ["lettermintApiToken", raw.lettermintApiToken, false],
-    ["lettermintApiTokenFile", raw.lettermintApiTokenFile, true],
+    ...specific,
   ] as const;
   const highest = Math.max(...variants.map(([, input]) => rank(input)));
-  if (highest < 0) throw new Error("Lettermint requires an API credential.");
+  if (highest < 0) throw new Error(`${provider} requires an API credential.`);
   const winners = variants.filter(([, input]) => rank(input) === highest);
   if (winners.length !== 1) {
     throw new Error(
@@ -75,8 +98,12 @@ function credential(raw: RawMailOptions, cwd: string) {
   return { secret, sources };
 }
 
-function endpoint(input: Input) {
-  if (input?.value === undefined) return "https://api.lettermint.co";
+function endpoint(input: Input, provider: ApiMailSettings["transport"]) {
+  if (input?.value === undefined) {
+    return provider === "lettermint"
+      ? "https://api.lettermint.co"
+      : "https://smtp.maileroo.com/api/v2";
+  }
   try {
     const value = new URL(input.value);
     const local = ["localhost", "127.0.0.1", "[::1]"].includes(value.hostname);
@@ -84,16 +111,19 @@ function endpoint(input: Input) {
       (value.protocol !== "https:" && !(value.protocol === "http:" && local)) ||
       value.username !== "" ||
       value.password !== "" ||
-      value.pathname !== "/" ||
-      value.search !== "" ||
-      value.hash !== ""
+      (provider === "lettermint" && value.pathname !== "/") ||
+      /[?#]/u.test(value.href)
     ) {
       throw new Error();
     }
-    return value.origin;
+    return provider === "lettermint"
+      ? value.origin
+      : value.href.replace(/\/+$/u, "");
   } catch {
     throw new Error(
-      "Invalid Lettermint base origin; use HTTPS or local loopback HTTP without credentials.",
+      provider === "lettermint"
+        ? "Invalid Lettermint base origin; use HTTPS or local loopback HTTP without credentials."
+        : "Invalid maileroo API endpoint; use HTTPS or local loopback HTTP without credentials, query or fragment.",
     );
   }
 }
@@ -104,6 +134,7 @@ function number(
   minimum: number,
   maximum: number,
   field: string,
+  provider: ApiMailSettings["transport"] = "lettermint",
 ) {
   if (input?.value === undefined) return fallback;
   const value = Number(input.value);
@@ -113,7 +144,9 @@ function number(
     value < minimum ||
     value > maximum
   ) {
-    throw new Error(`Invalid Lettermint ${field}.`);
+    throw new Error(
+      `Invalid ${provider === "lettermint" ? "Lettermint" : "Maileroo"} ${field}.`,
+    );
   }
   return value;
 }
@@ -121,8 +154,39 @@ function number(
 /** Resolve only the selected API service; credentials remain unopened.
  * @returns Prepared meaning, safe diagnostic values and effective source tags.
  */
-export function resolveApiMailSettings(raw: RawMailOptions, cwd: string) {
-  const auth = credential(raw, cwd);
+export function resolveApiMailSettings(
+  raw: RawMailOptions,
+  cwd: string,
+  provider: ApiMailSettings["transport"] = "lettermint",
+) {
+  const auth = credential(raw, cwd, provider);
+  if (provider === "maileroo") {
+    const connection = {
+      baseUrl: endpoint(raw.mailerooBaseUrl, provider),
+      timeout: number(
+        raw.mailerooTimeout,
+        30000,
+        1,
+        2147483647,
+        "delivery timeout",
+        provider,
+      ),
+      retries: 0,
+    };
+    const mail: ApiMailSettings = {
+      transport: provider,
+      connection,
+      credential: auth.secret,
+    };
+    return {
+      mail,
+      sources: auth.sources,
+      values: {
+        mailerooBaseUrl: connection.baseUrl,
+        mailerooTimeout: connection.timeout,
+      },
+    };
+  }
   if (
     raw.lettermintRoute?.value === "" ||
     (raw.lettermintRoute?.value !== undefined &&
@@ -131,7 +195,7 @@ export function resolveApiMailSettings(raw: RawMailOptions, cwd: string) {
     throw new Error("Invalid Lettermint route.");
   }
   const connection = {
-    baseUrl: endpoint(raw.lettermintBaseUrl),
+    baseUrl: endpoint(raw.lettermintBaseUrl, provider),
     timeout: number(
       raw.lettermintTimeout,
       30_000,

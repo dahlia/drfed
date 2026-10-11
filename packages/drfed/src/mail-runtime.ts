@@ -22,6 +22,7 @@ import type { Transport } from "@upyo/core";
 import type { JmapConfig } from "@upyo/jmap";
 import { type LettermintConfig, LettermintTransport } from "@upyo/lettermint";
 import { LogTapeTransport } from "@upyo/logtape";
+import { type MailerooConfig, MailerooTransport } from "@upyo/maileroo";
 import {
   type SmtpConfig,
   type SmtpTlsOptions,
@@ -42,6 +43,7 @@ import { readSecretSource } from "./secret-source.ts";
 
 /** Mail settings with operational credential reads completed before DB writes. */
 export type PreparedMail =
+  | { readonly transport: "maileroo"; readonly connection: MailerooConfig }
   | { readonly transport: "lettermint"; readonly connection: LettermintConfig }
   | { readonly transport: "jmap"; readonly connection: JmapConfig }
   | { readonly transport: "logtape"; readonly logContent: boolean }
@@ -91,6 +93,19 @@ export async function prepareMail(
 ): Promise<PreparedMail> {
   signal?.throwIfAborted();
   if (settings.transport === "logtape") return settings;
+  if (settings.transport === "maileroo") {
+    const credential = await readSecretSource(
+      settings.credential,
+      "mail API credential",
+      signal,
+    );
+    validateApiMailCredential(credential);
+    signal?.throwIfAborted();
+    return {
+      transport: settings.transport,
+      connection: { ...settings.connection, apiKey: credential, retries: 0 },
+    };
+  }
   if (settings.transport === "lettermint") {
     const credential = await readSecretSource(
       settings.credential,
@@ -203,21 +218,27 @@ export interface MailRuntime {
  */
 export function createMailRuntime(settings: PreparedMail): MailRuntime {
   const transport =
-    settings.transport === "lettermint"
+    settings.transport === "maileroo"
       ? createBoundedTransport(
-          new LettermintTransport(settings.connection),
-          settings.connection.timeout ?? 30_000,
-          "Lettermint",
+          new MailerooTransport({ ...settings.connection, retries: 0 }),
+          settings.connection.timeout ?? 30000,
+          "Maileroo",
         )
-      : settings.transport === "jmap"
-        ? createJmapTransport(settings.connection)
-        : settings.transport === "smtp"
-          ? new SmtpTransport(settings.connection)
-          : new LogTapeTransport({
-              ...(settings.logContent
-                ? { recordMessage: "inline" as const }
-                : {}),
-            });
+      : settings.transport === "lettermint"
+        ? createBoundedTransport(
+            new LettermintTransport(settings.connection),
+            settings.connection.timeout ?? 30_000,
+            "Lettermint",
+          )
+        : settings.transport === "jmap"
+          ? createJmapTransport(settings.connection)
+          : settings.transport === "smtp"
+            ? new SmtpTransport(settings.connection)
+            : new LogTapeTransport({
+                ...(settings.logContent
+                  ? { recordMessage: "inline" as const }
+                  : {}),
+              });
   if (settings.transport === "logtape") {
     getLogger(["drfed", "mail"]).warning(
       "Mail delivery is disabled. Select a delivery transport; use --mail-log-content only to inspect login codes in development logs.",
