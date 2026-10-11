@@ -4,7 +4,7 @@
 The main application package for [DrFed], a web-based platform for developing
 and debugging ActivityPub apps.  It wires together the database layer,
 ActivityPub federation, GraphQL server, and HTTP server, and exposes the
-`drfed-server` CLI binary.
+`drfed-server`, `drfed-web`, `drfed-migrate`, and `drfed-account` commands.
 
 [DrFed]: https://drfed.org/
 
@@ -14,15 +14,18 @@ Usage
 
 ~~~~ sh
 drfed-server --root-origin https://drfed.example.com \
-  --login-origin https://drfed.example.com --data-path .pgdata
+  --data-path .pgdata
 drfed-server --root-origin https://drfed.example.com \
-  --login-origin https://drfed.example.com \
   --database-url postgres://user@localhost/drfed
 ~~~~
 
 The server listens on `localhost:8888` by default.  Pass `--listen HOST:PORT`
 to override.  Automatic database migrations run on startup unless `--no-migrate`
-is given.
+is given. The frontend and exact `/graphql` endpoint share this listener. Open
+the configured root origin for the frontend, or set `--public-origin` to a
+different control authority. Instance and deeper subdomains cannot be selected
+as its authority. Other control authorities still serve `/graphql`, but web
+requests on them receive 421.
 
 CLI parsing validates settings before opening database or mail resources.
 `--help`, `--version`, and `--generate-graphql-schema` can run without starting
@@ -32,9 +35,13 @@ the server; invalid options also exit before creating those resources.
 Standalone web frontend
 -----------------------
 
-`drfed-web` runs the installed frontend against a separate GraphQL backend:
+Use `--no-web` for a backend that serves `/graphql` and federation; other
+control paths return 404. Supply the frontend login origin explicitly.
+`drfed-web` runs the installed frontend against that backend:
 
 ~~~~ sh
+drfed-server --no-web --root-origin https://drfed.example.com \
+  --login-origin https://drfed.example.com --listen localhost:8888
 drfed-web --backend-url http://localhost:8888 \
   --public-origin https://drfed.example.com --listen localhost:3000
 ~~~~
@@ -60,7 +67,7 @@ deployment work:
 
 ~~~~ sh
 drfed-server --root-origin http://drfed.localhost:8888 \
-  --login-origin http://localhost:3000 --data-path .pgdata
+  --data-path .pgdata
 ~~~~
 
 Requests are routed by the authority they arrive on:
@@ -68,8 +75,8 @@ Requests are routed by the authority they arrive on:
 | Authority                             | Serves                                |
 | ------------------------------------- | ------------------------------------- |
 | `<slug>.<root domain>`                | ActivityPub only; GraphQL answers 404 |
-| the root origin                       | GraphQL                               |
-| the listening address, internal names | GraphQL                               |
+| the public web authority              | Frontend and exact `/graphql`         |
+| other control authorities             | Exact `/graphql`; web paths are 421   |
 | anything deeper under the root domain | 421 Misdirected Request               |
 | an unusable `Host` header             | 400 Bad Request                       |
 
@@ -80,15 +87,13 @@ surface, not a 404, so do not read the table above as isolating GraphQL by host
 name alone.  Ports 80 and 443 both count as no port at all, since which of them
 is the default depends on a scheme that is deliberately not compared.
 
-Not comparing the scheme is what lets a deployment sit behind a TLS-terminating
-reverse proxy.  Such a proxy must pass two things through:
-
- -  `Host`, unchanged, because that is what names the instance.  A `Host`
-    carrying the root zone's trailing dot is answered 400 rather than served,
-    because the HTTP layer refuses it before DrFed sees it.
- -  `X-Forwarded-Proto: https`.  Without it the request looks like plain HTTP,
-    and every actor URI DrFed mints names `http://`, which is not where the
-    actor lives and not what the rest of the fediverse will accept.
+The first-release reverse proxy contract preserves the original `Host` header.
+Set the root origin's external scheme for federation and the public web
+origin's external scheme for the frontend. The server restores those schemes
+before handing requests to Fedify or SolidStart; it ignores forwarded headers.
+`X-Forwarded-Host` cannot select an instance or frontend. Proxies that replace
+`Host` are unsupported. A trailing-dot Host may be refused by srvx before the
+DrFed router runs.
 
 Deploying this way needs a wildcard DNS record for `*.<root domain>` and, over
 HTTPS, a wildcard TLS certificate to match.
@@ -102,7 +107,9 @@ Login origins
 -------------
 
 `--login-origin` specifies an HTTP or HTTPS origin allowed in email login
-links.  At least one is required; repeat the option to allow multiple origins:
+links. Combined mode defaults to the public web origin. An explicit list
+replaces this default and must include that origin. With `--no-web`, at least
+one origin must be explicit. Repeat the option to allow multiple origins:
 
 ~~~~ sh
 drfed-server --root-origin https://drfed.example.com --data-path .pgdata \
@@ -133,13 +140,15 @@ Options
 
 | Option                    | Short | Description                                                          |
 | ------------------------- | ----- | -------------------------------------------------------------------- |
+| `--web` / `--no-web`      |       | Enable or disable the frontend (default: enabled)                    |
+| `--public-origin ORIGIN`  |       | Frontend origin (default: root origin; unused with `--no-web`)       |
 | `--print-config`          |       | Print effective settings and sources with secrets redacted; exit     |
 | `--config FILE`           |       | Explicit TOML configuration file                                     |
 | `--database-driver KIND`  |       | Select `pglite` or `postgres`                                        |
 | `--migrate`               |       | Enable automatic migrations                                          |
 | `--mail-transport KIND`   |       | Select `logtape` or `smtp`                                           |
 | `--root-origin ORIGIN`    | `-r`  | Origin instances are subdomains of (required)                        |
-| `--login-origin ORIGIN`   |       | Origin allowed in login links (required; may be repeated)            |
+| `--login-origin ORIGIN`   |       | Origin allowed in login links (required with `--no-web`; repeatable) |
 | `--listen HOST:PORT`      | `-l`  | Address to listen on (default: `localhost:8888`)                     |
 | `--pglite-data-path PATH` | `-d`  | Directory for PGlite storage                                         |
 | `--postgres-url URL`      | `-D`  | PostgreSQL connection URL                                            |
@@ -161,7 +170,7 @@ Testing npm installation
 ------------------------
 
 From the repository root, run `mise run test:packaging` to build and pack the
-four backend packages, then install their tarballs with npm in temporary local
+five packages, then install their tarballs with npm in temporary local
 and global prefixes outside the checkout.  The check uses a separate npm cache
 and empty npm configuration files, omits development dependencies, and disables
 installation scripts.  It needs network access to the public npm registry for
@@ -172,9 +181,10 @@ bin links, CLI help, a database-backed GraphQL request after initial migration,
 and a restart with `--no-migrate` using the same PGlite directory.  It removes
 the temporary installations and databases after stopping their servers.
 
-All four backend tarballs are supplied to each install together so unpublished
-workspace versions can be tested.  This baseline does not cover installing only
-the facade from the registry, the frontend, or upgrading an older release.
+All five tarballs are supplied to each install together so unpublished
+workspace versions can be tested.  The check covers combined and standalone
+frontend SSR, assets, login confirmation and session cookies. It does not cover
+installing only the facade from the registry or upgrading an older release.
 
 
 Resource ownership

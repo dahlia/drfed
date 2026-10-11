@@ -23,18 +23,16 @@ Usage
 -----
 
 ~~~~ ts
-import createFederation, { createInboundRecorder } from "@drfed/federation";
+import createFederation from "@drfed/federation";
 import { createYogaServer } from "@drfed/graphql";
 
 const federation = await createFederation(db, { kv });
-const recordedInbox = createInboundRecorder({ db, federation, rootOrigin });
 const yoga = createYogaServer(db, federation, {
+  rootOrigin,
   loginOrigins: new Set(["https://drfed.example.com"]),
 });
-serve({
-  fetch: (request) =>
-    recordedInbox.fetch(request, { onNotFound: yoga.fetch, contextData: undefined }),
-});
+// For a dedicated GraphQL listener; the application CLI owns combined routing.
+serve({ fetch: yoga.fetch });
 ~~~~
 
 `createFederation`, from [`@drfed/federation`], builds a Fedify `Federation`
@@ -42,6 +40,13 @@ with every DrFed dispatcher registered.  `createYogaServer` accepts a Drizzle
 database instance, that federation, and server options, and returns a GraphQL
 Yoga server ready to handle HTTP requests.  The federation is stored in the
 resolver context as is; `createYogaServer` never registers anything on it.
+
+The installed `drfed-server` routes only the exact `/graphql` path to Yoga.
+Combined mode injects `yoga.fetch` directly into the web runtime; `drfed-web`
+uses a configured backend origin over HTTP. Both bridges promote only a
+validated session token to Bearer authentication. Federation requests never
+fall back to GraphQL or the frontend. See the
+[CLI documentation](../drfed/README.md) for combined and `--no-web` deployments.
 
 [`@drfed/federation`]: https://github.com/fedify-dev/drfed/tree/main/packages/federation
 

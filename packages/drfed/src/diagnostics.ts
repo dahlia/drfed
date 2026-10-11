@@ -51,6 +51,8 @@ export function describeServerConfiguration(
   const { formatter } = options.logging.logOutput;
   const values = {
     rootOrigin: options.rootOrigin.origin,
+    web: options.web,
+    publicOrigin: options.publicOrigin?.origin,
     listen: options.address,
     loginOrigins: [...options.loginOrigins],
     emailFrom: options.emailFrom ?? `noreply@${options.rootOrigin.hostname}`,
@@ -116,7 +118,10 @@ export function describeServerConfiguration(
             },
           ]
         : []),
-      ...configurationProjection("server", ["web"]).unusedAreas.map((area) => ({
+      ...configurationProjection(
+        "server",
+        options.web ? [] : ["web"],
+      ).unusedAreas.map((area) => ({
         area,
         reason: "unused by this command",
       })),

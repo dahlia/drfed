@@ -198,6 +198,9 @@ importers:
         specifier: 1.4.2
         version: 1.4.2(typescript@7.0.2)
     devDependencies:
+      '@fedify/vocab':
+        specifier: 'catalog:'
+        version: 2.4.1
       '@logtape/testing-node':
         specifier: 'catalog:'
         version: 2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840)

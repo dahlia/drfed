@@ -88,6 +88,10 @@ async function writeResourceGuard(preload: string): Promise<void> {
             const source = "export * from " + target + "; export async function openPersistentPglite() { throw new Error('EARLY_RESOURCE_CONSTRUCTION'); }";
             return { url: "data:text/javascript," + encodeURIComponent(source), shortCircuit: true };
           }
+          if (specifier === "@drfed/web") {
+            const source = "export * from " + JSON.stringify(resolved.url) + "; export function createWebRuntime() { throw new Error('EARLY_RESOURCE_CONSTRUCTION'); }";
+            return { url: "data:text/javascript," + encodeURIComponent(source), shortCircuit: true };
+          }
           const name = constructors.get(specifier);
           if (name == null) return resolved;
           const target = JSON.stringify(resolved.url);
@@ -157,6 +161,7 @@ describe("drfed-server", () => {
       // Valid: parsing gets past the option and stops only on the missing
       // required --login-origin option.
       const accepted = await run([
+        "--no-web",
         "--data-path",
         dataPath,
         "--root-origin=https://drfed.net",
@@ -373,6 +378,7 @@ describe("drfed-server", () => {
         [
           "[server]",
           'root_origin = "http://drfed.test"',
+          "web = false",
           'login_origins = ["http://config.test"]',
           "[database]",
           'data_path = "must-not-exist"',
@@ -386,6 +392,7 @@ describe("drfed-server", () => {
       );
       const result = await run(
         [
+          "--no-web",
           "--print-config",
           "--config",
           config,
@@ -568,4 +575,50 @@ describe("drfed-server", () => {
     assert.equal(terminated.code, 1);
     assert.doesNotMatch(terminated.stdout, /type Query/u);
   });
+});
+
+it("defaults to the combined web origin and validates the active projection", async () => {
+  const base = ["--root-origin=https://drfed.test", "--print-config"];
+  const combined = await run(base);
+  assert.equal(combined.code, 0, combined.stderr);
+  const settings = JSON.parse(combined.stdout).settings;
+  assert.equal(settings["server.web"].value, true);
+  assert.equal(settings["web.public_origin"].value, "https://drfed.test");
+  assert.deepEqual(settings["server.login_origins"].value, [
+    "https://drfed.test",
+  ]);
+  const overridden = await run([
+    ...base,
+    "--public-origin=https://app.example/path",
+  ]);
+  assert.equal(overridden.code, 0, overridden.stderr);
+  assert.deepEqual(
+    JSON.parse(overridden.stdout).settings["server.login_origins"].value,
+    ["https://app.example"],
+  );
+  const separate = await run(
+    [...base, "--no-web", "--login-origin=https://app.example"],
+    undefined,
+    { DRFED_PUBLIC_ORIGIN: "invalid but unused" },
+  );
+  assert.equal(separate.code, 0, separate.stderr);
+  const separateDiagnostic = JSON.parse(separate.stdout);
+  assert.equal(separateDiagnostic.settings["web.public_origin"], undefined);
+  assert.ok(
+    separateDiagnostic.ignored.some(
+      (item: { area?: string }) => item.area === "web",
+    ),
+  );
+  const missing = await run([...base, "--no-web"]);
+  assert.equal(missing.code, 1);
+  assert.match(missing.stderr, /Expected at least 1/u);
+  const tenant = await run([
+    ...base,
+    "--public-origin=https://demo.drfed.test",
+  ]);
+  assert.equal(tenant.code, 1);
+  assert.match(tenant.stderr, /cannot name an instance/u);
+  const excluded = await run([...base, "--login-origin=https://other.example"]);
+  assert.equal(excluded.code, 1);
+  assert.match(excluded.stderr, /must include the public web origin/u);
 });

@@ -136,16 +136,30 @@ export function createInboundRecorder({
   db,
   federation,
   rootOrigin,
+  ingressMetadata,
 }: {
   readonly db: Database;
   readonly federation: TrackedFederation;
   readonly rootOrigin: URL;
+  /** Original adapter metadata when a router restores the public URL. */
+  readonly ingressMetadata?: (
+    request: Request,
+  ) => { readonly url: string; readonly headers: Headers } | undefined;
 }): {
   fetch(
     request: Request,
     options: FederationFetchOptions<unknown>,
   ): Promise<Response>;
 } {
+  function ingressFor(request: Request) {
+    return (
+      ingressMetadata?.(request) ?? {
+        url: request.url,
+        headers: request.headers,
+      }
+    );
+  }
+
   async function record(
     request: Request,
     instance: Instance,
@@ -200,6 +214,7 @@ export function createInboundRecorder({
     });
     const responseBody =
       response == null ? null : await readResponseBody(response);
+    const ingress = ingressFor(request);
     await recordInbound(db, {
       ...description,
       id,
@@ -223,8 +238,8 @@ export function createInboundRecorder({
         owner?.inboxUrl ??
         instanceUrl(rootOrigin, instance.host, new URL(request.url).pathname)
           .href,
-      requestUrl: request.url,
-      headers: recordedHeaders(request.headers),
+      requestUrl: ingress.url,
+      headers: recordedHeaders(ingress.headers),
       body,
       statusCode,
       responseBody,

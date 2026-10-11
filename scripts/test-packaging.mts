@@ -227,6 +227,94 @@ function isCrossJsonModule(value: unknown): value is CrossJsonModule {
     typeof value.toCrossJSON === "function"
   );
 }
+async function verifyInstalledWeb(
+  modules: string,
+  webPort: number,
+  backendPort: number,
+  challengeId: string,
+  logFile: string,
+): Promise<void> {
+  const page = await requestInstalledWeb(webPort, "/about");
+  assert.equal(page.status, 200);
+  assert.match(page.body, /DrFed/u);
+  const asset = await requestInstalledWeb(webPort, "/icon.svg");
+  assert.equal(asset.status, 200);
+  assert.match(asset.body, /<svg/u);
+  let code: string | undefined;
+  const pattern = new RegExp(
+    `challengeId=${challengeId}&(?:amp;)?code=(?<code>[A-Za-z0-9]+)`,
+    "u",
+  );
+  // The blocking file sink flushes on a record after its five-second interval.
+  const mailDeadline = Date.now() + 10_000;
+  while (code === undefined && Date.now() < mailDeadline) {
+    code = pattern.exec(await readFile(logFile, "utf8"))?.groups?.code;
+    if (code === undefined) {
+      await delay(250);
+      // Keep producing public query logs so the buffered mail record flushes.
+      const probe = await fetch(`http://127.0.0.1:${backendPort}/graphql`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ query: "{ __typename }" }),
+        signal: AbortSignal.timeout(5_000),
+      });
+      assert.equal(probe.status, 200);
+      await probe.arrayBuffer();
+    }
+  }
+  assert.ok(code !== undefined, "Login mail contains its verification code.");
+  const webPackage = join(modules, "@drfed/web");
+  const bundle = await readFile(
+    join(webPackage, ".output/server/_ssr/ssr.mjs"),
+    "utf8",
+  );
+  const id =
+    /completeLoginChallengeMutation = [^;]+;[\s\S]*?createServerReference\("(?<id>[^"]+)"/u.exec(
+      bundle,
+    )?.groups?.id;
+  assert.ok(id !== undefined, "Installed login action is registered.");
+  const serializer: unknown = await import(
+    pathToFileURL(
+      createRequire(join(webPackage, "package.json")).resolve("seroval"),
+    ).href
+  );
+  assert.ok(isCrossJsonModule(serializer));
+  const payload = JSON.stringify(
+    serializer.toCrossJSON([{ challengeId, code }]),
+  );
+  const body = `;0x${new TextEncoder().encode(payload).length.toString(16).padStart(8, "0")};${payload}`;
+  const path = `/_server?id=${id}`;
+  const headers = { "x-start-type": "0", "x-server-instance": "installed" };
+  const denied = await requestInstalledWeb(
+    webPort,
+    path,
+    { ...headers, origin: "http://instance.drfed.test" },
+    body,
+  );
+  assert.equal(denied.status, 403);
+  const confirmed = await requestInstalledWeb(
+    webPort,
+    path,
+    { ...headers, origin: "http://drfed.test" },
+    body,
+  );
+  assert.equal(confirmed.status, 200);
+  const cookie = confirmed.headers["set-cookie"]?.find((value) =>
+    value.startsWith("session="),
+  );
+  assert.ok(
+    cookie !== undefined,
+    "Installed login confirmation sets a session cookie.",
+  );
+  assert.match(cookie, /HttpOnly/u);
+  assert.match(cookie, /SameSite=Lax/u);
+  const authenticated = await requestInstalledWeb(webPort, "/about", {
+    cookie: cookie.split(";")[0] ?? "",
+  });
+  assert.equal(authenticated.status, 200);
+  assert.match(authenticated.body, /Operator/u);
+}
+
 async function smokeInstalledWeb(
   binary: string,
   modules: string,
@@ -274,85 +362,13 @@ async function smokeInstalledWeb(
   try {
     await ready.promise;
     clearTimeout(startupTimer);
-    const page = await requestInstalledWeb(address.port, "/about");
-    assert.equal(page.status, 200);
-    assert.match(page.body, /DrFed/u);
-    const asset = await requestInstalledWeb(address.port, "/icon.svg");
-    assert.equal(asset.status, 200);
-    assert.match(asset.body, /<svg/u);
-    let code: string | undefined;
-    const pattern = new RegExp(
-      `challengeId=${challengeId}&(?:amp;)?code=(?<code>[A-Za-z0-9]+)`,
-      "u",
-    );
-    // The blocking file sink flushes on a record after its five-second interval.
-    const mailDeadline = Date.now() + 10_000;
-    while (code === undefined && Date.now() < mailDeadline) {
-      code = pattern.exec(await readFile(logFile, "utf8"))?.groups?.code;
-      if (code === undefined) {
-        await delay(250);
-        // Keep producing public query logs so the buffered mail record flushes.
-        const probe = await fetch(`http://127.0.0.1:${backendPort}/graphql`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ query: "{ __typename }" }),
-          signal: AbortSignal.timeout(5_000),
-        });
-        assert.equal(probe.status, 200);
-        await probe.arrayBuffer();
-      }
-    }
-    assert.ok(code !== undefined, "Login mail contains its verification code.");
-    const webPackage = join(modules, "@drfed/web");
-    const bundle = await readFile(
-      join(webPackage, ".output/server/_ssr/ssr.mjs"),
-      "utf8",
-    );
-    const id =
-      /completeLoginChallengeMutation = [^;]+;[\s\S]*?createServerReference\("(?<id>[^"]+)"/u.exec(
-        bundle,
-      )?.groups?.id;
-    assert.ok(id !== undefined, "Installed login action is registered.");
-    const serializer: unknown = await import(
-      pathToFileURL(
-        createRequire(join(webPackage, "package.json")).resolve("seroval"),
-      ).href
-    );
-    assert.ok(isCrossJsonModule(serializer));
-    const payload = JSON.stringify(
-      serializer.toCrossJSON([{ challengeId, code }]),
-    );
-    const body = `;0x${new TextEncoder().encode(payload).length.toString(16).padStart(8, "0")};${payload}`;
-    const path = `/_server?id=${id}`;
-    const headers = { "x-start-type": "0", "x-server-instance": "installed" };
-    const denied = await requestInstalledWeb(
+    await verifyInstalledWeb(
+      modules,
       address.port,
-      path,
-      { ...headers, origin: "http://instance.drfed.test" },
-      body,
+      backendPort,
+      challengeId,
+      logFile,
     );
-    assert.equal(denied.status, 403);
-    const confirmed = await requestInstalledWeb(
-      address.port,
-      path,
-      { ...headers, origin: "http://drfed.test" },
-      body,
-    );
-    assert.equal(confirmed.status, 200);
-    const cookie = confirmed.headers["set-cookie"]?.find((value) =>
-      value.startsWith("session="),
-    );
-    assert.ok(
-      cookie !== undefined,
-      "Installed login confirmation sets a session cookie.",
-    );
-    assert.match(cookie, /HttpOnly/u);
-    assert.match(cookie, /SameSite=Lax/u);
-    const authenticated = await requestInstalledWeb(address.port, "/about", {
-      cookie: cookie.split(";")[0] ?? "",
-    });
-    assert.equal(authenticated.status, 200);
-    assert.match(authenticated.body, /Operator/u);
   } finally {
     clearTimeout(startupTimer);
     child.kill("SIGTERM");
@@ -373,7 +389,11 @@ async function smoke(
   dataPath: string,
   migrate: boolean,
   loginEmail = "unknown@example.com",
-  web?: { readonly binary: string; readonly modules: string },
+  web?: {
+    readonly binary: string;
+    readonly modules: string;
+    readonly combined?: boolean;
+  },
 ) {
   const socket = createServer();
   socket.listen(0, "127.0.0.1");
@@ -419,7 +439,11 @@ log_output = "server.log"
   assert.doesNotMatch(diagnostic.stdout + diagnostic.stderr, /PRIVATE_TOKEN/u);
   const child = spawn(
     process.execPath,
-    [binary, ...(migrate ? ["--config", configFile] : ["--no-migrate"])],
+    [
+      binary,
+      ...(web !== undefined && !web.combined ? ["--no-web"] : []),
+      ...(migrate ? ["--config", configFile] : ["--no-migrate"]),
+    ],
     {
       cwd,
       env: {
@@ -480,15 +504,40 @@ log_output = "server.log"
     assert.equal(body.errors, undefined, JSON.stringify(body));
     assert.ok(body.data.loginByEmail.challengeId);
     challengeId = body.data.loginByEmail.challengeId;
-    if (web !== undefined && challengeId !== undefined) {
-      await smokeInstalledWeb(
-        web.binary,
-        web.modules,
-        address.port,
-        cwd,
-        challengeId,
-        join(configDirectory, "server.log"),
+    const page = await requestInstalledWeb(address.port, "/about");
+    if (web !== undefined && !web.combined) {
+      assert.equal(page.status, 404);
+      assert.equal(
+        (await requestInstalledWeb(address.port, "/graphql/")).status,
+        404,
       );
+    } else {
+      assert.equal(page.status, 200);
+      assert.match(page.body, /DrFed/u);
+      assert.equal(
+        (await requestInstalledWeb(address.port, "/icon.svg")).status,
+        200,
+      );
+    }
+    if (web !== undefined && challengeId !== undefined) {
+      if (web.combined) {
+        await verifyInstalledWeb(
+          web.modules,
+          address.port,
+          address.port,
+          challengeId,
+          join(configDirectory, "server.log"),
+        );
+      } else {
+        await smokeInstalledWeb(
+          web.binary,
+          web.modules,
+          address.port,
+          cwd,
+          challengeId,
+          join(configDirectory, "server.log"),
+        );
+      }
     }
   } finally {
     child.kill("SIGTERM");
@@ -726,6 +775,11 @@ try {
     );
     assert.equal(existingAccount.status, "exists");
     assert.equal(existingAccount.account.id, createdAccount.account.id);
+    await smoke(binary, prefix, dataPath, false, "operator@example.com", {
+      binary: webBinary,
+      modules,
+      combined: true,
+    });
     const challengeId = await smoke(
       binary,
       prefix,

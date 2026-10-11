@@ -30,11 +30,21 @@ Install the CLI through npm:
 ~~~~ sh
 npm install --global @drfed/drfed
 drfed-server --root-origin http://drfed.localhost:8888 \
-  --login-origin http://localhost:3000 --data-path .pgdata
+  --data-path .pgdata
 ~~~~
 
-The command currently serves the GraphQL and ActivityPub backend. Run the
-frontend separately during repository development with `mise run dev`.
+Open `http://drfed.localhost:8888` for the frontend. The same listener serves
+`/graphql`; instance subdomains serve ActivityPub only. The first startup
+creates and migrates the database. Create an operator account before signing in:
+
+~~~~ sh
+drfed-account create --data-path .pgdata \
+  --email operator@example.com --name Operator
+~~~~
+
+Login mail goes to the log by default. Configure SMTP for delivery, or copy the
+logged verification URL when developing locally. Repository development uses
+`mise run dev` with separate backend and frontend processes.
 
 For a service deployment, select a TOML file with `--config` or `DRFED_CONFIG`.
 CLI settings override `DRFED_*` environment variables, which override TOML
@@ -43,7 +53,7 @@ and defaults. No configuration files or *.env* files are searched automatically.
 ~~~~ toml
 [server]
 root_origin = "https://drfed.example.com"
-login_origins = ["https://frontend.example.com"]
+listen = "localhost:8888"
 
 [database]
 data_path = "data"

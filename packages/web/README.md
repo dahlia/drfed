@@ -120,3 +120,13 @@ controlled GraphQL headers, cancellation, idempotent draining close and the
 absence of listeners or process-handler changes. `mise run test` includes this
 test after building the frontend. `mise run test:packaging` also exercises the
 runtime from local and global npm tarball installations.
+
+
+Combined serving
+----------------
+
+`drfed-server --root-origin https://drfed.example.com` serves this frontend
+and `/graphql` on its single listener. The web runtime calls Yoga directly in
+that process, using the same controlled GraphQL bridge as standalone mode.
+Use `--no-web` with explicit backend login origins when running `drfed-web`
+separately. Repository `mise run dev` uses this split mode for Vite HMR.

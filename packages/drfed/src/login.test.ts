@@ -44,6 +44,7 @@ it("normalizes CLI login origins and preserves the allowlist", async () => {
     process.execPath,
     [
       binary,
+      "--no-web",
       "--data-path",
       dataPath,
       `--listen=127.0.0.1:${address.port}`,

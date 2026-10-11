@@ -20,6 +20,7 @@ import process from "node:process";
 import createFederation, { createInboundRecorder } from "@drfed/federation";
 import { KeyGenerationQueue } from "@drfed/federation/task-queue";
 import { createYogaServer } from "@drfed/graphql";
+import { type WebRuntime, createWebRuntime } from "@drfed/web";
 import { PgliteKvStore } from "@fedify/pglite";
 import { PostgresKvStore } from "@fedify/postgres";
 import {
@@ -46,7 +47,12 @@ import { createProgram, selectInvocationMode } from "./program.ts";
 import { ResourceOwner } from "./resources.ts";
 import { createServerRuntime } from "./runtime-options.ts";
 import seedData from "./seed.ts";
-import { createFetchHandler, warnAboutStrandedInstances } from "./serving.ts";
+import {
+  createControlSurface,
+  createFetchHandler,
+  getIngressMetadata,
+  warnAboutStrandedInstances,
+} from "./serving.ts";
 
 async function runServer(configuration: ServerOptions) {
   const owner = new ResourceOwner();
@@ -159,10 +165,38 @@ async function runServer(configuration: ServerOptions) {
       shutdownSignal: operations.signal,
     });
     await operations.run(() => warnAboutStrandedInstances(db, rootOrigin));
+    let web: WebRuntime | undefined;
+    if (options.web) {
+      const { publicOrigin } = options;
+      if (publicOrigin === undefined) {
+        throw new Error("Missing public web origin.");
+      }
+      web = await operations.run(async (signal) => {
+        const runtime = owner.register(
+          await createWebRuntime({
+            publicOrigin,
+            graphqlFetch: (request) =>
+              operations.track(() => yogaServer.fetch(request)),
+          }),
+          (resource) => resource.close(),
+          { owned: true },
+        );
+        signal.throwIfAborted();
+        return runtime;
+      });
+    }
     const fetchHandler = createFetchHandler({
-      federation: createInboundRecorder({ db, federation, rootOrigin }),
+      federation: createInboundRecorder({
+        db,
+        federation,
+        rootOrigin,
+        ingressMetadata: getIngressMetadata,
+      }),
       rootOrigin,
-      serveControlSurface: yogaServer.fetch,
+      serveControlSurface: createControlSurface({
+        graphql: yogaServer.fetch,
+        ...(web === undefined ? {} : { web: web.fetch }),
+      }),
     });
     const ownedServer = owner.register(
       serve({
@@ -191,6 +225,12 @@ async function runServer(configuration: ServerOptions) {
     await operations.run(async () => {
       await ownedServer.serve();
     });
+    if (options.publicOrigin !== undefined) {
+      getLogger(["drfed", "server"]).info(
+        "Web frontend is available at {origin}.",
+        { origin: options.publicOrigin.origin },
+      );
+    }
   } catch (error) {
     process.off("SIGINT", shutdown);
     process.off("SIGTERM", shutdown);

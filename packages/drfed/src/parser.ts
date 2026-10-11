@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import { classifyHost } from "@drfed/federation/origin";
 import { conditional, merge, object, or } from "@optique/core/constructs";
 import { message } from "@optique/core/message";
 import { map, multiple, optional, withDefault } from "@optique/core/modifiers";
@@ -51,6 +52,7 @@ export const valueOptionNames = {
   address: ["--listen", "-l"],
   rootOrigin: ["--root-origin", "-r"],
   loginOrigins: ["--login-origin"],
+  publicOrigin: ["--public-origin"],
   emailFrom: ["--email-from", "-f"],
   databaseDriver: ["--database-driver"],
   dataPath: ["--pglite-data-path", "--data-path", "-d"],
@@ -103,14 +105,49 @@ export function createParser(
       root,
       identity,
     ),
+    web: bind(
+      or(
+        flag("--web", {
+          description: message`Serve the frontend alongside GraphQL on the same port. This is the default.`,
+        }),
+        map(
+          flag("--no-web", {
+            description: message`Serve GraphQL and federation without the frontend; login origins must be explicit.`,
+          }),
+          () => false,
+        ),
+      ),
+      settings.web,
+      configurationBoolean(),
+      String,
+      true,
+    ),
+    publicOrigin: bind(
+      map(
+        option(
+          ...valueOptionNames.publicOrigin,
+          origin({ allowedProtocols: ["http:", "https:"] }),
+          {
+            description: message`The public HTTP or HTTPS frontend origin. Defaults to the root origin; unused with --no-web.`,
+          },
+        ),
+        (value) => value.origin,
+      ),
+      settings.publicOrigin,
+      string(),
+      identity,
+    ),
     loginOrigins: bind(
       multiple(
-        option(
-          ...valueOptionNames.loginOrigins,
-          string({ metavar: "ORIGIN" }),
-          {
-            description: message`An HTTP or HTTPS frontend origin allowed in login links. Repeat to replace the configured list.`,
-          },
+        map(
+          option(
+            ...valueOptionNames.loginOrigins,
+            origin({ allowedProtocols: ["http:", "https:"] }),
+            {
+              description: message`An HTTP or HTTPS frontend origin allowed in login links. Repeat to replace the configured list. Defaults to the public web origin when serving the frontend.`,
+            },
+          ),
+          (value) => value.origin,
         ),
         { min: 1 },
       ),
@@ -342,10 +379,31 @@ export function resolveOptions(options: RawOptions, cwd = process.cwd()) {
     server.rootOrigin,
     "Missing option --root-origin or server.root_origin (DRFED_ROOT_ORIGIN).",
   );
-  const origins = required(
-    server.loginOrigins,
-    "Expected at least 1 values, but got only 0.",
-  );
+  const web = required(server.web, "Missing web serving policy.");
+  let publicOrigin: URL | undefined;
+  if (web) {
+    const supplied = server.publicOrigin?.value;
+    if (supplied === undefined) publicOrigin = new URL(root.origin);
+    else {
+      const parsed = origin({ allowedProtocols: ["http:", "https:"] }).parse(
+        supplied,
+      );
+      if (!parsed.success) {
+        throw new Error(
+          "Invalid public origin; expected an HTTP or HTTPS origin without credentials.",
+        );
+      }
+      publicOrigin = parsed.value;
+    }
+    if (classifyHost(publicOrigin, root) !== "admin") {
+      throw new Error(
+        "The public web origin cannot name an instance or a deeper subdomain.",
+      );
+    }
+  }
+  const origins =
+    server.loginOrigins?.value ??
+    (publicOrigin === undefined ? [] : [publicOrigin.origin]);
   if (origins.length === 0) {
     throw new Error("Expected at least 1 values, but got only 0.");
   }
@@ -361,6 +419,11 @@ export function resolveOptions(options: RawOptions, cwd = process.cwd()) {
     }
     loginOrigins.add(parsed.value.origin);
   }
+  if (publicOrigin !== undefined && !loginOrigins.has(publicOrigin.origin)) {
+    throw new Error(
+      "The configured login origins must include the public web origin.",
+    );
+  }
   const database = resolveDatabaseSettings(
     {
       driver: server.databaseDriver,
@@ -373,6 +436,8 @@ export function resolveOptions(options: RawOptions, cwd = process.cwd()) {
     printConfig: server.printConfig,
     address: required(server.address, "Missing listen address."),
     rootOrigin: root,
+    web,
+    publicOrigin,
     loginOrigins,
     emailFrom: server.emailFrom?.value,
     smtpUrl: resolveMail(server),
@@ -388,6 +453,8 @@ export function resolveOptions(options: RawOptions, cwd = process.cwd()) {
     },
     provenance: configurationProvenance({
       rootOrigin: server.rootOrigin,
+      web: server.web,
+      publicOrigin: server.publicOrigin,
       address: server.address,
       loginOrigins: server.loginOrigins,
       emailFrom: server.emailFrom,

@@ -28,6 +28,14 @@ call returns an independent `Federation` that resolves local actors from the
 given database.  `buildFederation(db)` returns the builder without building
 it, for callers that build it themselves.
 
+The application CLI routes one-label instance subdomains exclusively to this
+surface. A missing federation route returns 404 and never falls back to the
+frontend or GraphQL. Behind TLS termination, preserve the original Host and
+configure the external root origin: the CLI restores its scheme before Fedify
+processes the request, preserving the signed headers and body. Forwarded
+headers do not choose the authority. See the
+[CLI documentation](../drfed/README.md) for the first-release proxy contract.
+
 
 Exports
 -------

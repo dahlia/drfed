@@ -330,6 +330,7 @@ try {
   const serverArgs: string[] = [
     "--watch",
     "bin/drfed-server.mjs",
+    "--no-web",
     "--pglite-data-path",
     "../../.pgdata",
     "--listen=0.0.0.0:8888",

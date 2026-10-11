@@ -168,6 +168,7 @@
     "test": "node --test"
   },
   "devDependencies": {
+    "@fedify/vocab": "catalog:",
     "@logtape/testing-node": "catalog:",
     "@types/node": "catalog:",
     "tsdown": "catalog:",
@@ -177,6 +178,7 @@
     "@drfed/federation": "workspace:*",
     "@drfed/graphql": "workspace:*",
     "@drfed/models": "workspace:*",
+    "@drfed/web": "workspace:*",
     "@electric-sql/pglite": "catalog:",
     "@fedify/fedify": "catalog:",
     "@fedify/pglite": "catalog:",
@@ -196,7 +198,6 @@
     "postgres": "catalog:",
     "smol-toml": "^1.9.1",
     "srvx": "^0.11.16",
-    "valibot": "1.4.2",
-    "@drfed/web": "workspace:*"
+    "valibot": "1.4.2"
   }
 }
