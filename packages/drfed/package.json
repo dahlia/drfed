@@ -1,6 +1,6 @@
 {
   "name": "@drfed/drfed",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The main entrypoint program for DrFed.",
   "keywords": [
     "ActivityPub",
