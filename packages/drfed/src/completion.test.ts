@@ -92,22 +92,16 @@ it("completes aliases and equals-form values through the installed runners", asy
   assert.ok(!values.includes("smtp"));
 });
 
-it(
-  "does not suggest options after the argument terminator",
-  {
-    todo: "Upstream terminator regression: https://github.com/dahlia/optique/issues/1028",
-  },
-  async () => {
-    const suggestions = await complete("drfed-account", [
-      "completion",
-      "bash",
-      "create",
-      "--",
-      "--",
-    ]);
-    assert.equal(suggestions.trim(), "");
-  },
-);
+it("does not suggest options after the argument terminator", async () => {
+  const suggestions = await complete("drfed-account", [
+    "completion",
+    "bash",
+    "create",
+    "--",
+    "--",
+  ]);
+  assert.equal(suggestions.trim(), "");
+});
 
 it("completion ignores invalid deployment settings and never accesses operator resources", async () => {
   const directory = await mkdtemp(join(tmpdir(), "drfed-completion-safety-"));

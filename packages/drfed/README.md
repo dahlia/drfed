@@ -204,11 +204,6 @@ Replace `COMMAND` with `server`, `web`, `migrate`, or `account`. The files are
 generated from the built command runners; installation does not run the
 generator or require development dependencies.
 
-Optique 1.3.0 may still suggest option names after the `--` terminator;
-this is tracked in [Optique #1028].
-
-[Optique #1028]: https://github.com/dahlia/optique/issues/1028
-
 
 Completion installation
 -----------------------
@@ -243,9 +238,10 @@ To probe packed installations and explicit loading in all five shells, run
 `mise run test:completion-installation`. This selects fish 4.9.3 and PowerShell
 7.6.6 through mise, in addition to Bash, zsh and the pinned Nushell. Probes
 use temporary shell configuration directories and do not edit startup files.
-They check zsh registration; actual zsh Tab requests are not yet covered.
-The bash-completion framework, live version-manager prefixes, Linux and
-Windows installation behavior have not yet been tested.
+On macOS, actual zsh Tab requests were exercised for all four commands, and
+all four Nushell scripts were sourced together before checking each command's
+suggestions. The bash-completion framework, live version-manager prefixes,
+Linux and Windows installation behavior have not yet been tested.
 
 [bash-completion lookup conventions]: https://github.com/scop/bash-completion#faq
 [`fpath`]: https://zsh.sourceforge.io/Doc/Release/Completion-System.html#Initialization
