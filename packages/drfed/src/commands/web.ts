@@ -214,6 +214,7 @@ export async function main(): Promise<void> {
       contexts: invocation.contexts,
       contextOptions: { load: invocation.load },
       help: "option",
+      completion: "both",
       showChoices: true,
       showDefault: true,
       version: { option: true, value: metadata.version },

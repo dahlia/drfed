@@ -39,6 +39,7 @@ export async function main(): Promise<void> {
       contexts: invocation.contexts,
       contextOptions: { load: (parsed) => invocation.load(parsed) },
       help: "option",
+      completion: "both",
       showChoices: true,
       showDefault: true,
       version: { option: true, value: metadata.version },
