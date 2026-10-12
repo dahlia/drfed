@@ -5,3 +5,5 @@ rules:
     policies:
       actions/checkout: ref-pin
       jdx/mise-action: ref-pin
+      actions/upload-artifact: ref-pin
+      actions/download-artifact: ref-pin

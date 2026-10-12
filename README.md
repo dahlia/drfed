@@ -106,3 +106,13 @@ separately. Pass the frontend's public origin to `drfed-server` with
 the [CLI package documentation] for both modes, supported mail transports,
 credential files and shutdown behavior. All four commands accept the same
 explicit configuration file and the relevant `DRFED_*` variables.
+
+
+Development builds
+------------------
+
+Install the latest successful development build with
+`npm install --global @drfed/drfed@dev`.  The `dev` channel is separate from the
+stable `latest` channel.  Tagged prereleases use `next`.  See
+[the contributor release guide](./CONTRIBUTING.md#automated-npm-and-github-releases)
+for verification, setup, and recovery procedures.

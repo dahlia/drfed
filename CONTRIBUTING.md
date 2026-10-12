@@ -237,6 +237,82 @@ to update the version-specific Git merge-driver path.  Commit the tool pin,
 root manifest, and lockfile together.
 
 
+Automated npm and GitHub releases
+---------------------------------
+
+Successful upstream pushes to `main` publish all five packages under the `dev`
+dist-tag; `latest` stays unchanged.  CI calculates one identifier such as
+`0.1.0-dev.123+abcdef01` from the shared base version, run number, and commit.
+npm removes build metadata, so manifests, internal dependencies, and installed
+`--version` output use `0.1.0-dev.123`.  The complete identifier and full
+commit SHA remain in each package's `drfedBuild` metadata and the artifact
+manifest. Keep the version checked in on `main` a stable SemVer version with no
+prerelease suffix; CI derives dev identifiers from it.
+
+Release tags are bare SemVer versions with no `v` prefix and must match the
+version of every checked-in public package.
+Stable tags use `latest`; prerelease tags such as `0.1.0-rc.1` use `next`.
+The `v` prefix, build metadata in tags, invalid versions, and mismatched package
+versions are rejected.  PRs, forks, deleted refs, and other branches only run
+validation and never publish.  Existing Linux/macOS/Windows tests remain
+required, and publication also requires a build, check, and test pass at the
+release version, plus installation of the exact packed artifacts through
+`mise run test:packaging --artifacts release-artifacts`. Run
+`mise run check:release` to exercise the release scripts locally against a
+loopback registry, including version, recovery, and GitHub Release fixtures.
+It does not publish to npm or GitHub.
+
+Before enabling automation, an npm maintainer must manually bootstrap all five
+public package names with a verified complete package set, publishing models,
+federation, GraphQL, web, then the `drfed` facade.  Use public access, a
+`bootstrap` dist-tag, and a version lower than every planned release, such as
+`0.0.0-bootstrap.0`.  npm also assigns `latest` on the first publication, even
+when a custom tag is supplied.
+Do not reuse that bootstrap version as an automated release tag.  Build, check,
+test, and verify packed local/global installs first; keep the exact tarballs.
+For each of `@drfed/models`, `@drfed/federation`, `@drfed/graphql`,
+`@drfed/web`, and `@drfed/drfed`, configure an npm trusted publisher for GitHub
+organization `fedify-dev`, repository `drfed`, and workflow filename
+`main.yaml`.  Enable both *Allow npm publish* and *Allow npm dist-tag*.  These
+are separate permissions; dist-tag access is off by default.  Use GitHub-hosted
+runners.  The mise pin of npm 12.2.0 supports OIDC dist-tag changes and shadows
+Node's bundled npm for CI publication.  The packed-install harness uses Node's
+bundled npm separately.  No npm token is supplied to the workflow; publishing
+requests provenance and uses the public repository metadata in each package.
+
+The publishing job alone receives `id-token: write`; validation jobs have read
+access, and only the separate GitHub Release job receives `contents: write`.
+Npm publication and GitHub Release jobs share one concurrency group
+(`queue: max`) with cancellation disabled.  The queue has GitHub's
+100-pending-job limit; rerun any job cancelled because it was full.
+Serialization prevents interleaving.  If an older build finishes late, the
+recorded workflow run number keeps `dev` pointing at the newer build, including
+after a base-version rollback.  `latest` and `next` use SemVer ordering.
+Packages first use the temporary `dev-staging` or `release-staging` dist-tag.
+The `dev`, `latest`, or `next` tag advances only after the whole set is
+confirmed, and the staging tag is then removed.  Never unpublish as rollback.
+
+Artifacts named `drfed-<run-id>` contain tarballs, identity/integrity metadata,
+and, for tag builds, a frozen copy of the release notes.  They are retained for
+90 days, subject to the repository's retention limit.  Reruns reuse the first
+verified artifact from the same run, skip versions already published with
+identical contents, and publish missing packages.  Registry/network failures are
+distinguished from missing versions and retries are bounded.  A mismatch in
+tarball bytes or build identity fails the run.  If the original artifact is
+missing and any package in the set is already published, recovery fails closed:
+use a new main push for a new dev build, or prepare a new reviewed patch tag.
+Do not rebuild an existing immutable version.  Tag deletion or movement is
+checked again immediately before registry writes and GitHub Release writes.
+
+After npm publication, tag builds create or verify the GitHub Release from
+`CHANGES.md` and upload the same verified tarballs.  Reruns keep an existing
+release whose notes, prerelease flag, and asset digests match, upload missing
+assets, and fail on conflicts.  Empty `starter` assets left by failed uploads
+are replaced; completed assets are never clobbered.  A stable GitHub Release is
+marked Latest only when it matches npm `latest`.  Main builds create no GitHub
+Release.  Shell completion assets are excluded until issue 125 is complete.
+
+
 Source license headers
 ----------------------
 

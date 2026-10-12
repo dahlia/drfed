@@ -31,7 +31,14 @@ import { type IncomingHttpHeaders, request as httpRequest } from "node:http";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { delimiter, dirname, join, relative, resolve } from "node:path";
+import {
+  basename,
+  delimiter,
+  dirname,
+  join,
+  relative,
+  resolve,
+} from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -42,6 +49,11 @@ import { probeCompletionInstallation } from "./completion-installation.mts";
 const execute = promisify(execFile);
 const root = fileURLToPath(new URL("../", import.meta.url));
 const temporary = await mkdtemp(join(tmpdir(), "drfed-packaging-"));
+const artifactArgument = process.argv.indexOf("--artifacts");
+const suppliedArtifacts =
+  artifactArgument >= 0
+    ? resolve(process.argv[artifactArgument + 1]!)
+    : undefined;
 const packages = ["models", "federation", "graphql", "web", "drfed"];
 const windows = process.platform === "win32";
 const probeShells = process.env.DRFED_TEST_COMPLETION_SHELLS === "1";
@@ -209,16 +221,36 @@ async function smokeCompletion(
 }
 
 async function pack(name: string) {
-  const { stdout } = await run(
-    "pnpm",
-    ["pack", "--json", "--pack-destination", temporary],
-    join(root, "packages", name),
-  );
-  const result = JSON.parse(stdout) as {
-    filename: string;
-    files: { path: string }[];
-  };
-  const archive = resolve(temporary, result.filename);
+  let archive: string;
+  let paths: string[];
+  if (suppliedArtifacts) {
+    const bundle = JSON.parse(
+      await readFile(join(suppliedArtifacts, "manifest.json"), "utf8"),
+    ) as { packages: { name: string; filename: string }[] };
+    const entry = bundle.packages.find(
+      (item) => item.name === `@drfed/${name}`,
+    );
+    assert.ok(entry);
+    assert.equal(entry.filename, basename(entry.filename));
+    archive = join(suppliedArtifacts, entry.filename);
+    const listing = await run("tar", ["-tzf", archive], temporary);
+    paths = listing.stdout
+      .trim()
+      .split("\n")
+      .map((path) => path.replace(/^package\//u, ""));
+  } else {
+    const { stdout } = await run(
+      "pnpm",
+      ["pack", "--json", "--pack-destination", temporary],
+      join(root, "packages", name),
+    );
+    const result = JSON.parse(stdout) as {
+      filename: string;
+      files: { path: string }[];
+    };
+    archive = resolve(temporary, result.filename);
+    paths = result.files.map(({ path }) => path);
+  }
   const packed = await run(
     "tar",
     ["-xOf", archive, "package/package.json"],
@@ -233,7 +265,7 @@ async function pack(name: string) {
   for (const version of Object.values(manifest.dependencies ?? {})) {
     assert.ok(!/^(?:workspace:|catalog:|file:|link:)/u.test(version), version);
   }
-  const files = new Set(result.files.map(({ path }) => path));
+  const files = new Set(paths);
   function checkTargets(value: unknown): void {
     if (typeof value === "string") {
       assert.ok(
@@ -707,6 +739,20 @@ try {
     console.log(
       `${global ? "Global" : "Local"} npm install: bundled completion and all five suggestion protocols passed`,
     );
+    for (const commandName of ["server", "web", "migrate", "account"]) {
+      const installedVersion = await run(
+        process.execPath,
+        [join(application, `bin/drfed-${commandName}.mjs`), "--version"],
+        prefix,
+      );
+      const sourceVersion = JSON.parse(
+        await readFile(join(root, "packages/drfed/package.json"), "utf8"),
+      ).version as string;
+      assert.ok(
+        installedVersion.stdout.includes(sourceVersion),
+        installedVersion.stdout,
+      );
+    }
     const require = createRequire(join(application, "package.json"));
     for (const { manifest } of packed) {
       const installed = JSON.parse(

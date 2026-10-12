@@ -105,5 +105,13 @@
     "@logtape/logtape": "catalog:",
     "@opentelemetry/api": "^1.9.1",
     "drizzle-orm": "catalog:"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fedify-dev/drfed.git",
+    "directory": "packages/federation"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

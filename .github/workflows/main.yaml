@@ -23,7 +23,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: jdx/mise-action@v5.1.1
+      - uses: jdx/mise-action@v5.1.2
         with:
           cache: true
           experimental: true
@@ -52,7 +52,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@v5.1.1
+      - uses: jdx/mise-action@v5.1.2
         with:
           cache: true
           experimental: true
@@ -62,3 +62,151 @@ jobs:
           MISE_LOG_LEVEL: ${{ runner.debug == '1' && 'trace' || 'info' }}
           LOGTAPE_TEST_MODE: ${{ runner.debug == '1' && 'always' || 'on-failure' }}
           LOGTAPE_TEST_LOWEST_LEVEL: ${{ runner.debug == '1' && 'trace' || 'debug' }}
+
+  version:
+    if: >-
+      github.event_name == 'push' && github.repository == 'fedify-dev/drfed' &&
+      !github.event.deleted &&
+      (github.ref == 'refs/heads/main' || github.ref_type == 'tag')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: version-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
+      queue: max
+    outputs:
+      enabled: ${{ steps.version.outputs.enabled }}
+      build: ${{ steps.version.outputs.build }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v5.1.2
+        with:
+          cache: false
+          experimental: true
+      - id: version
+        run: mise run release:version
+
+  artifacts:
+    needs: [version, check, test]
+    if: needs.version.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+    concurrency:
+      group: artifacts-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
+      queue: max
+    env:
+      DRFED_RELEASE_BUILD: ${{ needs.version.outputs.build }}
+      ARTIFACT_NAME: drfed-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v5.1.2
+        with:
+          cache: false
+          experimental: true
+      - name: Find the original verified artifacts from this run
+        id: original
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          artifact_id=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts" --jq '.artifacts[] | select(.name == env.ARTIFACT_NAME and .expired == false) | .id')
+          if [[ -n "$artifact_id" ]]; then
+            echo 'reuse=true' >> "$GITHUB_OUTPUT"
+          else
+            mise run release:ensure-unpublished
+            echo 'reuse=false' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/download-artifact@v8.0.2
+        if: steps.original.outputs.reuse == 'true'
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: release-artifacts
+      - name: Apply the single calculated registry version before building
+        run: mise run release:apply
+      - name: Validate the versioned build
+        run: mise run build && mise run check && mise run test
+      - name: Pack the complete public package set
+        if: steps.original.outputs.reuse != 'true'
+        run: mise run release:pack
+      - name: Verify artifact identity and installed behavior
+        run: mise run release:verify && mise run test:packaging --artifacts release-artifacts
+      - uses: actions/upload-artifact@v7.0.2
+        if: steps.original.outputs.reuse != 'true'
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: release-artifacts/
+          if-no-files-found: error
+          retention-days: 90
+          overwrite: false
+
+  publish:
+    needs: [version, artifacts]
+    if: >-
+      github.event_name == 'push' && github.repository == 'fedify-dev/drfed' &&
+      !github.event.deleted && needs.version.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: npm-publish
+      cancel-in-progress: false
+      queue: max
+    env:
+      DRFED_RELEASE_BUILD: ${{ needs.version.outputs.build }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v5.1.2
+        with:
+          cache: false
+          experimental: true
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: drfed-${{ github.run_id }}
+          path: release-artifacts
+      - name: Publish the verified tarballs with npm trusted publishing
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/drfed-npmrc
+        run: mise run release:publish
+
+  github-release:
+    needs: [version, publish]
+    if: >-
+      github.event_name == 'push' && github.repository == 'fedify-dev/drfed' &&
+      !github.event.deleted && github.ref_type == 'tag' &&
+      needs.version.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: npm-publish
+      cancel-in-progress: false
+      queue: max
+    env:
+      DRFED_RELEASE_BUILD: ${{ needs.version.outputs.build }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v5.1.2
+        with:
+          cache: false
+          experimental: true
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: drfed-${{ github.run_id }}
+          path: release-artifacts
+      - name: Create or verify the frozen release and its exact tarball assets
+        run: mise run release:github

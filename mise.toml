@@ -10,6 +10,7 @@ experimental = true
 "aqua:koalaman/shellcheck" = "0.11.0"
 "github:nushell/nushell" = "0.114.1"
 node = "26"
+npm = "12.2.0"
 "npm:@fedify/cli" = { version = "2.4.3", allow_low_downloads = true }
 "npm:oxlint" = "1.75.0"
 "npm:oxlint-tsgolint" = "7.0.2001"
@@ -62,6 +63,7 @@ run = "node --test packages/web/src/runtime.test.ts"
 
 [tasks."test:packaging"]
 description = "Test local and global npm tarball installations"
+raw_args = true
 depends = ["build"]
 run = "node scripts/test-packaging.mts"
 
@@ -83,6 +85,10 @@ run = "jactionlint"
 [tasks."check:changelog"]
 description = "Check changelog fragments and frozen release history"
 run = "sacho check"
+
+[tasks."check:release"]
+description = "Exercise release version, registry, artifact and recovery fixtures"
+run = "node scripts/test-release.mts"
 
 [tasks."check:types"]
 description = "Check TypeScript types"
@@ -303,3 +309,31 @@ description = "Invoke drfed-server command"
 depends = ["build"]
 raw_args = true
 run = "node packages/drfed/bin/drfed-server.mjs"
+
+[tasks."release:version"]
+description = "CI release version step"
+run = "node scripts/release.mts version"
+
+[tasks."release:apply"]
+description = "CI release apply step"
+run = "node scripts/release.mts apply"
+
+[tasks."release:pack"]
+description = "CI release pack step"
+run = "node scripts/release.mts pack"
+
+[tasks."release:verify"]
+description = "CI release verify step"
+run = "node scripts/release.mts verify"
+
+[tasks."release:ensure-unpublished"]
+description = "CI release ensure-unpublished step"
+run = "node scripts/release.mts ensure-unpublished"
+
+[tasks."release:publish"]
+description = "CI release publish step"
+run = "node scripts/release.mts publish"
+
+[tasks."release:github"]
+description = "CI release github step"
+run = "node scripts/release.mts github-release"

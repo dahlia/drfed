@@ -105,5 +105,10 @@
       "tsconfig": "tsconfig.runtime.json"
     },
     "sourcemap": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fedify-dev/drfed.git",
+    "directory": "packages/web"
   }
 }
