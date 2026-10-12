@@ -702,7 +702,16 @@ try {
   await run(["publish"]);
   const ghStub = `#!/usr/bin/env node\nimport {readFileSync} from 'node:fs';import {basename} from 'node:path';import {createHash} from 'node:crypto';const args=process.argv.slice(2);const body={args};if(args[1]==='create')body.notes=readFileSync(args[args.indexOf('--notes-file')+1],'utf8');else{const bytes=readFileSync(args[3]);body.asset={name:basename(args[3]),size:bytes.length,digest:'sha256:'+createHash('sha256').update(bytes).digest('hex')};}const response=await fetch('${registry}__gh',{method:'POST',body:JSON.stringify(body)});if(!response.ok)process.exitCode=1;\n`;
   await writeFile(join(bin, "gh"), ghStub, { mode: 0o755 });
+  // GitHub release creation trusts the successful publish job, even when
+  // version metadata is not visible through registry reads yet.
+  for (const entry of bundle.packages) {
+    visibilityMisses.set(
+      `${entry.name}/${tagBuild.version}`,
+      Number.POSITIVE_INFINITY,
+    );
+  }
   await run(["github-release", "--github-api", registry]);
+  visibilityMisses.clear();
   assert.equal(githubRelease?.assets.length, 25);
   const createRelease = githubOperations.find((args) => args[1] === "create")!;
   assert.equal(
