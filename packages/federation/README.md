@@ -44,6 +44,8 @@ Exports
 | ------------------------------------- | ------------------------------------------------------------ |
 | `@drfed/federation`                   | `createFederation()` (default), `buildFederation()`          |
 | `@drfed/federation/activity-delivery` | Inbound recording, outbound delivery, and their observations |
+| `@drfed/federation/actor-key`         | `ensureActorKeyPairs()` for persisted actor signing keys     |
+| `@drfed/federation/task-queue`        | `KeyGenerationQueue` for background actor key generation     |
 | `@drfed/federation/object`            | Query selections, `toObject()`, and `toCreate()`             |
 | `@drfed/federation/origin`            | `instanceHost()`, `classifyHost()`, and other host helpers   |
 

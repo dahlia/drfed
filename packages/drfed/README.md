@@ -150,8 +150,8 @@ Options
 | `--root-origin ORIGIN`            | `-r`  | Origin instances are subdomains of (required)                                                                             |
 | `--login-origin ORIGIN`           |       | Origin allowed in login links (required with `--no-web`; repeatable)                                                      |
 | `--listen HOST:PORT`              | `-l`  | Address to listen on (default: `localhost:8888`)                                                                          |
-| `--pglite-data-path PATH`         | `-d`  | Directory for PGlite storage                                                                                              |
-| `--postgres-url URL`              | `-D`  | PostgreSQL connection URL                                                                                                 |
+| `--pglite-data-path PATH`         | `-d`  | Directory for PGlite storage (alias: `--data-path`)                                                                       |
+| `--postgres-url URL`              | `-D`  | PostgreSQL connection URL (alias: `--database-url`)                                                                       |
 | `--no-migrate`                    | `-M`  | Skip automatic migrations                                                                                                 |
 | `--email-from ADDRESS`            | `-f`  | Sender of login mail (default: `noreply@` at the root origin's host)                                                      |
 | `--smtp-url URL`                  | `-s`  | SMTP server to deliver mail through                                                                                       |
@@ -196,15 +196,17 @@ and empty npm configuration files, omits development dependencies, and disables
 installation scripts.  It needs network access to the public npm registry for
 external dependencies.
 
-The check verifies packed entry points and migrations, npm's `drfed-server`
-bin links, CLI help, a database-backed GraphQL request after initial migration,
-and a restart with `--no-migrate` using the same PGlite directory.  It removes
+The check verifies packed entry points and migrations, npm's bin links and
+help for all four commands, standalone migration and account creation, a
+database-backed GraphQL request after initial migration, and a restart with
+`--no-migrate` using the same PGlite directory.  It removes
 the temporary installations and databases after stopping their servers.
 
 All five tarballs are supplied to each install together so unpublished
 workspace versions can be tested.  The check covers combined and standalone
 frontend SSR, assets, login confirmation and session cookies. It does not cover
 installing only the facade from the registry or upgrading an older release.
+It does not publish anything to npm.
 
 
 Resource ownership

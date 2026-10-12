@@ -58,7 +58,6 @@ and hash. Other named rows require the exact manifest timestamp.
 Database query failures propagate instead of being treated as a fresh database.
 Connections subject to row-level security on migration history are rejected,
 since filtered rows cannot prove that the history is complete.
-These inspection APIs are not yet connected to server startup.
 
 `@drfed/models/migration-session` exposes `preparePostgresDatabase()` for
 PostgreSQL. It verifies bundled SQL, connects a fresh owned [`pg.Client`], takes
@@ -90,11 +89,10 @@ The caller owns the store throughout preparation and must refrain from other
 queries until it settles. Preparation never closes the database or releases
 its native lock, even after failure. `signal` is checked at safe boundaries;
 active WASM SQL settles before an aborted operation completes. Drain preparation
-before `store.close()`. The CLI will use these APIs in the startup integration.
+before `store.close()`.
 
 The existing `migrate()` remains a low-level API whose caller must ensure
-exclusive access. Server startup still uses that API; the new PostgreSQL
-preparation API is not yet wired into the CLI.
+exclusive access. The CLI uses the safe preparation APIs described above.
 
 For contributor tests, point `DRFED_TEST_POSTGRES_URL` at an isolated
 PostgreSQL cluster with `CREATEDB` and `CREATEROLE` permissions, then run:
@@ -137,7 +135,7 @@ remove or replace it while an owner may be alive: two different inodes would
 allow separate owners. A leftover file is harmless once the OS has released
 its lock. After a failed close, stop that owner before reopening. Other code
 that directly constructs PGlite bypasses this ownership API; coordinate all
-access through it. CLI integration follows in the database startup change.
+access through it. The CLI uses this store for persistent PGlite databases.
 
 The ordinary test task covers duplicate owners, a simultaneous process race,
 symlink aliases, close ordering and failed-close ownership. POSIX-only tests
