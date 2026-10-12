@@ -310,7 +310,11 @@ release whose notes, prerelease flag, and asset digests match, upload missing
 assets, and fail on conflicts.  Empty `starter` assets left by failed uploads
 are replaced; completed assets are never clobbered.  A stable GitHub Release is
 marked Latest only when it matches npm `latest`.  Main builds create no GitHub
-Release.  Shell completion assets are excluded until issue 125 is complete.
+Release.  Tag builds also attach 20 completion scripts for all four commands
+and all five shells, named *drfed-server.bash*, *drfed-server.zsh*, and so on.
+These assets are extracted from the same verified application tarball that is
+published to npm.  Their manifest digests and tarball contents are checked
+before release uploads; reruns reuse matching assets and upload missing files.
 
 
 Source license headers

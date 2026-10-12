@@ -94,6 +94,7 @@ interface Bundle {
   build: Version;
   packages: Artifact[];
   notesIntegrity?: string;
+  completions?: Artifact[];
 }
 interface RegistryVersion extends PackageManifest {
   dist: { integrity: string };
@@ -311,6 +312,34 @@ function checkManifest(
     }
   }
 }
+function completionFiles(): { path: string; filename: string }[] {
+  return ["server", "web", "migrate", "account"].flatMap((commandName) => {
+    const binary = `drfed-${commandName}`;
+    return ["bash", "zsh", "fish", "pwsh", "nu"].map((shell) => {
+      const name =
+        shell === "zsh"
+          ? `_${binary}`
+          : shell === "fish"
+            ? `${binary}.fish`
+            : shell === "pwsh"
+              ? `${binary}.ps1`
+              : shell === "nu"
+                ? `${binary}.nu`
+                : binary;
+      return {
+        path: `package/completions/${shell}/${name}`,
+        filename: `${binary}.${shell}`,
+      };
+    });
+  });
+}
+async function completionBytes(archive: string, path: string): Promise<Buffer> {
+  // Completion scripts are UTF-8 text; extracting from the verified package
+  // makes release assets independent of mutable build output on disk.
+  const bytes = Buffer.from((await run("tar", ["-xOf", archive, path])).stdout);
+  assert.ok(bytes.length > 0, `Empty completion script: ${path}`);
+  return bytes;
+}
 async function inspect(
   archive: string,
   name: string,
@@ -363,6 +392,17 @@ async function pack(): Promise<void> {
       "Missing frozen release notes",
     );
     bundle.notesIntegrity = digest(await readFile(notes));
+    bundle.completions = [];
+    const archive = join(artifacts, entries.at(-1)!.filename);
+    for (const { path, filename } of completionFiles()) {
+      const bytes = await completionBytes(archive, path);
+      await writeFile(join(artifacts, filename), bytes);
+      bundle.completions.push({
+        name: filename,
+        filename,
+        integrity: digest(bytes),
+      });
+    }
   }
   await writeFile(
     join(artifacts, "manifest.json"),
@@ -393,6 +433,16 @@ async function verify(): Promise<Bundle> {
       bundle.notesIntegrity,
       digest(await readFile(join(artifacts, "release-notes.md"))),
     );
+    assert.equal(bundle.completions?.length, completionFiles().length);
+    const archive = join(artifacts, bundle.packages.at(-1)!.filename);
+    for (const [index, { path, filename }] of completionFiles().entries()) {
+      const entry: Artifact = bundle.completions![index]!;
+      assert.equal(entry.name, filename);
+      assert.equal(entry.filename, filename);
+      const bytes = await readFile(join(artifacts, filename));
+      assert.equal(entry.integrity, digest(bytes));
+      assert.deepEqual(bytes, await completionBytes(archive, path));
+    }
     const frozen = (
       await run("sacho", [
         "show",
@@ -405,7 +455,10 @@ async function verify(): Promise<Bundle> {
       await readFile(join(artifacts, "release-notes.md"), "utf8"),
       frozen,
     );
-  } else assert.equal(bundle.notesIntegrity, undefined);
+  } else {
+    assert.equal(bundle.notesIntegrity, undefined);
+    assert.equal(bundle.completions, undefined);
+  }
   return bundle;
 }
 async function get<T>(url: string, github = false): Promise<T | null> {
@@ -744,7 +797,7 @@ async function release(): Promise<void> {
   assert.equal(existing.body.trim(), notes.trim());
   assert.equal(existing.draft, false);
   assert.equal(existing.prerelease, build.channel === "next");
-  for (const entry of bundle.packages) {
+  for (const entry of [...bundle.packages, ...bundle.completions!]) {
     await uploadAsset(entry, existing, build);
   }
 }

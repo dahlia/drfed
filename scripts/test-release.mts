@@ -292,6 +292,29 @@ try {
       "export {};",
     );
   }
+  const completionNames: string[] = [];
+  for (const commandName of ["server", "web", "migrate", "account"]) {
+    const command = `drfed-${commandName}`;
+    for (const shell of ["bash", "zsh", "fish", "pwsh", "nu"]) {
+      const name =
+        shell === "zsh"
+          ? `_${command}`
+          : shell === "fish"
+            ? `${command}.fish`
+            : shell === "pwsh"
+              ? `${command}.ps1`
+              : shell === "nu"
+                ? `${command}.nu`
+                : command;
+      const directory = join(root, "packages/drfed/completions", shell);
+      await mkdir(directory, { recursive: true });
+      await writeFile(
+        join(directory, name),
+        `# ${command} ${shell} completion\n`,
+      );
+      completionNames.push(`${command}.${shell}`);
+    }
+  }
   await git("init", "-q");
   await git("config", "user.email", "fixture@example.invalid");
   await git("config", "user.name", "Fixture");
@@ -561,10 +584,10 @@ try {
   const ghStub = `#!/usr/bin/env node\nimport {readFileSync} from 'node:fs';import {basename} from 'node:path';import {createHash} from 'node:crypto';const args=process.argv.slice(2);const body={args};if(args[1]==='create')body.notes=readFileSync(args[args.indexOf('--notes-file')+1],'utf8');else{const bytes=readFileSync(args[3]);body.asset={name:basename(args[3]),size:bytes.length,digest:'sha256:'+createHash('sha256').update(bytes).digest('hex')};}const response=await fetch('${registry}__gh',{method:'POST',body:JSON.stringify(body)});if(!response.ok)process.exitCode=1;\n`;
   await writeFile(join(bin, "gh"), ghStub, { mode: 0o755 });
   await run(["github-release", "--github-api", registry]);
-  assert.equal(githubRelease?.assets.length, 5);
-  assert.equal(githubOperations.length, 6);
+  assert.equal(githubRelease?.assets.length, 25);
+  assert.equal(githubOperations.length, 26);
   await run(["github-release", "--github-api", registry]);
-  assert.equal(githubOperations.length, 6);
+  assert.equal(githubOperations.length, 26);
   assert.ok(githubOperations[0]!.includes("--latest=true"));
   // A late backport must preserve npm and GitHub's current Latest release.
   for (const name of names) tags.get(`@drfed/${name}`)!.latest = "0.2.0";
@@ -576,7 +599,7 @@ try {
   githubOperations.length = 0;
   await run(["github-release", "--github-api", registry]);
   assert.ok(githubOperations[0]!.includes("--latest=false"));
-  assert.equal(githubOperations.length, 6);
+  assert.equal(githubOperations.length, 26);
   const frozenBody = githubRelease!.body;
   githubRelease!.body = "Different notes";
   await assert.rejects(run(["github-release", "--github-api", registry]));
@@ -584,24 +607,47 @@ try {
   githubRelease!.prerelease = true;
   await assert.rejects(run(["github-release", "--github-api", registry]));
   githubRelease!.prerelease = false;
-  assert.equal(githubOperations.length, 6);
+  assert.equal(githubOperations.length, 26);
+  assert.deepEqual(
+    githubRelease!.assets
+      .filter((asset) => completionNames.includes(asset.name))
+      .map((asset) => asset.name),
+    completionNames,
+  );
+  const completion = join(archives, completionNames[0]!);
+  const originalCompletion = await readFile(completion);
+  await writeFile(completion, "altered completion");
+  await assert.rejects(run(["verify"]));
+  const bundlePath = join(archives, "manifest.json");
+  const originalBundle = await readFile(bundlePath);
+  const alteredBundle = JSON.parse(originalBundle.toString());
+  alteredBundle.completions[0].integrity = integrity(
+    await readFile(completion),
+  );
+  await writeFile(bundlePath, JSON.stringify(alteredBundle));
+  await assert.rejects(run(["verify"]));
+  await writeFile(bundlePath, originalBundle);
+  await writeFile(completion, originalCompletion);
   const completeAssets = structuredClone(githubRelease!.assets);
   githubRelease!.assets = completeAssets.slice(0, 2);
   await run(["github-release", "--github-api", registry]);
-  assert.equal(githubRelease!.assets.length, 5);
-  assert.equal(githubOperations.length, 9);
+  assert.equal(githubRelease!.assets.length, 25);
+  assert.equal(githubOperations.length, 49);
   githubRelease!.assets[3] = {
     name: completeAssets[3]!.name,
     state: "starter",
     size: 0,
   };
   await run(["github-release", "--github-api", registry]);
-  assert.equal(githubRelease!.assets.length, 5);
-  assert.equal(githubOperations.length, 10);
+  assert.equal(githubRelease!.assets.length, 25);
+  assert.equal(githubOperations.length, 50);
   assert.ok(githubOperations.at(-1)!.includes("--clobber"));
+  githubRelease!.assets[5]!.digest = "sha256:completion-conflict";
+  await assert.rejects(run(["github-release", "--github-api", registry]));
+  githubRelease!.assets = structuredClone(completeAssets);
   githubRelease!.assets[0]!.digest = "sha256:conflict";
   await assert.rejects(run(["github-release", "--github-api", registry]));
-  assert.equal(githubOperations.length, 10);
+  assert.equal(githubOperations.length, 50);
   await git("tag", "-d", "0.1.0");
   await assert.rejects(run(["publish"]));
   for (const name of names) {
