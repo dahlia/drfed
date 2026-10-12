@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/runtime.ts", "src/bridge.ts", "src/request-policy.ts"],
+  "compilerOptions": {
+    "types": ["node"]
+  }
+}

@@ -48,7 +48,9 @@ try {
 // DNS or /etc/hosts setup, which is what makes per-instance subdomains usable
 // in development.
 const defaultRootOrigin = "http://drfed.localhost:8888";
-const defaultLoginOrigins = "http://localhost:3000";
+const defaultLoginOrigins = [
+  process.env.DRFED_PUBLIC_ORIGIN ?? "http://localhost:3000",
+];
 const isWindows = process.platform === "win32";
 const pnpm = isWindows ? "pnpm.cmd" : "pnpm";
 
@@ -315,17 +317,34 @@ try {
 
   await waitForBuilds(buildExit);
 
+  const invalidLoginOrigins =
+    'DRFED_LOGIN_ORIGINS must be a JSON string array, for example ["http://localhost:3000"].';
+  let loginOrigins: unknown;
+  try {
+    loginOrigins =
+      process.env.DRFED_LOGIN_ORIGINS === undefined
+        ? defaultLoginOrigins
+        : JSON.parse(process.env.DRFED_LOGIN_ORIGINS);
+  } catch {
+    throw new Error(invalidLoginOrigins);
+  }
+  if (
+    !Array.isArray(loginOrigins) ||
+    !loginOrigins.every((value) => typeof value === "string")
+  ) {
+    throw new Error(invalidLoginOrigins);
+  }
   const serverArgs: string[] = [
     "--watch",
     "bin/drfed-server.mjs",
+    "--no-web",
+    "--mail-log-content",
     "--pglite-data-path",
     "../../.pgdata",
     "--listen=0.0.0.0:8888",
     "--log-format=color",
     `--root-origin=${process.env.DRFED_ROOT_ORIGIN ?? defaultRootOrigin}`,
-    ...(process.env.DRFED_LOGIN_ORIGINS ?? defaultLoginOrigins)
-      .split(",")
-      .map((value) => `--login-origin=${value.trim()}`),
+    ...loginOrigins.map((value: string) => `--login-origin=${value}`),
   ];
 
   const logLevel = process.env.usage_log_level;

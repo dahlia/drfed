@@ -17,7 +17,7 @@
 // @refresh reload
 import { StartServer, createHandler } from "@solidjs/start/server";
 
-export default createHandler(() => (
+const handler = createHandler(() => (
   <StartServer
     document={({ assets, children, scripts }) => (
       <html lang="en">
@@ -38,3 +38,13 @@ export default createHandler(() => (
     )}
   />
 ));
+
+const protectedHandler = {
+  async fetch(request: Request): Promise<Response> {
+    const { prepareWebRequest } = await import("@drfed/web/bridge");
+    const prepared = prepareWebRequest(request);
+    return prepared instanceof Response ? prepared : handler.fetch(prepared);
+  },
+};
+
+export default protectedHandler;

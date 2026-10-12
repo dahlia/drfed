@@ -41,10 +41,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
-    "start": "node .output/server/index.mjs",
+    "build": "tsdown && vite build",
     "preview": "vite preview",
-    "prepack": "mise run build"
+    "test": "node --test"
   },
   "dependencies": {
     "@faker-js/faker": "catalog:",
@@ -60,20 +59,51 @@
     "solid-js": "^1.9.5",
     "solid-relay": "1.0.0-beta.29",
     "valibot": "1.4.2",
-    "vite": "^8.2.0"
+    "vite": "^8.2.0",
+    "@types/relay-runtime": "^20.1.1"
   },
   "devDependencies": {
-    "@types/relay-runtime": "^20.1.1",
     "eslint-plugin-solid": "^0.14.5",
     "relay-compiler": "^21.0.1",
     "typescript": "catalog:",
     "vite-plugin-cjs-interop": "^4.0.3",
-    "vite-plugin-relay-lite": "^0.12.0"
+    "vite-plugin-relay-lite": "^0.12.0",
+    "tsdown": "catalog:",
+    "@types/node": "catalog:"
   },
   "files": [
-    ".output/"
+    "dist/",
+    ".output/",
+    "README.md"
   ],
   "publishConfig": {
     "access": "public"
+  },
+  "main": "dist/runtime.mjs",
+  "types": "dist/runtime.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/runtime.d.mts",
+      "default": "./dist/runtime.mjs"
+    },
+    "./bridge": {
+      "types": "./dist/bridge.d.mts",
+      "default": "./dist/bridge.mjs"
+    },
+    "./request-policy": {
+      "types": "./dist/request-policy.d.mts",
+      "default": "./dist/request-policy.mjs"
+    }
+  },
+  "tsdown": {
+    "entry": [
+      "src/runtime.ts",
+      "src/bridge.ts",
+      "src/request-policy.ts"
+    ],
+    "dts": {
+      "tsconfig": "tsconfig.runtime.json"
+    },
+    "sourcemap": true
   }
 }

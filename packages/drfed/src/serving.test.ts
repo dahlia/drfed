@@ -18,15 +18,23 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 
 import {
+  createControlSurface,
   createFetchHandler,
   findStrandedInstances,
+  getIngressMetadata,
   warnAboutStrandedInstances,
 } from "@drfed/drfed/serving";
 import createFederation, { createInboundRecorder } from "@drfed/federation";
 import { migrate, relations, schema } from "@drfed/models";
 import { uuidV7 as uuid } from "@drfed/models/uuid";
 import { PGlite } from "@electric-sql/pglite";
-import { MemoryKvStore } from "@fedify/fedify";
+import {
+  MemoryKvStore,
+  generateCryptoKeyPair,
+  signRequest,
+  verifyRequest,
+} from "@fedify/fedify";
+import { CryptographicKey } from "@fedify/vocab";
 import { type LogRecord, withConfig } from "@logtape/logtape";
 import { describe } from "@logtape/testing-node/autoload";
 import { drizzle } from "drizzle-orm/pglite";
@@ -264,7 +272,12 @@ it("records inbox requests only on the instance surface", async () => {
     const federation = await createFederation(db, { kv });
     const fetch = createFetchHandler({
       rootOrigin,
-      federation: createInboundRecorder({ db, federation, rootOrigin }),
+      federation: createInboundRecorder({
+        db,
+        federation,
+        rootOrigin,
+        ingressMetadata: getIngressMetadata,
+      }),
       serveControlSurface: () => new Response("control"),
     });
     const body = JSON.stringify({
@@ -275,7 +288,11 @@ it("records inbox requests only on the instance surface", async () => {
     assert.equal(
       (
         await fetch(
-          new Request("https://logs.drfed.net/inbox", { method: "POST", body }),
+          new Request("http://logs.drfed.net/inbox", {
+            method: "POST",
+            body,
+            headers: { "x-forwarded-host": "PRIVATE_PROXY_FIXTURE" },
+          }),
         )
       ).status,
       401,
@@ -292,6 +309,13 @@ it("records inbox requests only on the instance surface", async () => {
     assert.equal(rows.length, 1);
     assert.equal(rows[0]?.instanceId, localId);
     assert.equal(rows[0]?.status, "unverified");
+    assert.equal(rows[0]?.requestUrl, "http://logs.drfed.net/inbox");
+    assert.ok(
+      rows[0]?.headers?.some(
+        ([name, value]) =>
+          name === "x-forwarded-host" && value === "PRIVATE_PROXY_FIXTURE",
+      ),
+    );
   } finally {
     await client.close();
   }
@@ -352,4 +376,160 @@ it("logs federation failures without secrets and continues serving", async () =>
       assert.ok(!JSON.stringify(records).includes("PRIVATE_"));
     },
   );
+});
+
+it("composes only the exact GraphQL path and never falls back from federation", async () => {
+  const calls: string[] = [];
+  const response = new Response(
+    new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("stream"));
+        controller.close();
+      },
+    }),
+  );
+  const graphql = (request: Request) => {
+    calls.push(`graphql:${new URL(request.url).pathname}`);
+    return response;
+  };
+  const web = (request: Request) => {
+    calls.push(`web:${new URL(request.url).pathname}`);
+    return new Response("web");
+  };
+  const control = createControlSurface({ graphql, web });
+  const router = createFetchHandler({
+    rootOrigin,
+    federation: {
+      fetch(request, options) {
+        return Promise.resolve(options.onNotFound(request));
+      },
+    },
+    serveControlSurface: control,
+  });
+  assert.equal(
+    await router(new Request("https://drfed.net/graphql?query=test")),
+    response,
+  );
+  assert.equal(response.bodyUsed, false);
+  assert.equal(
+    await (await router(new Request("https://drfed.net/graphql/"))).text(),
+    "web",
+  );
+  assert.equal(
+    (await router(new Request("https://demo.drfed.net/about"))).status,
+    404,
+  );
+  assert.deepEqual(calls, ["graphql:/graphql", "web:/graphql/"]);
+  const backend = createControlSurface({ graphql });
+  assert.equal((await backend(new Request("https://drfed.net/"))).status, 404);
+  assert.equal(
+    (await backend(new Request("https://drfed.net/graphql/"))).status,
+    404,
+  );
+  assert.equal(
+    await backend(new Request("https://drfed.net/graphql")),
+    response,
+  );
+});
+
+it("restores the instance public scheme while preserving signed headers, body and cancellation", async () => {
+  const abort = new AbortController();
+  let received: Request | undefined;
+  const router = createFetchHandler({
+    rootOrigin,
+    federation: {
+      fetch(request) {
+        received = request;
+        return Promise.resolve(new Response("instance"));
+      },
+    },
+    serveControlSurface: () => new Response("control"),
+  });
+  const request = new Request("http://demo.drfed.net/inbox?delivery=1", {
+    method: "POST",
+    headers: {
+      host: "demo.drfed.net",
+      signature: "signed fixture",
+      "x-forwarded-host": "evil.example",
+      "x-forwarded-proto": "http",
+    },
+    body: "original signed body",
+    signal: abort.signal,
+  });
+  assert.equal((await router(request)).status, 200);
+  assert.ok(received);
+  assert.equal(received.url, "https://demo.drfed.net/inbox?delivery=1");
+  assert.equal(received.headers.get("host"), "demo.drfed.net");
+  assert.equal(received.headers.get("signature"), "signed fixture");
+  assert.equal(received.headers.get("x-forwarded-host"), "evil.example");
+  assert.equal(received.headers.get("x-forwarded-proto"), "http");
+  assert.equal(getIngressMetadata(received)?.url, request.url);
+  assert.equal(
+    getIngressMetadata(received)?.headers.get("x-forwarded-host"),
+    "evil.example",
+  );
+  assert.equal(await received.text(), "original signed body");
+  abort.abort();
+  assert.equal(received.signal.aborted, true);
+});
+
+it("verifies an RFC 9421 target URI after TLS termination scheme restoration", async () => {
+  const pair = await generateCryptoKeyPair();
+  const keyId = new URL("https://remote.example/actor#key");
+  const key = new CryptographicKey({
+    id: keyId,
+    owner: new URL("https://remote.example/actor"),
+    publicKey: pair.publicKey,
+  });
+  const keyCache = {
+    get() {
+      return Promise.resolve(key);
+    },
+    set() {
+      // Failed verification may refresh a cached key; this is an offline fixture.
+      return Promise.resolve();
+    },
+  };
+  const signed = await signRequest(
+    new Request("https://demo.drfed.net/inbox?delivery=1", {
+      method: "POST",
+      headers: {
+        host: "demo.drfed.net",
+        "content-type": "application/activity+json",
+      },
+      body: JSON.stringify({ type: "Create" }),
+    }),
+    pair.privateKey,
+    keyId,
+    { spec: "rfc9421" },
+  );
+  const verifyOptions = {
+    spec: "rfc9421" as const,
+    keyCache,
+    documentLoader: () =>
+      Promise.reject(new Error("Offline signature fixture.")),
+  };
+  assert.ok(
+    await verifyRequest(signed.clone(), verifyOptions),
+    "The original public ActivityPub request verifies.",
+  );
+  const incoming = new Request("http://demo.drfed.net/inbox?delivery=1", {
+    method: signed.method,
+    headers: signed.headers,
+    body: await signed.text(),
+  });
+  assert.equal(await verifyRequest(incoming.clone(), verifyOptions), null);
+  let verified: Awaited<ReturnType<typeof verifyRequest>> = null;
+  const routing = createFetchHandler({
+    rootOrigin,
+    federation: {
+      async fetch(request) {
+        verified = await verifyRequest(request, verifyOptions);
+        return new Response("verified");
+      },
+    },
+    serveControlSurface: () => new Response("wrong surface", { status: 500 }),
+  });
+  assert.equal(await (await routing(incoming)).text(), "verified");
+  assert.ok(verified);
 });

@@ -30,6 +30,9 @@ catalogs:
     '@logtape/drizzle-orm':
       specifier: ^2.2.2
       version: 2.2.2
+    '@logtape/file':
+      specifier: 2.3.0-dev.840
+      version: 2.3.0-dev.840
     '@logtape/graphql-yoga':
       specifier: 2.3.0-dev.840
       version: 2.3.0-dev.840
@@ -39,8 +42,14 @@ catalogs:
     '@logtape/testing-node':
       specifier: 2.3.0-dev.840
       version: 2.3.0-dev.840
+    '@optique/config':
+      specifier: 1.3.0
+      version: 1.3.0
     '@optique/core':
       specifier: ^1.3.0
+      version: 1.3.0
+    '@optique/env':
+      specifier: 1.3.0
       version: 1.3.0
     '@optique/logtape':
       specifier: ^1.3.0
@@ -52,23 +61,56 @@ catalogs:
       specifier: ^26.0.0
       version: 26.0.0
     '@upyo/core':
-      specifier: 0.6.0-dev.263+e633e1e6
-      version: 0.6.0-dev.263
+      specifier: 0.6.0
+      version: 0.6.0
+    '@upyo/jmap':
+      specifier: 0.6.0
+      version: 0.6.0
+    '@upyo/lettermint':
+      specifier: 0.6.0
+      version: 0.6.0
     '@upyo/logtape':
-      specifier: 0.6.0-dev.263+e633e1e6
-      version: 0.6.0-dev.263
+      specifier: 0.6.0
+      version: 0.6.0
+    '@upyo/maileroo':
+      specifier: 0.6.0
+      version: 0.6.0
+    '@upyo/mailgun':
+      specifier: 0.6.0
+      version: 0.6.0
+    '@upyo/mailtrap':
+      specifier: 0.6.0
+      version: 0.6.0
     '@upyo/mock':
-      specifier: 0.6.0-dev.263+e633e1e6
-      version: 0.6.0-dev.263
+      specifier: 0.6.0
+      version: 0.6.0
+    '@upyo/plunk':
+      specifier: 0.6.0
+      version: 0.6.0
+    '@upyo/resend':
+      specifier: 0.6.0
+      version: 0.6.0
+    '@upyo/retry':
+      specifier: 0.6.0
+      version: 0.6.0
+    '@upyo/sendgrid':
+      specifier: 0.6.0
+      version: 0.6.0
+    '@upyo/ses':
+      specifier: 0.6.0
+      version: 0.6.0
     '@upyo/smtp':
-      specifier: 0.6.0-dev.263+e633e1e6
-      version: 0.6.0-dev.263
+      specifier: 0.6.0
+      version: 0.6.0
     drizzle-orm:
       specifier: 1.0.0-beta.22
       version: 1.0.0-beta.22
     graphql:
       specifier: ^16.14.2
       version: 16.14.2
+    pg:
+      specifier: ^8.21.0
+      version: 8.21.0
     postgres:
       specifier: ^3.4.9
       version: 3.4.9
@@ -89,6 +131,9 @@ importers:
 
   .:
     devDependencies:
+      '@drfed/graphql':
+        specifier: workspace:*
+        version: link:packages/graphql
       '@drfed/models':
         specifier: workspace:*
         version: link:packages/models
@@ -101,6 +146,9 @@ importers:
       drizzle-orm:
         specifier: 'catalog:'
         version: 1.0.0-beta.22(@electric-sql/pglite@0.5.3)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(pg@8.21.0)(postgres@3.4.9)(valibot@1.4.2(typescript@7.0.2))
+      graphql:
+        specifier: 'catalog:'
+        version: 16.14.2
       skills-npm:
         specifier: 'catalog:'
         version: 1.2.0
@@ -116,6 +164,9 @@ importers:
       '@drfed/models':
         specifier: workspace:*
         version: link:../models
+      '@drfed/web':
+        specifier: workspace:*
+        version: link:../web
       '@electric-sql/pglite':
         specifier: 'catalog:'
         version: 0.5.3
@@ -131,24 +182,66 @@ importers:
       '@logtape/drizzle-orm':
         specifier: 'catalog:'
         version: 2.2.2(@logtape/logtape@2.3.0-dev.840)
+      '@logtape/file':
+        specifier: 'catalog:'
+        version: 2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840)
       '@logtape/logtape':
         specifier: 'catalog:'
         version: 2.3.0-dev.840
+      '@optique/config':
+        specifier: 'catalog:'
+        version: 1.3.0(@standard-schema/spec@1.1.0)
       '@optique/core':
+        specifier: 'catalog:'
+        version: 1.3.0
+      '@optique/env':
         specifier: 'catalog:'
         version: 1.3.0
       '@optique/logtape':
         specifier: 'catalog:'
-        version: 1.3.0(@logtape/logtape@2.3.0-dev.840)
+        version: 1.3.0(@logtape/file@2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840))(@logtape/logtape@2.3.0-dev.840)
       '@optique/run':
         specifier: 'catalog:'
         version: 1.3.0
+      '@upyo/core':
+        specifier: 'catalog:'
+        version: 0.6.0
+      '@upyo/jmap':
+        specifier: 'catalog:'
+        version: 0.6.0(@upyo/core@0.6.0)
+      '@upyo/lettermint':
+        specifier: 'catalog:'
+        version: 0.6.0(@upyo/core@0.6.0)
       '@upyo/logtape':
         specifier: 'catalog:'
-        version: 0.6.0-dev.263(@logtape/logtape@2.3.0-dev.840)(@upyo/core@0.6.0-dev.263)
+        version: 0.6.0(@logtape/logtape@2.3.0-dev.840)(@upyo/core@0.6.0)
+      '@upyo/maileroo':
+        specifier: 'catalog:'
+        version: 0.6.0(@upyo/core@0.6.0)
+      '@upyo/mailgun':
+        specifier: 'catalog:'
+        version: 0.6.0(@upyo/core@0.6.0)
+      '@upyo/mailtrap':
+        specifier: 'catalog:'
+        version: 0.6.0(@upyo/core@0.6.0)
+      '@upyo/plunk':
+        specifier: 'catalog:'
+        version: 0.6.0(@upyo/core@0.6.0)
+      '@upyo/resend':
+        specifier: 'catalog:'
+        version: 0.6.0(@upyo/core@0.6.0)
+      '@upyo/retry':
+        specifier: 'catalog:'
+        version: 0.6.0(@upyo/core@0.6.0)
+      '@upyo/sendgrid':
+        specifier: 'catalog:'
+        version: 0.6.0(@upyo/core@0.6.0)
+      '@upyo/ses':
+        specifier: 'catalog:'
+        version: 0.6.0(@upyo/core@0.6.0)
       '@upyo/smtp':
         specifier: 'catalog:'
-        version: 0.6.0-dev.263(@upyo/core@0.6.0-dev.263)
+        version: 0.6.0(@upyo/core@0.6.0)
       drizzle-orm:
         specifier: 'catalog:'
         version: 1.0.0-beta.22(@electric-sql/pglite@0.5.3)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(pg@8.21.0)(postgres@3.4.9)(valibot@1.4.2(typescript@7.0.2))
@@ -158,10 +251,19 @@ importers:
       postgres:
         specifier: 'catalog:'
         version: 3.4.9
+      smol-toml:
+        specifier: ^1.9.1
+        version: 1.9.1
       srvx:
         specifier: ^0.11.16
         version: 0.11.16
+      valibot:
+        specifier: 1.4.2
+        version: 1.4.2(typescript@7.0.2)
     devDependencies:
+      '@fedify/vocab':
+        specifier: 'catalog:'
+        version: 2.4.3
       '@logtape/testing-node':
         specifier: 'catalog:'
         version: 2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840)
@@ -258,10 +360,10 @@ importers:
         version: 4.1.7(@pothos/core@4.13.0(graphql@16.14.2))(graphql@16.14.2)
       '@upyo/core':
         specifier: 'catalog:'
-        version: 0.6.0-dev.263
+        version: 0.6.0
       '@upyo/mock':
         specifier: 'catalog:'
-        version: 0.6.0-dev.263(@upyo/core@0.6.0-dev.263)
+        version: 0.6.0(@upyo/core@0.6.0)
       drizzle-orm:
         specifier: 'catalog:'
         version: 1.0.0-beta.22(@electric-sql/pglite@0.5.3)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(pg@8.21.0)(postgres@3.4.9)(valibot@1.4.2(typescript@7.0.2))
@@ -302,9 +404,18 @@ importers:
       '@logtape/logtape':
         specifier: 'catalog:'
         version: 2.3.0-dev.840
+      '@types/pg':
+        specifier: 8.20.0
+        version: 8.20.0
       drizzle-orm:
         specifier: 'catalog:'
         version: 1.0.0-beta.22(@electric-sql/pglite@0.5.3)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(pg@8.21.0)(postgres@3.4.9)(valibot@1.4.2(typescript@7.0.2))
+      fs-native-extensions:
+        specifier: 1.5.1
+        version: 1.5.1
+      pg:
+        specifier: 'catalog:'
+        version: 8.21.0
       postgres:
         specifier: 'catalog:'
         version: 3.4.9
@@ -348,6 +459,9 @@ importers:
       '@solidjs/start':
         specifier: ^2.0.0
         version: 2.0.0(@solidjs/router@1.0.0(solid-js@1.9.14))(crossws@0.4.10(srvx@0.11.16))(supports-color@7.2.0)(vite@8.2.0(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0))
+      '@types/relay-runtime':
+        specifier: ^20.1.1
+        version: 20.1.1
       nitro:
         specifier: 3.0.260610-beta
         version: 3.0.260610-beta(@electric-sql/pglite@0.5.3)(chokidar@5.0.0)(dotenv@17.4.2)(drizzle-orm@1.0.0-beta.22(@electric-sql/pglite@0.5.3)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(pg@8.21.0)(postgres@3.4.9)(valibot@1.4.2(typescript@7.0.2)))(giget@3.3.0)(ioredis@5.11.1(supports-color@7.2.0))(jiti@2.7.0)(lru-cache@11.5.1)(rollup@4.62.2)(vite@8.2.0(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0))
@@ -373,15 +487,18 @@ importers:
         specifier: ^8.2.0
         version: 8.2.0(@types/node@26.0.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0)
     devDependencies:
-      '@types/relay-runtime':
-        specifier: ^20.1.1
-        version: 20.1.1
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.0.0
       eslint-plugin-solid:
         specifier: ^0.14.5
         version: 0.14.5(eslint@9.39.4(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@7.0.2)
       relay-compiler:
         specifier: ^21.0.1
         version: 21.0.1
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.22.14(typescript@7.0.2)
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -1062,6 +1179,11 @@ packages:
     peerDependencies:
       '@logtape/logtape': ^2.2.2
 
+  '@logtape/file@2.3.0-dev.840':
+    resolution: {integrity: sha512-ArKFoFIE897AoHAJc3BAthQipdRUMa89ie40S85lvkn3xMlJNacKniK+j3mwsj6vBKSbb9+l8cPIsQivK4+v7Q==}
+    peerDependencies:
+      '@logtape/logtape': ^2.3.0-dev.840+34e837bf
+
   '@logtape/graphql-yoga@2.3.0-dev.840':
     resolution: {integrity: sha512-zL+RIlG5TPwC8iAWeW8Lh49rA6VUw9fYSFcXLvWIrTJ56xQPX0TzFQ6MMzAMMjw4GlSz8cs0HsHlI/rsHUT02w==}
     peerDependencies:
@@ -1097,6 +1219,10 @@ packages:
   '@noble/hashes@1.4.0':
     resolution: {integrity: sha512-V1JJ1WTRUqHHrOSh597hURcMqVKVGL/ea3kv0gSnEdsEZ0/+VyPghM1lMNGc00z7CIQorSvbKpuJkxvuHbvdbg==}
     engines: {node: '>= 16'}
+
+  '@noble/hashes@1.8.0':
+    resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
+    engines: {node: ^14.21.3 || >=16}
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -1160,8 +1286,18 @@ packages:
     resolution: {integrity: sha512-eSYWTm620tTk45EKSedaUL8MFYI8hW164hIXsgIHyxu3VobUB3fFCu5t0hQby6OoWRPsG1KkKUG2M5UadiLiVg==}
     engines: {node: '>=14'}
 
+  '@optique/config@1.3.0':
+    resolution: {integrity: sha512-hKDtLeXV27Vu0PSRxJ/61yRChiWsypCBJAwaNHl2+WbYKir8/yuklmsCCFQ1SqjDrH5HoOfsMaQKzg3RL0/FPw==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@standard-schema/spec': ^1.1.0
+
   '@optique/core@1.3.0':
     resolution: {integrity: sha512-Mg0onYl6TswC2+BGkTIycltIQ/rFzPfu6g6LcxT63wXiu8MiyK7xoXnoRmmQGPHv+gJ3qFvl4gc/q1C8bMpdew==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+
+  '@optique/env@1.3.0':
+    resolution: {integrity: sha512-HclAdTvBaE17MIxMKwu9w8+9fq1bqSicvuHQ8Mc3aqPFAfH8bh1cYFk5l+FBdJCdhbUZoQOP5Llh85u4f0ClIQ==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
 
   '@optique/logtape@1.3.0':
@@ -2033,28 +2169,94 @@ packages:
   '@ungap/structured-clone@1.3.3':
     resolution: {integrity: sha512-60YRaenCQcVjYEKOcG824+DRGGIQ3VKErcBoAEDJZz5bKIs2ZG+X/H9Nk+Q6EVkwJk5QNApxbrc5QtBSwtrXAg==}
 
-  '@upyo/core@0.6.0-dev.263':
-    resolution: {integrity: sha512-8oA53ECfpvizlVDn5j/+S9gTxFZWqxonoyjLiJtV47Xiq0Jq1WCBQWTrGAsefNqjR4Y7+5loeWOnGZThZf2FkQ==}
+  '@upyo/core@0.6.0':
+    resolution: {integrity: sha512-zgNNXOcUe5662vQ5qmGJcwioy7KvrOKUeuDifb6oA23MYz3MvRWmhaMlbjAnZWt6OzutKAP/lR3C9/afTld7EQ==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
 
-  '@upyo/logtape@0.6.0-dev.263':
-    resolution: {integrity: sha512-7WI9Q7C5DU9xX6vKCU3EhszRUqO5BE4zAegotvSxmZCNbrnOWnEJqC4nFmthNVUcFgKyI4QgCT8BSqlIhde7nA==}
+  '@upyo/jmap@0.6.0':
+    resolution: {integrity: sha512-uG+Zzh3QBvJVbiM5kXDdj3lZSZR5HMRa6eXzjizwqKXUIUknZpvLSXaxK06UzJODTJEJWAwEAeAYeY5HbXlnvg==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/lettermint@0.6.0':
+    resolution: {integrity: sha512-/XVXdMb/8y20oGDAZR4FcgNk+iUiOEvjRQrKWXCiwpVcH/07aD9iGikL+gS45qZX/ctRoelUrUdZywp7sUz1bA==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/logtape@0.6.0':
+    resolution: {integrity: sha512-z4YajIOBTtJHbbcDnpap8CFV6vS6nE2y/6T675fFbHt9rQPsjk/XH+3CzOSJELV/Dpnj1xdAfeTgshfYUidB8A==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
     peerDependencies:
       '@logtape/logtape': ^2.2.4
-      '@upyo/core': 0.6.0-dev.263+e633e1e6
+      '@upyo/core': 0.6.0
 
-  '@upyo/mock@0.6.0-dev.263':
-    resolution: {integrity: sha512-8HZ2m3Pm9BqyICIhhriRqy4AXhYbWZwgCEey6KuswOyMQE/GTX1J3QRE/cmj5jLifVCx1Wk4s1R/ZnaeN2bbpA==}
+  '@upyo/maileroo@0.6.0':
+    resolution: {integrity: sha512-k6iLTTYoZPoBe1VkNHYP9F+nm+xkWGqq+fms4d+7udTZk4h0Ln7Pdh2IUu8reypd3vO+xijQssFdVPF/0O0nFw==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
     peerDependencies:
-      '@upyo/core': 0.6.0-dev.263+e633e1e6
+      '@upyo/core': 0.6.0
 
-  '@upyo/smtp@0.6.0-dev.263':
-    resolution: {integrity: sha512-cqbKQamkUU9qszmhQ7KjlQ3focPpf3Wqzyt9abowsjRw6VG1d4fGJc2qmmznTo5K8agqQOt6kpxHWzuwdvxClA==}
+  '@upyo/mailgun@0.6.0':
+    resolution: {integrity: sha512-JmbqaVvkpBL0z4W/tEEonzy3o8BWEZl6T3eawfPHhd2UwZ59j+qWZrzO6ts0GUNwgNmTJpo+Tkh10r9jUDE+AQ==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
     peerDependencies:
-      '@upyo/core': 0.6.0-dev.263+e633e1e6
+      '@upyo/core': 0.6.0
+
+  '@upyo/mailtrap@0.6.0':
+    resolution: {integrity: sha512-Zc7gmAK8iUkOc3tPewRElizGMqE2Z642x9j+haA80M5OH3Dt0Sf/dNEh2COjzA+ai1U2XtARXnAsd4t+es5ZRg==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/mime@0.6.0':
+    resolution: {integrity: sha512-mcRKpQpGEEkVcOGIch0jg9qa8g6D/NoAm7IGieE7+DLUekYC9xpGC7XrRfHFIyXrgKNpPxqVlVKrZm+B2rdaHw==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/mock@0.6.0':
+    resolution: {integrity: sha512-oEF6vkr1WPWVYdHSm5vVQ+LrMBdRbw3McN5f+ha0ijaYHpwWstqSNJzXITcSJylAoSqWKHhnEk1c4nZMn49ifg==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/plunk@0.6.0':
+    resolution: {integrity: sha512-PLmNo8JRltaxOz60/Mb9OUEnZFEn02fB+toL4AJXpGykm2JRUkl0TffKnEdOYsYqZ3Y7StnKhz9mEG3fN1SxNQ==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/resend@0.6.0':
+    resolution: {integrity: sha512-BXian1dI86vj4jMq3JLHAZHYAv/luoKVF+zGriw8p2C8I6cUnrufcvdbu6UiDyAC9FSQO1az4Tz3uL6X8rujsw==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/retry@0.6.0':
+    resolution: {integrity: sha512-md0nTGbDomA+U81ZHWe9JcPRkSOVISHT9xIB522E66EOZAsrszCSmQGsDhPbWhNwHWN2jw/hyiYK8goZbzFjVQ==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/sendgrid@0.6.0':
+    resolution: {integrity: sha512-qkVvtPE4gZhzWGgNfLsHUPrClfi6Q5o2UQ86VdWktOHtW2dNQD2psCV1q7WWg320zInItR2K6dRVYuKwcontGw==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/ses@0.6.0':
+    resolution: {integrity: sha512-ZGrRbHQ3cF8FbmXF/JXT14sG+AbxrAGfMnu9ylJrl3Gl5uX96jzaT4Xsd6Wesdc57iQu7hzU1ACjzEIdTPEcWA==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/smtp@0.6.0':
+    resolution: {integrity: sha512-0x9IhMYXoQjMDSwe0gu4t6q6IMMUZg9f9zrvTdW57dIwATik8ejp1uv1gyK3zZoSa6IOdWboPgCfvdo9993F/g==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@upyo/core': 0.6.0
 
   '@whatwg-node/disposablestack@0.0.6':
     resolution: {integrity: sha512-LOtTn+JgJvX8WfBVJtF08TGrdjuFzGJc4mkP8EdDI8ADbvO7kiexYep1o8dwnt0okb0jYclCDXF13xU7Ge4zSw==}
@@ -2281,6 +2483,25 @@ packages:
   balanced-match@4.0.4:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
+
+  bare-addon-resolve@1.11.0:
+    resolution: {integrity: sha512-bTUBSqBjzQQzo2/iIk6KxAClZfahy38EPsJV2bPJ+p2+kS8h+hT5TE5QggpkFUrCnLL4HDTA4DDM+YiNdyol0w==}
+    peerDependencies:
+      bare-url: '*'
+    peerDependenciesMeta:
+      bare-url:
+        optional: true
+
+  bare-module-resolve@1.12.6:
+    resolution: {integrity: sha512-tsoOqHmtF6VmNX4LYDBZwvQVkSmEagnbykNjK31LMxz/amyKfjCs4K976n7uJd1bvWfxbpLQ3Fy7qq8an6jR6Q==}
+    peerDependencies:
+      bare-url: '*'
+    peerDependenciesMeta:
+      bare-url:
+        optional: true
+
+  bare-semver@1.1.0:
+    resolution: {integrity: sha512-1Hw5qJ7hXdVt3uPUqjeFTuxyvBUJauvz5A1I2jk8gzjZMHp04n//6nV9MDbG9CMw78JHY2lGV0w6s//LrASm2w==}
 
   baseline-browser-mapping@2.11.11:
     resolution: {integrity: sha512-/yImnXwyTvgMkhgekLHok/Rx5vO6E0BmStWlSqKWMVm2a2ITuZ1Tn+9bgLS+gZRdZmWtd8nxuhHpdmCUOWsTQQ==}
@@ -2787,6 +3008,9 @@ packages:
 
   flatted@3.4.2:
     resolution: {integrity: sha512-PjDse7RzhcPkIJwy5t7KPWQSZ9cAbzQXcafsetQoD7sOJRQlGikNbx7yZp2OotDnJyrDcbyRq3Ttb18iYOqkxA==}
+
+  fs-native-extensions@1.5.1:
+    resolution: {integrity: sha512-abjiHKkYdcH5M9ikBEJb0MKb/fEpPtZx/yfLHzTptvUAoiFayX0tIe0BTLBU4SAoRyjZLzA0dP1Rn2p0+QRyVg==}
 
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
@@ -3420,6 +3644,10 @@ packages:
   relay-runtime@21.0.1:
     resolution: {integrity: sha512-OS+We56sp6gkGVEcce9VCNOeg/sMbxT9unEoerQPgNAICHowSWrXNc6LJxF2OqjypxYF7kaLDSPPiaPii2Pw1g==}
 
+  require-addon@1.3.0:
+    resolution: {integrity: sha512-j8pifaPNZI7ShKY3ihXZwF0qaEjua8zmlqPvDil0a8SBnyRvjCbAiEQuzO0UcoXH1sqU5U/ilXSjYd1W5NYwAA==}
+    engines: {bare: '>=1.10.0'}
+
   resolve-from@4.0.0:
     resolution: {integrity: sha512-pb/MYmXstAkysRFx8piNI1tGFNQIFA3vkE3Gq4EuA1dF6gHp/+vgZqsCGJapvy8N3Q+4o7FwvquPJcnZ7RYy4g==}
     engines: {node: '>=4'}
@@ -3527,6 +3755,10 @@ packages:
   skills-npm@1.2.0:
     resolution: {integrity: sha512-LY5nyBohOD026LpUEmY6cENHuJQ0pPfYnSz6h6ClTghvJA2UWfkVmbIYMyrsNYcrN9hT5Fq+gEPE/vn1N7V7Kg==}
     hasBin: true
+
+  smol-toml@1.9.1:
+    resolution: {integrity: sha512-j7WyPdf0CJoutMzMoPLF/bVXHtKZIT9Rb4eGeEbWw8X2t5oirjPgpL+OpaENZrILYaXqYwnVH+qgUwVbl+pUJQ==}
+    engines: {node: '>= 18'}
 
   solid-js@1.9.14:
     resolution: {integrity: sha512-sAEXC0Kk0S1EDg+8ysEWJDbYhA3RRoEjwuySUGlKIemeo0I5YZfOyumNjNs9Sv3y2nmhD+0rW66ag2HsMuQiGQ==}
@@ -3941,6 +4173,9 @@ packages:
 
   whatwg-url@5.0.0:
     resolution: {integrity: sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==}
+
+  which-runtime@1.4.0:
+    resolution: {integrity: sha512-0ugbP4CJW4e2D20jvEcC4973dCgIaHI4Rw1PT+26U9zEve7FyYdWAIwUnoeOYvoCfn+wXHoHTKb1KhkYlb60Pw==}
 
   which@2.0.2:
     resolution: {integrity: sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==}
@@ -4619,6 +4854,10 @@ snapshots:
     dependencies:
       '@logtape/logtape': 2.3.0-dev.840
 
+  '@logtape/file@2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840)':
+    dependencies:
+      '@logtape/logtape': 2.3.0-dev.840
+
   '@logtape/graphql-yoga@2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840)(graphql-yoga@5.21.2(graphql@16.14.2))(graphql@16.14.2)':
     dependencies:
       '@logtape/logtape': 2.3.0-dev.840
@@ -4655,6 +4894,8 @@ snapshots:
     optional: true
 
   '@noble/hashes@1.4.0': {}
+
+  '@noble/hashes@1.8.0': {}
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
@@ -4715,12 +4956,23 @@ snapshots:
 
   '@opentelemetry/semantic-conventions@1.43.0': {}
 
+  '@optique/config@1.3.0(@standard-schema/spec@1.1.0)':
+    dependencies:
+      '@optique/core': 1.3.0
+      '@standard-schema/spec': 1.1.0
+
   '@optique/core@1.3.0': {}
 
-  '@optique/logtape@1.3.0(@logtape/logtape@2.3.0-dev.840)':
+  '@optique/env@1.3.0':
+    dependencies:
+      '@optique/core': 1.3.0
+
+  '@optique/logtape@1.3.0(@logtape/file@2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840))(@logtape/logtape@2.3.0-dev.840)':
     dependencies:
       '@logtape/logtape': 2.3.0-dev.840
       '@optique/core': 1.3.0
+    optionalDependencies:
+      '@logtape/file': 2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840)
 
   '@optique/run@1.3.0':
     dependencies:
@@ -5220,7 +5472,6 @@ snapshots:
       '@types/node': 26.0.0
       pg-protocol: 1.14.0
       pg-types: 2.2.0
-    optional: true
 
   '@types/relay-runtime@20.1.1': {}
 
@@ -5339,20 +5590,66 @@ snapshots:
 
   '@ungap/structured-clone@1.3.3': {}
 
-  '@upyo/core@0.6.0-dev.263': {}
+  '@upyo/core@0.6.0': {}
 
-  '@upyo/logtape@0.6.0-dev.263(@logtape/logtape@2.3.0-dev.840)(@upyo/core@0.6.0-dev.263)':
+  '@upyo/jmap@0.6.0(@upyo/core@0.6.0)':
+    dependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/lettermint@0.6.0(@upyo/core@0.6.0)':
+    dependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/logtape@0.6.0(@logtape/logtape@2.3.0-dev.840)(@upyo/core@0.6.0)':
     dependencies:
       '@logtape/logtape': 2.3.0-dev.840
-      '@upyo/core': 0.6.0-dev.263
+      '@upyo/core': 0.6.0
 
-  '@upyo/mock@0.6.0-dev.263(@upyo/core@0.6.0-dev.263)':
+  '@upyo/maileroo@0.6.0(@upyo/core@0.6.0)':
     dependencies:
-      '@upyo/core': 0.6.0-dev.263
+      '@upyo/core': 0.6.0
 
-  '@upyo/smtp@0.6.0-dev.263(@upyo/core@0.6.0-dev.263)':
+  '@upyo/mailgun@0.6.0(@upyo/core@0.6.0)':
     dependencies:
-      '@upyo/core': 0.6.0-dev.263
+      '@upyo/core': 0.6.0
+
+  '@upyo/mailtrap@0.6.0(@upyo/core@0.6.0)':
+    dependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/mime@0.6.0(@upyo/core@0.6.0)':
+    dependencies:
+      '@noble/hashes': 1.8.0
+      '@upyo/core': 0.6.0
+
+  '@upyo/mock@0.6.0(@upyo/core@0.6.0)':
+    dependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/plunk@0.6.0(@upyo/core@0.6.0)':
+    dependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/resend@0.6.0(@upyo/core@0.6.0)':
+    dependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/retry@0.6.0(@upyo/core@0.6.0)':
+    dependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/sendgrid@0.6.0(@upyo/core@0.6.0)':
+    dependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/ses@0.6.0(@upyo/core@0.6.0)':
+    dependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/smtp@0.6.0(@upyo/core@0.6.0)':
+    dependencies:
+      '@upyo/core': 0.6.0
+      '@upyo/mime': 0.6.0(@upyo/core@0.6.0)
 
   '@whatwg-node/disposablestack@0.0.6':
     dependencies:
@@ -5507,6 +5804,17 @@ snapshots:
   balanced-match@1.0.2: {}
 
   balanced-match@4.0.4: {}
+
+  bare-addon-resolve@1.11.0:
+    dependencies:
+      bare-module-resolve: 1.12.6
+      bare-semver: 1.1.0
+
+  bare-module-resolve@1.12.6:
+    dependencies:
+      bare-semver: 1.1.0
+
+  bare-semver@1.1.0: {}
 
   baseline-browser-mapping@2.11.11: {}
 
@@ -5917,6 +6225,13 @@ snapshots:
       keyv: 4.5.4
 
   flatted@3.4.2: {}
+
+  fs-native-extensions@1.5.1:
+    dependencies:
+      require-addon: 1.3.0
+      which-runtime: 1.4.0
+    transitivePeerDependencies:
+      - bare-url
 
   fsevents@2.3.3:
     optional: true
@@ -6432,19 +6747,15 @@ snapshots:
   pg-cloudflare@1.4.0:
     optional: true
 
-  pg-connection-string@2.13.0:
-    optional: true
+  pg-connection-string@2.13.0: {}
 
-  pg-int8@1.0.1:
-    optional: true
+  pg-int8@1.0.1: {}
 
   pg-pool@3.14.0(pg@8.21.0):
     dependencies:
       pg: 8.21.0
-    optional: true
 
-  pg-protocol@1.14.0:
-    optional: true
+  pg-protocol@1.14.0: {}
 
   pg-types@2.2.0:
     dependencies:
@@ -6453,7 +6764,6 @@ snapshots:
       postgres-bytea: 1.0.1
       postgres-date: 1.0.7
       postgres-interval: 1.2.0
-    optional: true
 
   pg@8.21.0:
     dependencies:
@@ -6464,12 +6774,10 @@ snapshots:
       pgpass: 1.0.5
     optionalDependencies:
       pg-cloudflare: 1.4.0
-    optional: true
 
   pgpass@1.0.5:
     dependencies:
       split2: 4.2.0
-    optional: true
 
   picocolors@1.1.1: {}
 
@@ -6492,19 +6800,15 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.2
 
-  postgres-array@2.0.0:
-    optional: true
+  postgres-array@2.0.0: {}
 
-  postgres-bytea@1.0.1:
-    optional: true
+  postgres-bytea@1.0.1: {}
 
-  postgres-date@1.0.7:
-    optional: true
+  postgres-date@1.0.7: {}
 
   postgres-interval@1.2.0:
     dependencies:
       xtend: 4.0.2
-    optional: true
 
   postgres@3.4.9: {}
 
@@ -6564,6 +6868,12 @@ snapshots:
       invariant: 2.2.4
     transitivePeerDependencies:
       - encoding
+
+  require-addon@1.3.0:
+    dependencies:
+      bare-addon-resolve: 1.11.0
+    transitivePeerDependencies:
+      - bare-url
 
   resolve-from@4.0.0: {}
 
@@ -6701,6 +7011,8 @@ snapshots:
       xdg-basedir: 5.1.0
       yaml: 2.9.0
 
+  smol-toml@1.9.1: {}
+
   solid-js@1.9.14:
     dependencies:
       csstype: 3.2.3
@@ -6751,8 +7063,7 @@ snapshots:
 
   space-separated-tokens@2.0.2: {}
 
-  split2@4.2.0:
-    optional: true
+  split2@4.2.0: {}
 
   sprintf-js@1.0.3: {}
 
@@ -7026,6 +7337,8 @@ snapshots:
       tr46: 0.0.3
       webidl-conversions: 3.0.1
 
+  which-runtime@1.4.0: {}
+
   which@2.0.2:
     dependencies:
       isexe: 2.0.0
@@ -7034,8 +7347,7 @@ snapshots:
 
   xdg-basedir@5.1.0: {}
 
-  xtend@4.0.2:
-    optional: true
+  xtend@4.0.2: {}
 
   yallist@3.1.1: {}
 

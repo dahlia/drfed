@@ -24,3 +24,8 @@ export * from "./key.ts";
 export * from "./activity-delivery.ts";
 export * from "./instance.ts";
 export * from "./text.ts";
+export * from "./migration-manifest.ts";
+export * from "./migration-state.ts";
+export * from "./migration-session.ts";
+export * from "./pglite-store.ts";
+export * from "./pglite-preparation.ts";

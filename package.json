@@ -5,7 +5,9 @@
     "@drfed/models": "workspace:*",
     "@electric-sql/pglite": "catalog:",
     "@logtape/logtape": "catalog:",
-    "drizzle-orm": "catalog:"
+    "drizzle-orm": "catalog:",
+    "@drfed/graphql": "workspace:*",
+    "graphql": "catalog:"
   },
   "scripts": {
     "prepare": "skills-npm --recursive --yes --force"

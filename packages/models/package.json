@@ -97,6 +97,26 @@
     "./text": {
       "types": "./dist/text.d.mts",
       "default": "./dist/text.mjs"
+    },
+    "./migration-manifest": {
+      "types": "./dist/migration-manifest.d.mts",
+      "default": "./dist/migration-manifest.mjs"
+    },
+    "./migration-state": {
+      "types": "./dist/migration-state.d.mts",
+      "default": "./dist/migration-state.mjs"
+    },
+    "./migration-session": {
+      "types": "./dist/migration-session.d.mts",
+      "default": "./dist/migration-session.mjs"
+    },
+    "./pglite-store": {
+      "types": "./dist/pglite-store.d.mts",
+      "default": "./dist/pglite-store.mjs"
+    },
+    "./pglite-preparation": {
+      "types": "./dist/pglite-preparation.d.mts",
+      "default": "./dist/pglite-preparation.mjs"
     }
   },
   "files": [
@@ -119,7 +139,12 @@
       "src/key.ts",
       "src/activity-delivery.ts",
       "src/instance.ts",
-      "src/text.ts"
+      "src/text.ts",
+      "src/migration-manifest.ts",
+      "src/migration-state.ts",
+      "src/migration-session.ts",
+      "src/pglite-store.ts",
+      "src/pglite-preparation.ts"
     ],
     "dts": {
       "sourcemap": true,
@@ -141,7 +166,10 @@
   "dependencies": {
     "@electric-sql/pglite": "catalog:",
     "@logtape/logtape": "catalog:",
+    "@types/pg": "8.20.0",
     "drizzle-orm": "catalog:",
+    "fs-native-extensions": "1.5.1",
+    "pg": "catalog:",
     "postgres": "catalog:",
     "uuid": "catalog:"
   }

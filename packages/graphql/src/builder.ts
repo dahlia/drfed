@@ -30,6 +30,7 @@ import { eq } from "drizzle-orm/sql/expressions";
 import { GraphQLScalarType, Kind } from "graphql";
 import { JSONResolver, URLResolver, UUIDResolver } from "graphql-scalars";
 
+import OperationsPlugin, { type OperationTracker } from "./operations.ts";
 import { hideUnreadableNodes, memberInstances } from "./readable.ts";
 
 /**
@@ -38,6 +39,12 @@ import { hideUnreadableNodes, memberInstances } from "./readable.ts";
  * and mutations.
  */
 export interface ServerContext {
+  /** Combined request and runtime shutdown cancellation for active work. */
+  readonly operationSignal?: AbortSignal | undefined;
+
+  /** Optional runtime owner for work that survives HTTP cancellation. */
+  readonly trackOperation?: OperationTracker | undefined;
+
   /**
    * The incoming HTTP request.
    */
@@ -155,7 +162,13 @@ export const builder = new SchemaBuilder<SchemaTypes>({
     getTableConfig,
     relations,
   },
-  plugins: [DrizzlePlugin, RelayPlugin, ErrorsPlugin, ScopeAuthPlugin],
+  plugins: [
+    OperationsPlugin,
+    DrizzlePlugin,
+    RelayPlugin,
+    ErrorsPlugin,
+    ScopeAuthPlugin,
+  ],
   errors: { defaultTypes: [] },
   relay: {
     nodeQueryOptions: {

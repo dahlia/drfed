@@ -57,6 +57,114 @@
     "./query-logger": {
       "types": "./dist/query-logger.d.mts",
       "default": "./dist/query-logger.mjs"
+    },
+    "./resources": {
+      "types": "./dist/resources.d.mts",
+      "default": "./dist/resources.mjs"
+    },
+    "./operations": {
+      "types": "./dist/operations.d.mts",
+      "default": "./dist/operations.mjs"
+    },
+    "./configuration": {
+      "types": "./dist/configuration.d.mts",
+      "default": "./dist/configuration.mjs"
+    },
+    "./database-settings": {
+      "types": "./dist/database-settings.d.mts",
+      "default": "./dist/database-settings.mjs"
+    },
+    "./diagnostics": {
+      "types": "./dist/diagnostics.d.mts",
+      "default": "./dist/diagnostics.mjs"
+    },
+    "./data-path": {
+      "types": "./dist/data-path.d.mts",
+      "default": "./dist/data-path.mjs"
+    },
+    "./postgres-settings": {
+      "types": "./dist/postgres-settings.d.mts",
+      "default": "./dist/postgres-settings.mjs"
+    },
+    "./database-runtime": {
+      "types": "./dist/database-runtime.d.mts",
+      "default": "./dist/database-runtime.mjs"
+    },
+    "./commands/migrate": {
+      "types": "./dist/commands/migrate.d.mts",
+      "default": "./dist/commands/migrate.mjs"
+    },
+    "./commands/migrate-program": {
+      "types": "./dist/commands/migrate-program.d.mts",
+      "default": "./dist/commands/migrate-program.mjs"
+    },
+    "./commands/account": {
+      "types": "./dist/commands/account.d.mts",
+      "default": "./dist/commands/account.mjs"
+    },
+    "./commands/account-program": {
+      "types": "./dist/commands/account-program.d.mts",
+      "default": "./dist/commands/account-program.mjs"
+    },
+    "./commands/account-create": {
+      "types": "./dist/commands/account-create.d.mts",
+      "default": "./dist/commands/account-create.mjs"
+    },
+    "./logging": {
+      "types": "./dist/logging.d.mts",
+      "default": "./dist/logging.mjs"
+    },
+    "./commands/web": {
+      "types": "./dist/commands/web.d.mts",
+      "default": "./dist/commands/web.mjs"
+    },
+    "./commands/web-program": {
+      "types": "./dist/commands/web-program.d.mts",
+      "default": "./dist/commands/web-program.mjs"
+    },
+    "./smtp-settings": {
+      "types": "./dist/smtp-settings.d.mts",
+      "default": "./dist/smtp-settings.mjs"
+    },
+    "./mail-parser": {
+      "types": "./dist/mail-parser.d.mts",
+      "default": "./dist/mail-parser.mjs"
+    },
+    "./mail-settings": {
+      "types": "./dist/mail-settings.d.mts",
+      "default": "./dist/mail-settings.mjs"
+    },
+    "./mail-runtime": {
+      "types": "./dist/mail-runtime.d.mts",
+      "default": "./dist/mail-runtime.mjs"
+    },
+    "./secret-source": {
+      "types": "./dist/secret-source.d.mts",
+      "default": "./dist/secret-source.mjs"
+    },
+    "./jmap-parser": {
+      "types": "./dist/jmap-parser.d.mts",
+      "default": "./dist/jmap-parser.mjs"
+    },
+    "./jmap-settings": {
+      "types": "./dist/jmap-settings.d.mts",
+      "default": "./dist/jmap-settings.mjs"
+    },
+    "./jmap-runtime": {
+      "types": "./dist/jmap-runtime.d.mts",
+      "default": "./dist/jmap-runtime.mjs"
+    },
+    "./api-mail-parser": {
+      "types": "./dist/api-mail-parser.d.mts",
+      "default": "./dist/api-mail-parser.mjs"
+    },
+    "./api-mail-settings": {
+      "types": "./dist/api-mail-settings.d.mts",
+      "default": "./dist/api-mail-settings.mjs"
+    },
+    "./bounded-mail-runtime": {
+      "types": "./dist/bounded-mail-runtime.d.mts",
+      "default": "./dist/bounded-mail-runtime.mjs"
     }
   },
   "files": [
@@ -65,14 +173,44 @@
     "README.md"
   ],
   "bin": {
-    "drfed-server": "bin/drfed-server.mjs"
+    "drfed-server": "bin/drfed-server.mjs",
+    "drfed-migrate": "bin/drfed-migrate.mjs",
+    "drfed-account": "bin/drfed-account.mjs",
+    "drfed-web": "bin/drfed-web.mjs"
   },
   "tsdown": {
     "entry": [
       "src/index.ts",
       "src/valueparser.ts",
       "src/serving.ts",
-      "src/query-logger.ts"
+      "src/query-logger.ts",
+      "src/resources.ts",
+      "src/operations.ts",
+      "src/configuration.ts",
+      "src/database-settings.ts",
+      "src/diagnostics.ts",
+      "src/data-path.ts",
+      "src/postgres-settings.ts",
+      "src/database-runtime.ts",
+      "src/commands/migrate.ts",
+      "src/commands/migrate-program.ts",
+      "src/commands/account.ts",
+      "src/commands/account-program.ts",
+      "src/commands/account-create.ts",
+      "src/logging.ts",
+      "src/commands/web.ts",
+      "src/commands/web-program.ts",
+      "src/smtp-settings.ts",
+      "src/mail-parser.ts",
+      "src/mail-settings.ts",
+      "src/mail-runtime.ts",
+      "src/secret-source.ts",
+      "src/jmap-parser.ts",
+      "src/jmap-settings.ts",
+      "src/jmap-runtime.ts",
+      "src/api-mail-parser.ts",
+      "src/api-mail-settings.ts",
+      "src/bounded-mail-runtime.ts"
     ],
     "dts": {
       "sourcemap": true,
@@ -85,6 +223,7 @@
     "test": "node --test"
   },
   "devDependencies": {
+    "@fedify/vocab": "catalog:",
     "@logtape/testing-node": "catalog:",
     "@types/node": "catalog:",
     "tsdown": "catalog:",
@@ -94,20 +233,37 @@
     "@drfed/federation": "workspace:*",
     "@drfed/graphql": "workspace:*",
     "@drfed/models": "workspace:*",
+    "@drfed/web": "workspace:*",
     "@electric-sql/pglite": "catalog:",
     "@fedify/fedify": "catalog:",
     "@fedify/pglite": "catalog:",
     "@fedify/postgres": "catalog:",
     "@logtape/drizzle-orm": "catalog:",
+    "@logtape/file": "catalog:",
     "@logtape/logtape": "catalog:",
+    "@optique/config": "catalog:",
     "@optique/core": "catalog:",
+    "@optique/env": "catalog:",
     "@optique/logtape": "catalog:",
     "@optique/run": "catalog:",
+    "@upyo/core": "catalog:",
+    "@upyo/jmap": "catalog:",
+    "@upyo/lettermint": "catalog:",
     "@upyo/logtape": "catalog:",
     "@upyo/smtp": "catalog:",
     "drizzle-orm": "catalog:",
     "graphql": "catalog:",
     "postgres": "catalog:",
-    "srvx": "^0.11.16"
+    "smol-toml": "^1.9.1",
+    "srvx": "^0.11.16",
+    "valibot": "1.4.2",
+    "@upyo/maileroo": "catalog:",
+    "@upyo/mailtrap": "catalog:",
+    "@upyo/mailgun": "catalog:",
+    "@upyo/plunk": "catalog:",
+    "@upyo/resend": "catalog:",
+    "@upyo/retry": "catalog:",
+    "@upyo/sendgrid": "catalog:",
+    "@upyo/ses": "catalog:"
   }
 }

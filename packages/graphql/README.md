@@ -23,18 +23,16 @@ Usage
 -----
 
 ~~~~ ts
-import createFederation, { createInboundRecorder } from "@drfed/federation";
+import createFederation from "@drfed/federation";
 import { createYogaServer } from "@drfed/graphql";
 
 const federation = await createFederation(db, { kv });
-const recordedInbox = createInboundRecorder({ db, federation, rootOrigin });
 const yoga = createYogaServer(db, federation, {
+  rootOrigin,
   loginOrigins: new Set(["https://drfed.example.com"]),
 });
-serve({
-  fetch: (request) =>
-    recordedInbox.fetch(request, { onNotFound: yoga.fetch, contextData: undefined }),
-});
+// For a dedicated GraphQL listener; the application CLI owns combined routing.
+serve({ fetch: yoga.fetch });
 ~~~~
 
 `createFederation`, from [`@drfed/federation`], builds a Fedify `Federation`
@@ -42,6 +40,13 @@ with every DrFed dispatcher registered.  `createYogaServer` accepts a Drizzle
 database instance, that federation, and server options, and returns a GraphQL
 Yoga server ready to handle HTTP requests.  The federation is stored in the
 resolver context as is; `createYogaServer` never registers anything on it.
+
+The installed `drfed-server` routes only the exact `/graphql` path to Yoga.
+Combined mode injects `yoga.fetch` directly into the web runtime; `drfed-web`
+uses a configured backend origin over HTTP. Both bridges promote only a
+validated session token to Bearer authentication. Federation requests never
+fall back to GraphQL or the frontend. See the
+[CLI documentation](../drfed/README.md) for combined and `--no-web` deployments.
 
 [`@drfed/federation`]: https://github.com/fedify-dev/drfed/tree/main/packages/federation
 
@@ -75,6 +80,26 @@ return null for it, as do `Resource.detail` and `Activity.object`, and
 before paging, so that neither cursors nor `totalCount` tell of it.
 
 [ActivityPub]: https://www.w3.org/TR/activitypub/
+
+
+Login mail and shutdown
+-----------------------
+
+`loginByEmail` returns a challenge ID for both known and unknown accounts.
+A failed mail receipt or a provider exception keeps this response unchanged;
+operators receive a fixed outcome diagnostic without provider error text or
+message IDs. Users can request another link if mail does not arrive.
+
+Pass `shutdownSignal` to `createYogaServer` to combine runtime shutdown with
+each request's cancellation signal. The combined signal reaches Upyo's send
+options. `trackOperation` keeps resolver work registered until the provider
+settles, including a provider that ignores cancellation after the HTTP response
+ends. The runtime owner must drain these operations before closing resources;
+passing a signal alone does not guarantee that a transport stops.
+See [Yoga execution cancellation] for the distinction between canceling an
+HTTP response and stopping resolver work.
+
+[Yoga execution cancellation]: https://the-guild.dev/graphql/yoga-server/docs/features/execution-cancellation
 
 
 Activity deliveries
@@ -202,3 +227,29 @@ The ActivityPub code that used to live in this package moved to
 
 `@drfed/graphql/activity-delivery` now holds only the GraphQL types for
 activity deliveries.
+
+
+Generating the schema
+---------------------
+
+Run `mise run generate:graphql-schema --output-file schema.graphql` from the
+repository root.  This task builds models, federation, and GraphQL through
+`build:backend`, then imports the built schema directly.  It does not build
+the application CLI or frontend, so frontend compilation can use it without
+creating a dependency cycle.  Omitting `--output-file` writes to stdout.
+
+The installed `drfed-server --generate-graphql-schema` option remains available
+for users who need the schema from their installed version.
+
+
+Runtime ownership
+-----------------
+
+`createYogaServer()` accepts an optional `trackOperation` callback.  Supply a
+callback that registers and returns each operation's completion promise when
+the runtime closes database or mail resources on shutdown.  It tracks context
+loading and complete field and type resolvers, including work still running
+after [Yoga cancels execution].  The CLI supplies its operation registry;
+callers that omit the callback retain the existing behavior.
+
+[Yoga cancels execution]: https://the-guild.dev/graphql/yoga-server/docs/features/execution-cancellation

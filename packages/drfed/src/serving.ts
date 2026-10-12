@@ -48,7 +48,7 @@ export interface FetchHandlerOptions {
   readonly federation: FederationHandler;
 
   /**
-   * The control surface, i.e. the GraphQL server, served everywhere else.
+   * The control surface (GraphQL and optionally web), served everywhere else.
    */
   readonly serveControlSurface: (
     request: Request,
@@ -82,6 +82,13 @@ export function createFetchHandler(
     // the process would die on a single unauthenticated request.
     if (!URL.canParse(request.url)) return invalidHost();
     const url = new URL(request.url);
+    if (
+      !["http:", "https:"].includes(url.protocol) ||
+      url.username ||
+      url.password
+    ) {
+      return invalidHost();
+    }
     // An adapter may also substitute something for a `Host` it cannot make
     // sense of rather than refuse the request: srvx uses the literal
     // `_invalid_`, which does parse.  Routing on that would quietly hand the
@@ -96,11 +103,14 @@ export function createFetchHandler(
     switch (classifyHost(url, rootOrigin)) {
       case "instance":
         try {
-          return await federation.fetch(request, {
-            onNotFound: notFound,
-            onNotAcceptable: notFound,
-            contextData: undefined,
-          });
+          return await federation.fetch(
+            restorePublicScheme(request, rootOrigin.protocol),
+            {
+              onNotFound: notFound,
+              onNotAcceptable: notFound,
+              contextData: undefined,
+            },
+          );
         } catch (error) {
           // Error messages, names and causes can contain private key material.
           getLogger(["drfed", "serving"]).error(
@@ -122,6 +132,53 @@ export function createFetchHandler(
         return await serveControlSurface(request);
     }
   };
+}
+
+/** Compose the exact GraphQL endpoint with an optional embedded web handler.
+ * @returns The control handler; federation routing remains outside this layer.
+ */
+export function createControlSurface(options: {
+  readonly graphql: (request: Request) => Response | Promise<Response>;
+  readonly web?: (request: Request) => Response | Promise<Response>;
+}): (request: Request) => Response | Promise<Response> {
+  return (request) => {
+    if (new URL(request.url).pathname === "/graphql") {
+      return options.graphql(request);
+    }
+    return options.web === undefined ? notFound() : options.web(request);
+  };
+}
+
+const ingress = new WeakMap<
+  Request,
+  { readonly url: string; readonly headers: Headers }
+>();
+
+/** Retrieve private ingress metadata for a publicly restored instance request.
+ * @returns Original adapter URL and headers for delivery recording, if restored.
+ */
+export function getIngressMetadata(
+  request: Request,
+): { readonly url: string; readonly headers: Headers } | undefined {
+  return ingress.get(request);
+}
+
+function restorePublicScheme(request: Request, protocol: string): Request {
+  const url = new URL(request.url);
+  url.protocol = protocol;
+  const headers = new Headers(request.headers);
+  const restored = new Request(url, {
+    method: request.method,
+    headers,
+    body: request.body,
+    signal: request.signal,
+    duplex: "half",
+  } as RequestInit & { duplex: "half" });
+  ingress.set(restored, {
+    url: request.url,
+    headers: new Headers(request.headers),
+  });
+  return restored;
 }
 
 function notFound(): Response {

@@ -22,12 +22,18 @@ postinstall = ["mise deps", "mise generate git-pre-commit --task check --write"]
 
 [tasks.build]
 description = "Build the project"
-depends = ["build:web"]
+depends = ["build:web", "build:server"]
+silent = "stdout"
+
+[tasks."build:backend"]
+description = "Build models, federation, and GraphQL without the application CLI"
+run = "pnpm --parallel -F @drfed/federation -F @drfed/graphql -F @drfed/models build"
 silent = "stdout"
 
 [tasks."build:server"]
-description = "Build the project except web"
-run = "pnpm --parallel -F @drfed/federation -F @drfed/graphql -F @drfed/models -F @drfed/drfed build"
+description = "Build the application CLI after its backend and web dependencies"
+depends = ["build:backend", "build:web"]
+run = "pnpm -F @drfed/drfed build"
 silent = "stdout"
 
 [tasks."build:web"]
@@ -40,6 +46,16 @@ depends = [
 ]
 dir = "./packages/web"
 run = "pnpm exec relay-compiler --noWatchman && pnpm run build"
+
+[tasks."test:web-runtime"]
+description = "Test the embedded SolidStart runtime without an HTTP listener"
+depends = ["build:web"]
+run = "node --test packages/web/src/runtime.test.ts"
+
+[tasks."test:packaging"]
+description = "Test local and global npm tarball installations"
+depends = ["build"]
+run = "node scripts/test-packaging.mts"
 
 [tasks.check]
 description = "Check all"
@@ -72,6 +88,18 @@ run = """
 node scripts/add-license/main.mts --check
 """
 
+[tasks."check:migrations"]
+description = "Verify immutable migration identities and bundled SQL"
+run = "node scripts/migration-manifest.mts"
+
+[tasks."manifest:migrations"]
+description = "Verify or append immutable migration identities"
+usage = """
+flag "--append" help="Append new migrations without changing historical identities"
+flag "--base <ref>" help="Compare the immutable prefix with a Git commit"
+"""
+run = "node scripts/migration-manifest.mts"
+
 [tasks."check:versions"]
 description = "Check that all package versions are in sync"
 run = "node scripts/check-versions.mts"
@@ -98,7 +126,7 @@ node scripts/add-license/main.mts
 
 [tasks.test]
 description = "Run tests"
-depends = ["build:server"]
+depends = ["build"]
 usage = '''
 flag "-d --debug" help="Run tests in debug mode"
 '''
@@ -113,6 +141,20 @@ if "usage_debug" in $env {
 }
 pnpm run --parallel --recursive test
 '''
+
+[tasks."test:postgres"]
+description = "Test migration sessions against an isolated PostgreSQL cluster"
+depends = ["build:server"]
+run = """
+#!/usr/bin/env nu
+if "DRFED_TEST_POSTGRES_URL" not-in $env {
+  error make {msg: "Set DRFED_TEST_POSTGRES_URL to an isolated PostgreSQL cluster with CREATEDB and CREATEROLE permissions."}
+}
+if ($env.DRFED_TEST_POSTGRES_URL | str trim | is-empty) {
+  error make {msg: "DRFED_TEST_POSTGRES_URL must not be empty."}
+}
+node --test packages/models/src/migration-session.test.ts
+"""
 
 [tasks.bump]
 description = "Bump all package versions"
@@ -159,11 +201,13 @@ description = "Generate GraphQL schema"
 usage = """
 flag "-o --output-file <file>" help="The output file for the generated GraphQL schema.  - for stdout.  Defaults to -"
 """
-depends = ["build:server"]
+depends = ["build:backend"]
 run = """
 #!/usr/bin/env nu
 let output_file = (if "usage_output_file" in $env { $env.usage_output_file } else { "-" })
-node packages/drfed/bin/drfed-server.mjs --generate-graphql-schema --output-file $output_file
+with-env { DRFED_SCHEMA_OUTPUT: $output_file } {
+  node scripts/generate-graphql-schema.mts
+}
 """
 
 [tasks.dev]
@@ -179,7 +223,13 @@ flag "-S --no-seed" help="Skip database seeding"
 '''
 run = "node scripts/dev.mts"
 
+[tasks."build:web-runtime"]
+description = "Build the external web binding and Node adapter"
+dir = "./packages/web"
+run = "pnpm exec tsdown"
+
 [tasks."dev:web"]
+depends = ["build:web-runtime"]
 raw_args = true
 description = "Run SolidStart frontend server"
 dir = "./packages/web"
