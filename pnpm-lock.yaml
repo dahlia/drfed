@@ -2098,7 +2098,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-<<<<<<< HEAD
   '@sacho/sacho-aarch64-apple-darwin@0.3.2':
     resolution: {integrity: sha512-uMYGjFwggsjDWst8VQ1Z853vmg7/FGMf2uU8gDMhpE5dWc95czOyySKqsWjVks9mA7UtdX/QFx4J6k/I5dBwcw==}
     cpu: [arm64]
@@ -2133,10 +2132,8 @@ packages:
     resolution: {integrity: sha512-vHra5oIbq+IKK8ZzhqcprwWFnAJPDxkzj3AG/45//dp0sTE1PI0Qf3jYqkwRgC1nSDoG4Po38gj9HGJutIAkgQ==}
     engines: {node: '>=18'}
     hasBin: true
-=======
   '@shikijs/core@2.5.0':
     resolution: {integrity: sha512-uu/8RExTKtavlpH7XqnVYBrfBkUc20ngXiX9NSrBhOVZYv/7XQRKUyhtkeflY5QsxC0GbJThCerruZfsUaSldg==}
->>>>>>> ef78c39 (Add VitePress documentation site)
 
   '@shikijs/core@4.4.1':
     resolution: {integrity: sha512-VeR2CY6Nn9/WbisoYLOQZ7HZOnwTrpBuOw4wExjqLnBCi62BNWynBUO6K2uPIASPFJwAv7cX1fUu+LrPlSstcw==}
@@ -6023,7 +6020,6 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.62.2':
     optional: true
 
-<<<<<<< HEAD
   '@sacho/sacho-aarch64-apple-darwin@0.3.2':
     optional: true
 
@@ -6050,7 +6046,6 @@ snapshots:
       '@sacho/sacho-x86_64-apple-darwin': 0.3.2
       '@sacho/sacho-x86_64-pc-windows-msvc': 0.3.2
       '@sacho/sacho-x86_64-unknown-linux-musl': 0.3.2
-=======
   '@shikijs/core@2.5.0':
     dependencies:
       '@shikijs/engine-javascript': 2.5.0
@@ -6059,7 +6054,6 @@ snapshots:
       '@shikijs/vscode-textmate': 10.0.2
       '@types/hast': 3.0.5
       hast-util-to-html: 9.0.5
->>>>>>> ef78c39 (Add VitePress documentation site)
 
   '@shikijs/core@4.4.1':
     dependencies:

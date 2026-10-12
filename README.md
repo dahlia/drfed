@@ -108,7 +108,6 @@ credential files and shutdown behavior. All four commands accept the same
 explicit configuration file and the relevant `DRFED_*` variables.
 
 
-<<<<<<< HEAD
 Development builds
 ------------------
 
@@ -117,7 +116,8 @@ Install the latest successful development build with
 stable `latest` channel.  Tagged prereleases use `next`.  See
 [the contributor release guide](./CONTRIBUTING.md#automated-npm-and-github-releases)
 for verification, setup, and recovery procedures.
-=======
+
+
 Documentation
 -------------
 
@@ -127,4 +127,3 @@ The documentation site lives in *docs/* and uses [VitePress]. After
 preview the result.
 
 [VitePress]: https://vitepress.dev/
->>>>>>> ef78c39 (Add VitePress documentation site)

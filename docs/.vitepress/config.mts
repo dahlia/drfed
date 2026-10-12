@@ -50,7 +50,10 @@ export default defineConfig({
       },
       {
         text: "Manual",
-        items: [{ text: "Self-hosting", link: "/manual/self-hosting" }],
+        items: [
+          { text: "Self-hosting", link: "/manual/self-hosting" },
+          { text: "Configuration", link: "/manual/configuration" },
+        ],
       },
       {
         text: "Reference",
