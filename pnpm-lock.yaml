@@ -87,6 +87,12 @@ catalogs:
     '@upyo/plunk':
       specifier: 0.6.0
       version: 0.6.0
+    '@upyo/resend':
+      specifier: 0.6.0
+      version: 0.6.0
+    '@upyo/retry':
+      specifier: 0.6.0
+      version: 0.6.0
     '@upyo/smtp':
       specifier: 0.6.0
       version: 0.6.0
@@ -213,6 +219,12 @@ importers:
         specifier: 'catalog:'
         version: 0.6.0(@upyo/core@0.6.0)
       '@upyo/plunk':
+        specifier: 'catalog:'
+        version: 0.6.0(@upyo/core@0.6.0)
+      '@upyo/resend':
+        specifier: 'catalog:'
+        version: 0.6.0(@upyo/core@0.6.0)
+      '@upyo/retry':
         specifier: 'catalog:'
         version: 0.6.0(@upyo/core@0.6.0)
       '@upyo/smtp':
@@ -2200,6 +2212,18 @@ packages:
 
   '@upyo/plunk@0.6.0':
     resolution: {integrity: sha512-PLmNo8JRltaxOz60/Mb9OUEnZFEn02fB+toL4AJXpGykm2JRUkl0TffKnEdOYsYqZ3Y7StnKhz9mEG3fN1SxNQ==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/resend@0.6.0':
+    resolution: {integrity: sha512-BXian1dI86vj4jMq3JLHAZHYAv/luoKVF+zGriw8p2C8I6cUnrufcvdbu6UiDyAC9FSQO1az4Tz3uL6X8rujsw==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/retry@0.6.0':
+    resolution: {integrity: sha512-md0nTGbDomA+U81ZHWe9JcPRkSOVISHT9xIB522E66EOZAsrszCSmQGsDhPbWhNwHWN2jw/hyiYK8goZbzFjVQ==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
     peerDependencies:
       '@upyo/core': 0.6.0
@@ -5579,6 +5603,14 @@ snapshots:
       '@upyo/core': 0.6.0
 
   '@upyo/plunk@0.6.0(@upyo/core@0.6.0)':
+    dependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/resend@0.6.0(@upyo/core@0.6.0)':
+    dependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/retry@0.6.0(@upyo/core@0.6.0)':
     dependencies:
       '@upyo/core': 0.6.0
 

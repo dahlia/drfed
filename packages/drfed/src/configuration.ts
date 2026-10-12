@@ -93,6 +93,15 @@ export const configurationSchema = table({
           timeout_ms: v.optional(v.number("Expected a number.")),
         }),
       ),
+      resend: v.optional(
+        table({
+          api_key: v.optional(text),
+          api_key_file: v.optional(text),
+          base_url: v.optional(text),
+          timeout_ms: v.optional(v.number("Expected a number.")),
+          retries: v.optional(v.number("Expected a number.")),
+        }),
+      ),
       mailgun: v.optional(
         table({
           api_key: v.optional(text),
@@ -366,6 +375,46 @@ export const configurationSettings = {
     ["server"],
     "Whole Plunk delivery timeout in milliseconds",
     (config) => config.mail?.plunk?.timeout_ms,
+    false,
+  ),
+  resendApiKey: setting(
+    "mail.resend.api_key",
+    "RESEND_API_KEY",
+    ["server"],
+    "Resend sending API key",
+    (config) => config.mail?.resend?.api_key,
+    true,
+  ),
+  resendApiKeyFile: setting(
+    "mail.resend.api_key_file",
+    "RESEND_API_KEY_FILE",
+    ["server"],
+    "File containing the Resend API key",
+    (config) => config.mail?.resend?.api_key_file,
+    true,
+  ),
+  resendBaseUrl: setting(
+    "mail.resend.base_url",
+    "RESEND_BASE_URL",
+    ["server"],
+    "Resend API base URL including an API path",
+    (config) => config.mail?.resend?.base_url,
+    false,
+  ),
+  resendTimeout: setting(
+    "mail.resend.timeout_ms",
+    "RESEND_TIMEOUT",
+    ["server"],
+    "Whole Resend delivery timeout in milliseconds",
+    (config) => config.mail?.resend?.timeout_ms,
+    false,
+  ),
+  resendRetries: setting(
+    "mail.resend.retries",
+    "RESEND_RETRIES",
+    ["server"],
+    "Resend retries using one idempotency key (0 through 10)",
+    (config) => config.mail?.resend?.retries,
     false,
   ),
   mailgunApiKey: setting(

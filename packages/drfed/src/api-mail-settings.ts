@@ -23,6 +23,7 @@ import type { MailerooConfig } from "@upyo/maileroo";
 import type { MailgunConfig } from "@upyo/mailgun";
 import type { MailtrapConfig } from "@upyo/mailtrap";
 import type { PlunkConfig } from "@upyo/plunk";
+import type { ResendConfig } from "@upyo/resend";
 
 import type { Sourced } from "./configuration.ts";
 import type { RawMailOptions } from "./mail-parser.ts";
@@ -66,6 +67,11 @@ export type ApiMailSettings =
       readonly transport: "plunk";
       readonly connection: Omit<PlunkConfig, "apiKey" | "headers">;
       readonly credential: SecretSource;
+    }
+  | {
+      readonly transport: "resend";
+      readonly connection: Omit<ResendConfig, "apiKey" | "headers">;
+      readonly credential: SecretSource;
     };
 
 type Input = Sourced<string | undefined> | undefined;
@@ -85,31 +91,17 @@ function credential(
   cwd: string,
   provider: ApiMailSettings["transport"],
 ) {
-  const specific =
-    provider === "plunk"
-      ? ([
-          ["plunkApiKey", raw.plunkApiKey, false],
-          ["plunkApiKeyFile", raw.plunkApiKeyFile, true],
-        ] as const)
-      : provider === "mailgun"
-        ? ([
-            ["mailgunApiKey", raw.mailgunApiKey, false],
-            ["mailgunApiKeyFile", raw.mailgunApiKeyFile, true],
-          ] as const)
-        : provider === "mailtrap"
-          ? ([
-              ["mailtrapApiToken", raw.mailtrapApiToken, false],
-              ["mailtrapApiTokenFile", raw.mailtrapApiTokenFile, true],
-            ] as const)
-          : provider === "lettermint"
-            ? ([
-                ["lettermintApiToken", raw.lettermintApiToken, false],
-                ["lettermintApiTokenFile", raw.lettermintApiTokenFile, true],
-              ] as const)
-            : ([
-                ["mailerooApiKey", raw.mailerooApiKey, false],
-                ["mailerooApiKeyFile", raw.mailerooApiKeyFile, true],
-              ] as const);
+  const names = {
+    lettermint: ["lettermintApiToken", "lettermintApiTokenFile"],
+    maileroo: ["mailerooApiKey", "mailerooApiKeyFile"],
+    mailtrap: ["mailtrapApiToken", "mailtrapApiTokenFile"],
+    mailgun: ["mailgunApiKey", "mailgunApiKeyFile"],
+    plunk: ["plunkApiKey", "plunkApiKeyFile"],
+    resend: ["resendApiKey", "resendApiKeyFile"],
+  } as const;
+  const specific = names[provider].map(
+    (name, index) => [name, raw[name], index === 1] as const,
+  );
   const variants = [
     ["mailApiKey", raw.mailApiKey, false],
     ["mailApiKeyFile", raw.mailApiKeyFile, true],
@@ -372,6 +364,39 @@ function plunkSettings(
   };
 }
 
+function resendSettings(
+  raw: RawMailOptions,
+  auth: ReturnType<typeof credential>,
+) {
+  const connection = {
+    baseUrl: endpoint(raw.resendBaseUrl, "resend", "https://api.resend.com"),
+    timeout: number(
+      raw.resendTimeout,
+      30000,
+      1,
+      2147483647,
+      "delivery timeout",
+      "resend",
+    ),
+    retries: number(raw.resendRetries, 3, 0, 10, "retries", "resend"),
+    validateSsl: true,
+  };
+  const mail: ApiMailSettings = {
+    transport: "resend",
+    connection,
+    credential: auth.secret,
+  };
+  return {
+    mail,
+    sources: auth.sources,
+    values: {
+      resendBaseUrl: connection.baseUrl,
+      resendTimeout: connection.timeout,
+      resendRetries: connection.retries,
+    },
+  };
+}
+
 /** Resolve only the selected API service; credentials remain unopened.
  * @returns Prepared meaning, safe diagnostic values and effective source tags.
  */
@@ -382,6 +407,7 @@ export function resolveApiMailSettings(
 ) {
   const auth = credential(raw, cwd, provider);
   if (provider === "plunk") return plunkSettings(raw, auth);
+  if (provider === "resend") return resendSettings(raw, auth);
   if (provider === "mailgun") return mailgunSettings(raw, auth);
   if (provider === "mailtrap") return mailtrapSettings(raw, auth);
   if (provider === "maileroo") {

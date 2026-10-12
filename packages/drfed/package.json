@@ -260,6 +260,8 @@
     "@upyo/maileroo": "catalog:",
     "@upyo/mailtrap": "catalog:",
     "@upyo/mailgun": "catalog:",
-    "@upyo/plunk": "catalog:"
+    "@upyo/plunk": "catalog:",
+    "@upyo/resend": "catalog:",
+    "@upyo/retry": "catalog:"
   }
 }

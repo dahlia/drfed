@@ -33,6 +33,11 @@ export const apiMailValueOptionNames = {
   plunkApiKeyFile: ["--plunk-api-key-file"],
   plunkBaseUrl: ["--plunk-base-url"],
   plunkTimeout: ["--plunk-timeout"],
+  resendApiKey: ["--resend-api-key"],
+  resendApiKeyFile: ["--resend-api-key-file"],
+  resendBaseUrl: ["--resend-base-url"],
+  resendTimeout: ["--resend-timeout"],
+  resendRetries: ["--resend-retries"],
   mailgunApiKey: ["--mailgun-api-key"],
   mailgunApiKeyFile: ["--mailgun-api-key-file"],
   mailgunDomain: ["--mailgun-domain"],
@@ -132,6 +137,66 @@ export function createApiMailFields(
         String,
       ),
       settings.plunkTimeout,
+      string(),
+      String,
+    ),
+    resendApiKey: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.resendApiKey,
+        string({ metavar: "VALUE" }),
+        { description: message`Resend sending API key.` },
+      ),
+      settings.resendApiKey,
+      string(),
+      String,
+    ),
+    resendApiKeyFile: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.resendApiKeyFile,
+        string({ metavar: "VALUE" }),
+        { description: message`File containing the Resend API key.` },
+      ),
+      settings.resendApiKeyFile,
+      string(),
+      String,
+    ),
+    resendBaseUrl: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.resendBaseUrl,
+        string({ metavar: "VALUE" }),
+        { description: message`Resend API base URL including an API path.` },
+      ),
+      settings.resendBaseUrl,
+      string(),
+      String,
+    ),
+    resendTimeout: bindings.bind(
+      map(
+        option(
+          ...apiMailValueOptionNames.resendTimeout,
+          integer({ min: 1, max: 2147483647 }),
+          {
+            description: message`Whole Resend delivery timeout in milliseconds.`,
+          },
+        ),
+        String,
+      ),
+      settings.resendTimeout,
+      string(),
+      String,
+    ),
+    resendRetries: bindings.bind(
+      map(
+        option(
+          ...apiMailValueOptionNames.resendRetries,
+          integer({ min: 0, max: 10 }),
+          {
+            description: message`Resend retries using one idempotency key (0 through 10).`,
+          },
+        ),
+        String,
+      ),
+      settings.resendRetries,
       string(),
       String,
     ),
