@@ -10,6 +10,9 @@ mise.local.toml
 node_modules/
 packages/*/dist/
 packages/drfed/completions/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+docs/.vitepress/.temp/
 
 index.db
 

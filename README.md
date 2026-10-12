@@ -116,3 +116,14 @@ Install the latest successful development build with
 stable `latest` channel.  Tagged prereleases use `next`.  See
 [the contributor release guide](./CONTRIBUTING.md#automated-npm-and-github-releases)
 for verification, setup, and recovery procedures.
+
+
+Documentation
+-------------
+
+The documentation site lives in *docs/* and uses [VitePress]. After
+`mise install`, run `mise run dev:docs` to start it locally. Run
+`mise run build:docs` to build the static site and `mise run preview:docs` to
+preview the result.
+
+[VitePress]: https://vitepress.dev/
