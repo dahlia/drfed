@@ -52,7 +52,7 @@ it("shares TOML/env/CLI database precedence while ignoring server and mail domai
   try {
     await writeFile(
       join(directory, "drfed.toml"),
-      '[server]\nroot_origin="http://127.0.0.1"\n[database]\ndriver="pglite"\ndata_path="./data"\nlock_timeout_ms=123\nmigrate=false\n[mail.smtp]\nurl="not a URL"\n',
+      '[server]\nroot_origin="http://127.0.0.1"\n[database]\ndata_path="./data"\nlock_timeout_ms=123\nmigrate=false\n[mail.smtp]\nurl="not a URL"\n',
     );
     const env = {
       DRFED_ROOT_ORIGIN: "not an origin",
@@ -125,4 +125,34 @@ it("rejects invalid active settings and conflicting migration flags", async () =
     parse(["--migrate", "--no-migrate"], {}, process.cwd()),
     /CLI exit 1/u,
   );
+});
+
+it("uses mutually exclusive typed database selectors and rejects the removed driver flag", async () => {
+  const cwd = process.cwd();
+  await assert.rejects(
+    parse(["--database-driver=postgres"], {}, cwd),
+    /CLI exit 1/u,
+  );
+  await assert.rejects(
+    parse(
+      ["--pglite-data-path=data", "--postgres-url=postgres://db/drfed"],
+      {},
+      cwd,
+    ),
+    /mutually exclusive/u,
+  );
+  await assert.rejects(
+    parse(["--pglite-data-path=   "], {}, cwd),
+    /CLI exit 1/u,
+  );
+  await assert.rejects(
+    parse(["--postgres-url=https://user:PRIVATE_TOKEN@db/drfed"], {}, cwd),
+    /CLI exit 1/u,
+  );
+  const selected = await parse(
+    ["--postgres-url=POSTGRESQL://user@db/drfed"],
+    { DRFED_DATA_PATH: "lower-data" },
+    cwd,
+  );
+  assert.equal(selected.database.driver, "postgres");
 });

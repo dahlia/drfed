@@ -47,7 +47,7 @@ it("uses the shared web namespace and ignores backend database/mail domains", as
   try {
     await writeFile(
       join(directory, "drfed.toml"),
-      '[server]\nroot_origin="invalid"\nlisten="invalid"\n[web]\npublic_origin="https://APP.EXAMPLE:443/"\nbackend_url="https://backend.example:8888"\nlisten="localhost:3001"\n[database]\ndriver="invalid"\nurl="PRIVATE_TOKEN"\n[mail.smtp]\nurl="invalid"\n[telemetry]\nlog_output="web.log"\nlog_level="debug"\n',
+      '[server]\nroot_origin="invalid"\nlisten="invalid"\n[web]\npublic_origin="https://APP.EXAMPLE:443/"\nbackend_url="https://backend.example:8888"\nlisten="localhost:3001"\n[database]\nurl="PRIVATE_TOKEN"\n[mail.smtp]\nurl="invalid"\n[telemetry]\nlog_output="web.log"\nlog_level="debug"\n',
     );
     const configured = await parse(
       ["--config", "drfed.toml"],

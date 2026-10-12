@@ -69,59 +69,13 @@ describe("database source selection", () => {
           }),
         /same source/u,
       );
-      assert.throws(
-        () =>
-          resolveDatabaseSettings({
-            driver: input("postgres", source),
-            dataPath: input("data", source),
-          }),
-        /same source/u,
-      );
-      assert.throws(
-        () =>
-          resolveDatabaseSettings({
-            driver: input("pglite", source),
-            postgresUrl: input("postgres://user@db/drfed", source),
-          }),
-        /same source/u,
-      );
     }
   });
-  it("requires the new kind's field rather than restoring a foreign branch", () => {
-    assert.throws(
-      () =>
-        resolveDatabaseSettings({
-          driver: input("postgres", "cli"),
-          dataPath: input("data", "config"),
-        }),
-      /PostgreSQL requires/u,
-    );
-    assert.deepEqual(
-      resolveDatabaseSettings({
-        driver: input("pglite", "cli"),
-        postgresUrl: input("postgres://user@db/drfed", "config"),
-      }).database,
-      { driver: "pglite", dataPath: defaultPgliteDataPath() },
-    );
-  });
-  it("inherits same-kind values and lets the highest selector choose", () => {
-    const result = resolveDatabaseSettings({
-      driver: input("postgres", "cli"),
-      postgresUrl: input("postgres://user@db/drfed", "env"),
-      dataPath: input("data", "config"),
+  it("defaults to PGlite only when neither selector is supplied", () => {
+    assert.deepEqual(resolveDatabaseSettings({}).database, {
+      driver: "pglite",
+      dataPath: defaultPgliteDataPath(),
     });
-    assert.equal(result.database.driver, "postgres");
-    if (result.database.driver === "postgres") {
-      assert.equal(
-        result.database.databaseUrl.href,
-        "postgres://user@db/drfed",
-      );
-    }
-    const other = resolveDatabaseSettings({
-      driver: input("not a driver", "config"),
-      postgresUrl: input("postgres://user@db/drfed", "env"),
-    });
-    assert.equal(other.database.driver, "postgres");
   });
   it("fails invalid winning fields without exposing credentials", () => {
     assert.throws(
@@ -131,14 +85,6 @@ describe("database source selection", () => {
           dataPath: input("data", "config"),
         }),
       /Invalid PostgreSQL connection URL/u,
-    );
-    assert.throws(
-      () =>
-        resolveDatabaseSettings({
-          driver: input("bogus", "cli"),
-          postgresUrl: input("postgres://user@db/drfed", "config"),
-        }),
-      /Invalid database\.driver/u,
     );
   });
   it("rejects empty selected paths before resolving against cwd or config", () => {

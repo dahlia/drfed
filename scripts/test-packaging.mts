@@ -411,7 +411,7 @@ async function smoke(
   const configFile = join(configDirectory, "drfed.toml");
   const configuredDatabase = migrate
     ? `data_path = ${JSON.stringify(relative(configDirectory, dataPath).replaceAll("\\", "/"))}`
-    : 'driver = "postgres"\nurl = "not a URL PRIVATE_TOKEN"';
+    : 'url = "not a URL PRIVATE_TOKEN"';
   await writeFile(
     configFile,
     `[server]

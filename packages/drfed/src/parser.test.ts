@@ -660,3 +660,41 @@ it("keeps mail diagnostics pure and rejects missing credentials before database 
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+it("enforces typed database selectors before opening server resources", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "drfed-db-cli-"));
+  try {
+    const dataPath = join(directory, "new-data");
+    const base = [
+      "--root-origin=http://drfed.localhost",
+      "--no-web",
+      "--login-origin=http://drfed.localhost",
+      "--print-config",
+    ];
+    const rejected = [
+      ["--database-driver=postgres"],
+      [`--pglite-data-path=${dataPath}`, "--postgres-url=postgres://db/drfed"],
+      ["--pglite-data-path=   "],
+      ["--postgres-url=https://user:PRIVATE_TOKEN@db/drfed"],
+      ["--postgres-url=postgres://user:PRIVATE_TOKEN@"],
+    ];
+    await Promise.all(
+      rejected.map(async (args) => {
+        const result = await run([...base, ...args]);
+        assert.equal(result.code, 1, result.stderr);
+        assert.doesNotMatch(result.stdout + result.stderr, /PRIVATE_TOKEN/u);
+      }),
+    );
+    const result = await run([...base, `--pglite-data-path=${dataPath}`]);
+    assert.equal(result.code, 0, result.stderr);
+    const diagnostic = JSON.parse(result.stdout);
+    assert.deepEqual(diagnostic.settings["database.driver"], {
+      value: "pglite",
+      source: "cli",
+    });
+    assert.equal(diagnostic.settings["database.data_path"].value, dataPath);
+    await assert.rejects(access(dataPath));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

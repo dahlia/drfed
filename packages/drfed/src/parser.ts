@@ -26,6 +26,7 @@ import {
   origin,
   socketAddress,
   string,
+  url,
 } from "@optique/core/valueparser";
 import { path } from "@optique/run/valueparser";
 
@@ -55,7 +56,6 @@ export const valueOptionNames = {
   loginOrigins: ["--login-origin"],
   publicOrigin: ["--public-origin"],
   emailFrom: ["--email-from", "-f"],
-  databaseDriver: ["--database-driver"],
   dataPath: ["--pglite-data-path", "--data-path", "-d"],
   postgresUrl: ["--postgres-url", "--database-url", "-D"],
   migrationLockTimeout: ["--migration-lock-timeout"],
@@ -163,30 +163,29 @@ export function createParser(
       sender,
       identity,
     ),
-    databaseDriver: bind(
+    dataPath: bind(
       option(
-        ...valueOptionNames.databaseDriver,
-        string({ metavar: "DRIVER" }),
+        ...valueOptionNames.dataPath,
+        path({ metavar: "DIRECTORY", type: "directory" }),
         {
-          description: message`Select pglite or postgres. Higher-priority selectors replace the other database kind.`,
+          description: message`PGlite data directory. Cannot accompany a PostgreSQL selector at the same source.`,
         },
       ),
-      settings.databaseDriver,
-      string(),
-      identity,
-    ),
-    dataPath: bind(
-      option(...valueOptionNames.dataPath, string({ metavar: "DIRECTORY" }), {
-        description: message`PGlite data directory. Cannot accompany a PostgreSQL selector at the same source.`,
-      }),
       settings.dataPath,
       string(),
       identity,
     ),
     postgresUrl: bind(
-      option(...valueOptionNames.postgresUrl, string({ metavar: "URL" }), {
-        description: message`PostgreSQL connection URL. Cannot accompany a PGlite selector at the same source.`,
-      }),
+      map(
+        option(
+          ...valueOptionNames.postgresUrl,
+          url({ allowedProtocols: ["postgres:", "postgresql:"] }),
+          {
+            description: message`PostgreSQL connection URL. Cannot accompany a PGlite selector at the same source.`,
+          },
+        ),
+        (value) => value.href,
+      ),
       settings.postgresUrl,
       string(),
       identity,
@@ -370,7 +369,6 @@ export function resolveOptions(options: RawOptions, cwd = process.cwd()) {
   }
   const database = resolveDatabaseSettings(
     {
-      driver: server.databaseDriver,
       dataPath: server.dataPath,
       postgresUrl: server.postgresUrl,
     },
@@ -404,7 +402,6 @@ export function resolveOptions(options: RawOptions, cwd = process.cwd()) {
       address: server.address,
       loginOrigins: server.loginOrigins,
       emailFrom: server.emailFrom,
-      databaseDriver: server.databaseDriver,
       dataPath: server.dataPath,
       postgresUrl: server.postgresUrl,
       migrate: server.migrate,

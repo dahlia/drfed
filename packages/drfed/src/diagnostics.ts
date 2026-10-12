@@ -81,7 +81,7 @@ export function describeServerConfiguration(
       .filter((value) => value !== undefined)
       .sort((left, right) => rank[right.source] - rank[left.source])[0];
   const selected = {
-    databaseDriver: highest("databaseDriver", "dataPath", "postgresUrl"),
+    databaseDriver: highest("dataPath", "postgresUrl"),
   };
   const provenanceKeys: Record<string, string> = { listen: "address" };
   const settings = Object.fromEntries(
@@ -89,7 +89,9 @@ export function describeServerConfiguration(
       .filter(([, value]) => value !== undefined)
       .map(([key, value]) => {
         const definition =
-          configurationSettings[key as keyof typeof configurationSettings];
+          key === "databaseDriver"
+            ? { toml: "database.driver", secret: false }
+            : configurationSettings[key as keyof typeof configurationSettings];
         const provenanceKey = provenanceKeys[key] ?? key;
         const provenance = (key === "databaseDriver"
           ? selected[key]

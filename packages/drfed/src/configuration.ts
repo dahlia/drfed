@@ -66,7 +66,6 @@ export const configurationSchema = table({
   ),
   database: v.optional(
     table({
-      driver: v.optional(text),
       data_path: v.optional(text),
       url: v.optional(text),
       migrate: v.optional(boolean),
@@ -307,13 +306,6 @@ export const configurationSettings = {
     ["web"],
     "Allow an insecure HTTP backend",
     (config) => config.web?.allow_insecure_backend,
-  ),
-  databaseDriver: setting(
-    "database.driver",
-    "DATABASE_DRIVER",
-    ["server", "migrate", "account"],
-    "Database driver",
-    (config) => config.database?.driver,
   ),
   dataPath: setting(
     "database.data_path",

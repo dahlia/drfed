@@ -19,7 +19,8 @@ import { message } from "@optique/core/message";
 import { map, optional, withDefault } from "@optique/core/modifiers";
 import type { InferValue } from "@optique/core/parser";
 import { command, flag, option } from "@optique/core/primitives";
-import { integer, string } from "@optique/core/valueparser";
+import { integer, string, url } from "@optique/core/valueparser";
+import { path } from "@optique/run/valueparser";
 
 import {
   configurationBoolean,
@@ -56,28 +57,29 @@ export function createAccountProgram(
           }),
         ),
       ),
-      databaseDriver: bind(
-        option(
-          ...valueOptionNames.databaseDriver,
-          string({ metavar: "DRIVER" }),
-          { description: message`Choose pglite or postgres.` },
-        ),
-        settings.databaseDriver,
-        string(),
-        String,
-      ),
       dataPath: bind(
-        option(...valueOptionNames.dataPath, string({ metavar: "DIRECTORY" }), {
-          description: message`Persistent PGlite directory; defaults to the OS data location.`,
-        }),
+        option(
+          ...valueOptionNames.dataPath,
+          path({ metavar: "DIRECTORY", type: "directory" }),
+          {
+            description: message`Persistent PGlite directory; defaults to the OS data location.`,
+          },
+        ),
         settings.dataPath,
         string(),
         String,
       ),
       postgresUrl: bind(
-        option(...valueOptionNames.postgresUrl, string({ metavar: "URL" }), {
-          description: message`PostgreSQL connection URL.`,
-        }),
+        map(
+          option(
+            ...valueOptionNames.postgresUrl,
+            url({ allowedProtocols: ["postgres:", "postgresql:"] }),
+            {
+              description: message`PostgreSQL connection URL.`,
+            },
+          ),
+          (value) => value.href,
+        ),
         settings.postgresUrl,
         string(),
         String,
@@ -149,7 +151,6 @@ export function resolveAccountOptions(
 ) {
   const selected = resolveDatabaseSettings(
     {
-      driver: raw.databaseDriver,
       dataPath: raw.dataPath,
       postgresUrl: raw.postgresUrl,
     },
@@ -170,7 +171,6 @@ export function resolveAccountOptions(
     printConfig: raw.printConfig,
     ignored: selected.ignored,
     provenance: configurationProvenance({
-      databaseDriver: raw.databaseDriver,
       dataPath: raw.dataPath,
       postgresUrl: raw.postgresUrl,
       migrate: raw.migrate,
@@ -198,7 +198,7 @@ export function describeAccountConfiguration(
     migrate: options.database.migrate,
   };
   const rank = { default: 0, config: 1, env: 2, cli: 3 };
-  const selected = ["databaseDriver", "dataPath", "postgresUrl"]
+  const selected = ["dataPath", "postgresUrl"]
     .map((key) => options.provenance[key])
     .filter((value) => value !== undefined)
     .sort((left, right) => rank[right.source] - rank[left.source])[0];
@@ -209,7 +209,9 @@ export function describeAccountConfiguration(
       Object.entries(values)
         .filter(([, value]) => value !== undefined)
         .map(([key, value]) => [
-          settings[key as keyof typeof values].toml,
+          key === "databaseDriver"
+            ? "database.driver"
+            : settings[key as keyof typeof settings].toml,
           {
             value,
             ...((key === "databaseDriver"

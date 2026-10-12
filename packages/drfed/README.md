@@ -144,7 +144,6 @@ Options
 | `--public-origin ORIGIN`          |       | Frontend origin (default: root origin; unused with `--no-web`)                                                            |
 | `--print-config`                  |       | Print effective settings and sources with secrets redacted; exit                                                          |
 | `--config FILE`                   |       | Explicit TOML configuration file                                                                                          |
-| `--database-driver KIND`          |       | Select `pglite` or `postgres`                                                                                             |
 | `--migrate`                       |       | Enable automatic migrations                                                                                               |
 | `--mail-transport KIND`           |       | Select `logtape`, `smtp`, `jmap`, `lettermint`, `maileroo`, `mailtrap`, `mailgun`, `plunk`, `resend`, `sendgrid` or `ses` |
 | `--root-origin ORIGIN`            | `-r`  | Origin instances are subdomains of (required)                                                                             |
@@ -270,7 +269,6 @@ listen = "localhost:8888"
 login_origins = ["https://drfed.example.com"]
 
 [database]
-driver = "pglite"
 data_path = "data"
 migrate = true
 
@@ -302,7 +300,6 @@ with `--data-path`; selecting PostgreSQL still requires its URL.
 | Root origin                                               | `DRFED_ROOT_ORIGIN`             | `server.root_origin`              |
 | Listen address                                            | `DRFED_LISTEN`                  | `server.listen`                   |
 | Login origin array                                        | `DRFED_LOGIN_ORIGINS`           | `server.login_origins`            |
-| Database driver                                           | `DRFED_DATABASE_DRIVER`         | `database.driver`                 |
 | PGlite path                                               | `DRFED_DATA_PATH`               | `database.data_path`              |
 | PostgreSQL URL                                            | `DRFED_POSTGRES_URL`            | `database.url`                    |
 | Migration lock wait                                       | `DRFED_MIGRATION_LOCK_TIMEOUT`  | `database.lock_timeout_ms`        |
@@ -331,12 +328,12 @@ with `--data-path`; selecting PostgreSQL still requires its URL.
 | Log formatter                                             | `DRFED_LOG_FORMAT`              | `telemetry.log_format`            |
 | Log output                                                | `DRFED_LOG_OUTPUT`              | `telemetry.log_output`            |
 
-Database selectors at the highest source choose `pglite` or `postgres`;
-selectors at that source must agree. A CLI PostgreSQL URL replaces a TOML
-PGlite path, and a CLI PGlite path replaces a TOML PostgreSQL URL. An explicit
-`--database-driver postgres` requires a PostgreSQL URL; it does not restore
-a PGlite fallback. Same-kind values can be inherited from lower sources.
-Foreign lower-source fields are removed before domain validation.
+A PGlite path and PostgreSQL URL are mutually exclusive at the highest
+configuration source. A CLI PostgreSQL URL replaces a TOML PGlite path, and a
+CLI PGlite path replaces a TOML PostgreSQL URL. With neither selector, DrFed
+uses PGlite in the OS data location. Foreign lower-source fields are removed
+before domain validation. The inferred kind and source appear as
+`database.driver` in `--print-config`; it is not a configuration input.
 
 The mail transport follows the same precedence: an SMTP URL or `--smtp-host`
 selects `smtp`, and a higher-source `--mail-transport logtape` disables

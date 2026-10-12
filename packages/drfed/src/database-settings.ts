@@ -36,39 +36,26 @@ type Input = Sourced<string | undefined> | undefined;
 
 /** Explicit selectors for the database variant, retaining their sources. */
 export interface DatabaseSettings {
-  readonly driver?: Input;
   readonly dataPath?: Input;
   readonly postgresUrl?: Input;
 }
 
 function selectDatabaseKind(settings: DatabaseSettings) {
-  const selectors = [
-    settings.driver,
-    settings.dataPath,
-    settings.postgresUrl,
-  ].filter((value): value is Sourced<string> => value?.value !== undefined);
+  const selectors = [settings.dataPath, settings.postgresUrl].filter(
+    (value): value is Sourced<string> => value?.value !== undefined,
+  );
   const highest = Math.max(
     0,
     ...selectors.map((value) => priority[value.source]),
   );
   const atHighest = (value: Input) =>
     value?.value !== undefined && priority[value.source] === highest;
-  let driver: "pglite" | "postgres" = "pglite";
-  if (atHighest(settings.driver)) {
-    const value = settings.driver?.value;
-    if (value !== "pglite" && value !== "postgres") {
-      throw new Error("Invalid database.driver; expected pglite or postgres.");
-    }
-    driver = value;
-  } else if (atHighest(settings.postgresUrl)) driver = "postgres";
-  if (
-    (driver === "postgres" && atHighest(settings.dataPath)) ||
-    (driver === "pglite" && atHighest(settings.postgresUrl))
-  ) {
+  if (atHighest(settings.dataPath) && atHighest(settings.postgresUrl)) {
     throw new Error(
-      "Database selectors at the same source must name one database kind.",
+      "PGlite data path and PostgreSQL URL are mutually exclusive at the same source.",
     );
   }
+  const driver = atHighest(settings.postgresUrl) ? "postgres" : "pglite";
 
   return driver;
 }
