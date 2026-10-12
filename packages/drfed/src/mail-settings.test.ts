@@ -368,3 +368,23 @@ it("reports a discarded lower authentication method in diagnostics", async () =>
     ),
   );
 });
+
+it("rejects long malformed SMTP URLs without ambiguous authority splitting", async () => {
+  const malformed = await Promise.all(
+    ["/\nx", "?query", "#fragment", "/path"].map((suffix) =>
+      parsed(["--smtp-url", `smtp://${"a".repeat(32_768)}${suffix}`]),
+    ),
+  );
+  for (const raw of malformed) {
+    assert.throws(
+      () => resolveMailSettings(raw),
+      /Invalid SMTP connection URL/u,
+    );
+  }
+  const raw = await parsed(["--smtp-url", "SMTPS://[::1]:465/"]);
+  const resolved = resolveMailSettings(raw);
+  assert.equal(resolved.mail.transport, "smtp");
+  if (resolved.mail.transport !== "smtp") throw new Error();
+  assert.equal(resolved.mail.connection.host, "::1");
+  assert.equal(resolved.mail.connection.port, 465);
+});

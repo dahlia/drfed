@@ -151,12 +151,14 @@ function boundedNumber(
 function extractUriPort(value: string) {
   // WHATWG URL parsing enforces the TCP port range too early for overrides.
   // Preserve an RFC URI decimal port and parse the remaining URL normally.
-  const envelope =
-    /^(?<scheme>smtps?:\/\/)(?<authority>[^/?#]*)(?<tail>.*)$/iu.exec(
-      value,
-    )?.groups;
-  if (envelope === undefined) throw new Error("Invalid SMTP connection URL.");
-  const { scheme = "", authority = "", tail = "" } = envelope;
+  const scheme = /^smtps?:\/\//iu.exec(value)?.[0];
+  if (scheme === undefined || /[\r\n\u2028\u2029]/u.test(value)) {
+    throw new Error("Invalid SMTP connection URL.");
+  }
+  const remainder = value.slice(scheme.length);
+  const delimiter = remainder.search(/[/?#]/u);
+  const authority = delimiter < 0 ? remainder : remainder.slice(0, delimiter);
+  const tail = delimiter < 0 ? "" : remainder.slice(delimiter);
   const portComponent = /:(?<port>\d*)$/u.exec(authority);
   const port = portComponent?.groups?.port;
   const withoutPort =
