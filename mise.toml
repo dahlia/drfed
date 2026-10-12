@@ -6,6 +6,7 @@ experimental = true
 [tools]
 "aqua:dahlia/hongdown" = "0.4.3"
 "github:jdx/jactionlint" = "2.1.0"
+"github:dahlia/sacho" = "0.3.2"
 "aqua:koalaman/shellcheck" = "0.11.0"
 "github:nushell/nushell" = "0.114.1"
 node = "26"
@@ -79,6 +80,10 @@ depends = ["check:*"]
 description = "Check GitHub workflows and local composite actions"
 run = "jactionlint"
 
+[tasks."check:changelog"]
+description = "Check changelog fragments and frozen release history"
+run = "sacho check"
+
 [tasks."check:types"]
 description = "Check TypeScript types"
 run = "pnpm --recursive exec tsc --noEmit"
@@ -126,6 +131,42 @@ run = "node scripts/check-versions.mts"
 description = "Format files"
 depends = ["fmt:*"]
 run = "oxfmt --write"
+
+[tasks."fmt:changelog"]
+description = "Format changelog fragments with Sacho"
+run = "sacho fmt"
+
+[tasks."changelog:setup"]
+description = "Register Sacho Git merge drivers after cloning"
+run = "sacho init --no-interactive"
+
+[tasks."changelog:add"]
+description = "Create a user-facing changelog fragment"
+usage = 'arg "<name>" help="Fragment topic name"'
+run = """
+#!/usr/bin/env nu
+sacho add $env.usage_name
+"""
+
+[tasks."changelog:preview"]
+description = "Preview the next shared release"
+run = "sacho preview"
+
+[tasks."changelog:next"]
+description = "Set the next shared changelog version"
+usage = 'arg "<version>" help="Next shared package version"'
+run = """
+#!/usr/bin/env nu
+sacho next $env.usage_version
+"""
+
+[tasks."changelog:release"]
+description = "Freeze reviewed changelog notes before committing a release"
+usage = 'arg "<version>" help="Verified shared release version"'
+run = """
+#!/usr/bin/env nu
+sacho release $env.usage_version
+"""
 
 [tasks."fmt:docs"]
 description = "Format Markdown documents"

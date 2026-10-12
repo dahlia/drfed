@@ -119,6 +119,7 @@ mise run dev
     `node scripts/add-license/main.mts --check`.
  -  Package version sync with `node scripts/check-versions.mts`.
  -  GitHub workflow and local composite action validation with jactionlint.
+ -  Changelog fragment validation and formatting with Sacho.
 
 Run `mise run check:workflows` from the repository root whenever you change a
 workflow file. The repository uses jactionlint's `default` profile and
@@ -194,6 +195,46 @@ _packages/\*/package.json_ and prints a summary of the old and new versions.
 
 Commit a version bump together with any other changes that accompany the
 release, such as lockfile updates or changelog edits.
+
+
+Changelog and release notes
+---------------------------
+
+All five packages share one changelog.  Run `mise run changelog:setup` once
+after cloning to register the Git merge drivers declared in *.gitattributes*.
+Add a short user-facing entry with
+`mise run changelog:add <topic>` and edit the resulting fragment in
+*changes.d/*.  Describe the behavior users receive, not the commit history.
+Changes with no user-visible effect, including internal refactors, CI, and
+contributor instructions, do not need an entry.  Historical commits are not
+checked for fragment coverage.
+
+Run `mise run fmt:changelog`, `mise run changelog:preview`, and
+`mise run check:changelog` before committing.  Sacho owns formatting of
+*CHANGES.md* and *changes.d/*; Hongdown excludes them.  With
+`materialize = false` in *sacho.toml*, unreleased entries remain in fragments
+and previews, so do not copy them into *CHANGES.md*.
+
+Before a release, verify all package versions with `mise run check:versions`,
+run `mise run changelog:next <version>`, and review the preview.  Run
+`mise run changelog:release <version>` locally to freeze the notes and consume
+the fragments.  Run the build/check/test gates, commit *CHANGES.md* and the
+consumed fragments with the release changes, then tag that commit with the bare
+version, such as `0.1.0`.  Tag CI reads the frozen notes; it must not
+regenerate them or choose a release date.  After tagging, use
+`mise run bump <next-version>` and `mise run changelog:next <next-version>` in
+a new commit to start the next cycle.  Never bump only one package.
+
+For changelog work, agents must read the official Sacho skill linked at
+*.agents/skills/npm-sacho-sacho-sacho/SKILL.md*.  Contributors do not need a
+global agent plugin.  `mise install` installs the
+pinned binary and runs dependency preparation, which links npm-bundled skills
+from both the workspace packages and the root development dependencies.  To
+update Sacho, change the *mise.toml* pin and run
+`mise exec -- pnpm add -Dw --save-exact @sacho/sacho@<version>` with the same
+version.  Run `mise run changelog:setup` again after installing the new binary
+to update the version-specific Git merge-driver path.  Commit the tool pin,
+root manifest, and lockfile together.
 
 
 Source license headers
