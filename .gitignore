@@ -14,7 +14,11 @@ packages/drfed/completions/
 =======
 docs/.vitepress/cache/
 docs/.vitepress/dist/
+<<<<<<< HEAD
 >>>>>>> ef78c39 (Add VitePress documentation site)
+=======
+docs/.vitepress/.temp/
+>>>>>>> 0356a2e (Link documentation introduction and ignore temporary builds)
 
 index.db
 

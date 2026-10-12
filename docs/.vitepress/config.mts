@@ -25,11 +25,16 @@ export default defineConfig({
   themeConfig: {
     logo: { src: "/icon.svg", alt: "" },
     nav: [
+      { text: "What is DrFed?", link: "/what-is-drfed" },
       { text: "Installation", link: "/installation/manual-installation" },
       { text: "Manual", link: "/manual/self-hosting" },
       { text: "CLI reference", link: "/reference/cli" },
     ],
     sidebar: [
+      {
+        text: "Introduction",
+        items: [{ text: "What is DrFed?", link: "/what-is-drfed" }],
+      },
       {
         text: "Installation",
         items: [
