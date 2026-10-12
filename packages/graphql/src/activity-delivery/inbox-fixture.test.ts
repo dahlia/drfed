@@ -17,6 +17,7 @@
 // Fixtures for inbox requests from actors whose documents are served offline.
 // oxlint-disable no-await-in-loop
 
+import assert from "node:assert/strict";
 import { setTimeout as sleep } from "node:timers/promises";
 
 import createFederation, {
@@ -34,7 +35,15 @@ import {
 import { CryptographicKey, type DocumentLoader, Person } from "@fedify/vocab";
 
 import { hashSecret } from "../auth/hash.ts";
-import { created, expires } from "../seed.test.ts";
+import type { TestHarness } from "../harness.test.ts";
+import {
+  accepted,
+  created,
+  expires,
+  localInstanceId,
+  seedAuthenticatedLocalInstance,
+  seedLocalActor,
+} from "../seed.test.ts";
 
 export const PUBLIC = "https://www.w3.org/ns/activitystreams#Public";
 export const rootOrigin = new URL("https://drfed.org");
@@ -207,11 +216,11 @@ export const createOf = (
  * @returns The last value read.
  */
 export async function eventually<T>(
-  read: () => Promise<T>,
+  load: () => Promise<T>,
   done: (value: T) => boolean,
 ): Promise<T> {
   for (let tries = 0; ; tries += 1) {
-    const value = await read();
+    const value = await load();
     if (done(value) || tries >= 300) return value;
     await sleep(10);
   }
@@ -287,3 +296,53 @@ export async function seedAccount(
 /** @returns The Relay global ID of an activity delivery. */
 export const deliveryGlobalId = (id: string): string =>
   Buffer.from(`ActivityDelivery:${id}`).toString("base64");
+
+/** @returns The Relay global ID of a resource. */
+export const resourceGlobalId = (id: string): string =>
+  Buffer.from(`Resource:${id}`).toString("base64");
+
+/** @returns The ID of the resource stored under the IRI. */
+export const idOf = async (db: Database, iri: string): Promise<Uuid> => {
+  const resource = await db.query.resources.findFirst({ where: { iri } });
+  assert.ok(resource != null, iri);
+  return resource.id;
+};
+
+/**
+ * Run a query and assert it raised no errors.
+ * @returns The data.
+ */
+export async function read(
+  graphql: TestHarness["post"],
+  query: string,
+  variables: Record<string, unknown>,
+  init?: RequestInit,
+): Promise<Record<string, unknown>> {
+  const { data, errors } = (await (
+    await graphql({ query, variables }, init)
+  ).json()) as { data?: Record<string, unknown>; errors?: unknown };
+  assert.equal(errors, undefined);
+  assert.ok(data != null);
+  return data;
+}
+
+/**
+ * Seed the viewers that may and may not read what instance A received.
+ * @returns The request options that authenticate as each.
+ */
+export async function seedViewers(db: Database) {
+  const member = await seedAuthenticatedLocalInstance(db);
+  await seedLocalActor(db);
+  await seedOtherInstance(db);
+  return {
+    member,
+    admin: await seedAccount(db, "admin", { admin: true }),
+    pending: await seedAccount(db, "pending", {
+      member: { instanceId: localInstanceId, accepted: null },
+    }),
+    stranger: await seedAccount(db, "stranger"),
+    other: await seedAccount(db, "other", {
+      member: { instanceId: otherInstanceId, accepted },
+    }),
+  };
+}

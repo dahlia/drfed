@@ -112,6 +112,7 @@ export function viewableInstance(viewer: Viewer, instanceId: PgColumn): SQL {
 const authors = alias(actors, "readable_authors");
 const remoteActivities = alias(activities, "readable_remote_activities");
 const remoteObjects = alias(objects, "readable_remote_objects");
+const carriers = alias(activities, "readable_carriers");
 const entries = alias(addressing, "readable_addressing");
 const targets = alias(resources, "readable_targets");
 const deliveries = alias(activityDeliveries, "readable_deliveries");
@@ -151,18 +152,20 @@ const readableActivity = (viewer: Viewer, id: SQLWrapper): SQL =>
 
 // True for anything but an object of a remote actor.  Only the activity that
 // carried the stored version opens it, since a later one may carry another;
-// one whose activity is gone stays closed.  Receiving that activity opens it
-// only by a delivery that carried the object as stored too, since one fetched
-// apart from the activity may differ from fetch to fetch.
+// one whose activity row is gone stays closed, since a missing row proves
+// nothing of who may read it.  That activity being public opens only an
+// object embedded in it, since of one fetched apart it made public no more
+// than the IRI.  Receiving that activity opens it only by a delivery that
+// carried the object as stored too, since one fetched apart from the activity
+// may differ from fetch to fetch.
 const readableObject = (viewer: Viewer, id: SQLWrapper): SQL =>
   sql`(not ${remoteObject(id)} or ${addressedPublicly(id)} or exists (
     select 1 from ${objects} ${remoteObjects}
+    join ${activities} ${carriers} on ${carriers.id} = ${remoteObjects.activityId}
     where ${remoteObjects.id} = ${id}
-      and ${remoteObjects.activityId} is not null
       and (
-        not ${remoteActivity(remoteObjects.activityId)}
-        or ${addressedPublicly(remoteObjects.activityId)}
-        or ${received(viewer, remoteObjects.activityId, deliveries.carriedObjectSnapshot)}
+        (not ${remoteObjects.fetched} and ${addressedPublicly(carriers.id)})
+        or ${received(viewer, carriers.id, deliveries.carriedObjectSnapshot)}
       )
   ))`;
 
@@ -178,10 +181,11 @@ const readableObject = (viewer: Viewer, id: SQLWrapper): SQL =>
  *     and carried it as stored.  A delivery of the same IRI with other
  *     contents stays linked but opens nothing.
  *  -  An object of a remote actor is readable when it is addressed to the
- *     public, when the activity it was received in is, or when one of the
- *     local instances the viewer is a member of received that activity and
- *     the object as stored with it.  An object fetched apart from the
- *     activity is received as stored only by a delivery that fetched it so.
+ *     public, when the activity that carried it embedded in it is, or when
+ *     one of the local instances the viewer is a member of received that
+ *     activity and the object as stored with it.  An object fetched apart
+ *     from the activity is opened neither by the activity being public nor
+ *     by a delivery but one that fetched it as stored.
  *  -  Everything else, including the activities and objects of local actors
  *     whatever their addressing, is readable.
  *

@@ -20,7 +20,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { Database } from "@drfed/models";
 import { PUBLIC_IRI } from "@drfed/models/resource";
 import type { Uuid } from "@drfed/models/uuid";
 import { InProcessMessageQueue } from "@fedify/fedify";
@@ -34,22 +33,24 @@ import {
   findDeliveries,
   hostB,
   hostC,
+  idOf,
   otherInstanceId,
+  read,
+  resourceGlobalId,
   seedAccount,
   seedOtherInstance,
+  seedViewers,
   signed,
   thirdInstanceId,
   withWorkers,
 } from "./activity-delivery/inbox-fixture.test.ts";
-import { type TestHarness, withTestHarness } from "./harness.test.ts";
+import { withTestHarness } from "./harness.test.ts";
 import {
   accepted,
   globalId,
   localActorId,
   localInstanceId,
   remoteActorId,
-  seedAuthenticatedLocalInstance,
-  seedLocalActor,
   seedObjects,
   seedRemoteActor,
 } from "./seed.test.ts";
@@ -57,54 +58,6 @@ import {
 const aliceIri = "https://remote.example/users/alice";
 const localActorIri = `https://test-instance.drfed.org/users/${localActorId}`;
 const direct = { to: [localActorIri], cc: [] };
-
-const resourceGlobalId = (id: string): string =>
-  Buffer.from(`Resource:${id}`).toString("base64");
-
-const idOf = async (db: Database, iri: string): Promise<Uuid> => {
-  const resource = await db.query.resources.findFirst({ where: { iri } });
-  assert.ok(resource != null, iri);
-  return resource.id;
-};
-
-/**
- * Run a query and assert it raised no errors.
- * @returns The data.
- */
-async function read(
-  graphql: TestHarness["post"],
-  query: string,
-  variables: Record<string, unknown>,
-  init?: RequestInit,
-): Promise<Record<string, unknown>> {
-  const { data, errors } = (await (
-    await graphql({ query, variables }, init)
-  ).json()) as { data?: Record<string, unknown>; errors?: unknown };
-  assert.equal(errors, undefined);
-  assert.ok(data != null);
-  return data;
-}
-
-/**
- * Seed the viewers that may and may not read what instance A received.
- * @returns The request options that authenticate as each.
- */
-async function seedViewers(db: Database) {
-  const member = await seedAuthenticatedLocalInstance(db);
-  await seedLocalActor(db);
-  await seedOtherInstance(db);
-  return {
-    member,
-    admin: await seedAccount(db, "admin", { admin: true }),
-    pending: await seedAccount(db, "pending", {
-      member: { instanceId: localInstanceId, accepted: null },
-    }),
-    stranger: await seedAccount(db, "stranger"),
-    other: await seedAccount(db, "other", {
-      member: { instanceId: otherInstanceId, accepted },
-    }),
-  };
-}
 
 const contentQuery = `
   query ($activity: ID!, $object: ID!, $resource: ID!, $actor: ID!) {
