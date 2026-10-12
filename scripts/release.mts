@@ -822,7 +822,7 @@ async function release(): Promise<void> {
         "--target",
         build.sha,
         "--title",
-        build.version,
+        `DrFed ${build.version}`,
         "--notes-file",
         join(artifacts, "release-notes.md"),
         ...(build.channel === "next" ? ["--prerelease"] : []),

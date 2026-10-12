@@ -704,6 +704,11 @@ try {
   await writeFile(join(bin, "gh"), ghStub, { mode: 0o755 });
   await run(["github-release", "--github-api", registry]);
   assert.equal(githubRelease?.assets.length, 25);
+  const createRelease = githubOperations.find((args) => args[1] === "create")!;
+  assert.equal(
+    createRelease[createRelease.indexOf("--title") + 1],
+    `DrFed ${tagBuild.version}`,
+  );
   assert.equal(githubOperations.length, 26);
   await run(["github-release", "--github-api", registry]);
   assert.equal(githubOperations.length, 26);
@@ -803,6 +808,10 @@ try {
   githubOperations.length = 0;
   await run(["github-release", "--github-api", registry]);
   assert.ok(githubRelease!.prerelease);
+  assert.equal(
+    githubOperations[0]![githubOperations[0]!.indexOf("--title") + 1],
+    "DrFed 0.1.0-rc.1",
+  );
   assert.ok(githubOperations[0]!.includes("--latest=false"));
   // Real pinned npm PUT: semver.clean drops build metadata, integrity covers
   // the exact packed bytes rather than a freshly rewritten tarball.
