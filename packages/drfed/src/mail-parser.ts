@@ -30,6 +30,7 @@ import {
   configurationSettings as settings,
 } from "./configuration.ts";
 import { createJmapFields, jmapValueOptionNames } from "./jmap-parser.ts";
+import { suggestedString } from "./valueparser.ts";
 
 /** Mail value-option spellings shared by parsing and metadata arity. */
 export const mailValueOptionNames = {
@@ -69,7 +70,22 @@ export function createMailParser(
     mailTransport: bind(
       option(
         ...mailValueOptionNames.mailTransport,
-        string({ metavar: "TRANSPORT" }),
+        suggestedString(
+          [
+            "logtape",
+            "smtp",
+            "jmap",
+            "lettermint",
+            "maileroo",
+            "mailtrap",
+            "mailgun",
+            "plunk",
+            "resend",
+            "sendgrid",
+            "ses",
+          ],
+          "TRANSPORT",
+        ),
         {
           description: message`Select logtape, smtp, jmap, lettermint, maileroo, mailtrap, mailgun, plunk, resend, sendgrid or ses. SMTP host/URL and JMAP session URL select their provider.`,
         },
@@ -128,9 +144,13 @@ export function createMailParser(
       String,
     ),
     smtpTls: bind(
-      option(...mailValueOptionNames.smtpTls, string({ metavar: "VALUE" }), {
-        description: message`SMTP TLS mode: direct, starttls-required or opportunistic.`,
-      }),
+      option(
+        ...mailValueOptionNames.smtpTls,
+        suggestedString(["direct", "starttls-required", "opportunistic"]),
+        {
+          description: message`SMTP TLS mode: direct, starttls-required or opportunistic.`,
+        },
+      ),
       settings.smtpTls,
       string(),
       identity,
@@ -166,7 +186,7 @@ export function createMailParser(
     smtpAuthMethod: bind(
       option(
         ...mailValueOptionNames.smtpAuthMethod,
-        string({ metavar: "VALUE" }),
+        suggestedString(["plain", "login", "xoauth2", "oauthbearer"]),
         { description: message`SMTP authentication method.` },
       ),
       settings.smtpAuthMethod,

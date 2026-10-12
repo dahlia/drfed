@@ -24,6 +24,7 @@ import {
   type createConfigurationBindings,
   configurationSettings as settings,
 } from "./configuration.ts";
+import { suggestedString } from "./valueparser.ts";
 
 /** API service options included in pure metadata argument arity. */
 export const apiMailValueOptionNames = {
@@ -214,9 +215,13 @@ export function createApiMailFields(
       String,
     ),
     sesAuth: bindings.bind(
-      option(...apiMailValueOptionNames.sesAuth, string({ metavar: "VALUE" }), {
-        description: message`SES authentication mode (credentials or session).`,
-      }),
+      option(
+        ...apiMailValueOptionNames.sesAuth,
+        suggestedString(["credentials", "session"]),
+        {
+          description: message`SES authentication mode (credentials or session).`,
+        },
+      ),
       settings.sesAuth,
       string(),
       String,
@@ -382,7 +387,7 @@ export function createApiMailFields(
     mailgunRegion: bindings.bind(
       option(
         ...apiMailValueOptionNames.mailgunRegion,
-        string({ metavar: "VALUE" }),
+        suggestedString(["us", "eu"]),
         { description: message`Mailgun API region (us or eu).` },
       ),
       settings.mailgunRegion,

@@ -19,9 +19,28 @@ import {
   type NonEmptyString,
   type ValueParser,
   type ValueParserResult,
+  choice,
   ensureNonEmptyString,
   origin,
+  string,
 } from "@optique/core/valueparser";
+
+/**
+ * Suggest known values while leaving validation to the selected provider.
+ * @returns A string parser with static Optique choice suggestions.
+ */
+export function suggestedString(
+  choices: readonly string[],
+  metavar: NonEmptyString = "VALUE",
+): ValueParser<"sync", string> {
+  const suggestions = choice(choices);
+  return {
+    ...string({ metavar }),
+    suggest(prefix) {
+      return suggestions.suggest?.(prefix) ?? [];
+    },
+  };
+}
 
 /**
  * A host name that the WHATWG URL parser has canonicalized into a dotted-quad

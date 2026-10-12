@@ -79,3 +79,22 @@ it("drfed-account suggests its create subcommand", async () => {
   ]);
   assert.ok(suggestions.includes("create"));
 });
+
+it("drfed-server completes mail transport values without deployment configuration", async () => {
+  const suggestions = await complete("drfed-server", [
+    "completion",
+    "bash",
+    "--mail-transport",
+    "",
+  ]);
+  assert.ok(suggestions.includes("smtp"));
+  assert.ok(suggestions.includes("ses"));
+  const filtered = await complete("drfed-server", [
+    "completion",
+    "bash",
+    "--mail-transport",
+    "re",
+  ]);
+  assert.ok(filtered.includes("resend"));
+  assert.ok(!filtered.includes("smtp"));
+});
