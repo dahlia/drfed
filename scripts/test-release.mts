@@ -50,11 +50,16 @@ const env = Object.fromEntries(
 const documents = new Map<string, Record<string, unknown>>();
 const tags = new Map<string, Record<string, string>>();
 const visibilityMisses = new Map<string, number>();
+const tagVisibility = new Map<
+  string,
+  { tags: Record<string, string>; remaining: number }
+>();
 const operations: string[][] = [];
 let readFailures = 0;
 let status = 0;
 let publishFailure = "";
 let publishVisibilityMisses = 8;
+let tagVisibilityMisses = 8;
 let githubRelease:
   | {
       tag_name: string;
@@ -118,13 +123,26 @@ function handleNpm(
     if (action === "add") {
       const index = spec.lastIndexOf("@");
       const name = spec.slice(0, index);
-      tags.set(name, { ...tags.get(name), [tag]: spec.slice(index + 1) });
+      const previous = { ...tags.get(name) };
+      tags.set(name, { ...previous, [tag]: spec.slice(index + 1) });
+      tagVisibility.set(name, {
+        tags: previous,
+        remaining: tagVisibilityMisses,
+      });
     } else {
       const current = tags.get(spec)!;
       delete current[tag];
     }
   }
   response.end("{}");
+}
+function visibleTags(name: string): Record<string, string> | undefined {
+  const stale = tagVisibility.get(name);
+  if (stale && stale.remaining > 0) {
+    stale.remaining -= 1;
+    return stale.tags;
+  }
+  return tags.get(name);
 }
 const server = createServer(async (request, response) => {
   const path = decodeURIComponent(request.url ?? "");
@@ -192,8 +210,9 @@ const server = createServer(async (request, response) => {
     return;
   }
   const tagPrefix = "/-/package/";
+  const tagName = path.slice(tagPrefix.length, -"/dist-tags".length);
   const document = path.startsWith(tagPrefix)
-    ? tags.get(path.slice(tagPrefix.length, -"/dist-tags".length))
+    ? visibleTags(tagName)
     : documents.get(path.slice(1));
   if (!document) {
     response.writeHead(404);
@@ -503,6 +522,19 @@ try {
   await assert.rejects(run(["publish"]), /Cannot order a foreign dev build/u);
   assert.equal(operations.length, 0);
   tags.get(first.name)!.dev = build.version;
+  // A tag-write acknowledgment needs bounded read confirmation too.
+  documents.set(`${first.name}/${bootstrapVersion}`, bootstrapManifest);
+  tags.get(first.name)!.dev = bootstrapVersion;
+  tagVisibilityMisses = Number.POSITIVE_INFINITY;
+  await assert.rejects(run(["publish"]), /Registry did not confirm/u);
+  assert.equal(operations.length, 1);
+  assert.equal(operations[0]![0], "dist-tag");
+  assert.equal(operations[0]![1], "add");
+  tagVisibility.delete(first.name);
+  tagVisibilityMisses = 8;
+  operations.length = 0;
+  await run(["publish"]);
+  assert.equal(operations.length, 0);
   // Exhausted read polling must not upload twice or promote an incomplete set.
   const hiddenKey = `${first.name}/${build.version}`;
   documents.delete(hiddenKey);

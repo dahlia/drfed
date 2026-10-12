@@ -642,6 +642,20 @@ async function newerChannelVersion(
   assert.match(runNumber!, /^[1-9]\d*$/u);
   return BigInt(runNumber!) > BigInt(build.runNumber);
 }
+async function waitForChannel(entry: Artifact, build: Version): Promise<void> {
+  const url = new URL(
+    `-/package/${encodeURIComponent(entry.name)}/dist-tags`,
+    registry,
+  ).href;
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const current = await get<Record<string, string>>(url);
+    if (current?.[build.channel] === build.version) return;
+    if (attempt < 29) await delay(fixture ? 1 : 5000);
+  }
+  throw new Error(
+    `Registry did not confirm ${entry.name} ${build.channel} tag at ${build.version}; rerun with the original verified artifacts`,
+  );
+}
 async function publish(): Promise<void> {
   const bundle = await verify();
   const { build } = bundle;
@@ -687,13 +701,7 @@ async function publish(): Promise<void> {
           registry,
         ]);
       }
-      const updated = await get<Record<string, string>>(
-        new URL(
-          `-/package/${encodeURIComponent(entry.name)}/dist-tags`,
-          registry,
-        ).href,
-      );
-      assert.equal(updated?.[build.channel], build.version);
+      await waitForChannel(entry, build);
     }
   } else {
     console.log(

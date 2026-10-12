@@ -307,15 +307,15 @@ and, for tag builds, a frozen copy of the release notes.  They are retained for
 verified artifact from the same run, skip versions already published with
 identical contents, and publish missing packages.  CI distinguishes
 registry/network failures from missing versions and limits retries.  After npm
-accepts an upload, CI polls registry metadata up to 30 times at five-second
-intervals, without uploading that version again.  If visibility polling times
-out, the package set remains incomplete.  Use the original artifacts to
-recover. A mismatch in tarball bytes or build identity fails the run.  If the
-original artifact is missing and any package in the set is already published,
-recovery fails closed: use a new main push for a new dev build, or prepare a
-new reviewed patch tag. Do not rebuild an existing immutable version.  Tag
-deletion or movement is checked again immediately before registry writes and
-GitHub Release writes.
+accepts an upload or a channel-tag change, CI polls registry metadata up to
+30 times at five-second intervals without repeating the accepted write.  If
+visibility polling times out, the run fails.  Use the
+original artifacts to recover. A mismatch in tarball bytes or build identity
+fails the run.  If the original artifact is missing and any package in the set
+is already published, recovery fails closed: use a new main push for a new dev
+build, or prepare a new reviewed patch tag. Do not rebuild an existing
+immutable version.  Tag deletion or movement is checked again immediately
+before registry writes and GitHub Release writes.
 
 After npm publication, tag builds create or verify the GitHub Release from
 `CHANGES.md` and upload the same verified tarballs.  Reruns keep an existing
