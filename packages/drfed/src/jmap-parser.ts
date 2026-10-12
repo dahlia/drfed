@@ -22,6 +22,7 @@ import {
   type createConfigurationBindings,
   configurationSettings as settings,
 } from "./configuration.ts";
+import { suggestedPath } from "./valueparser.ts";
 
 /** JMAP value options also used by pure metadata argument handling. */
 export const jmapValueOptionNames = {
@@ -66,11 +67,9 @@ export function createJmapFields(
       String,
     ),
     jmapBearerTokenFile: bindings.bind(
-      option(
-        ...jmapValueOptionNames.jmapBearerTokenFile,
-        string({ metavar: "VALUE" }),
-        { description: message`File containing the JMAP bearer token.` },
-      ),
+      option(...jmapValueOptionNames.jmapBearerTokenFile, suggestedPath(), {
+        description: message`File containing the JMAP bearer token.`,
+      }),
       settings.jmapBearerTokenFile,
       string(),
       String,
@@ -94,11 +93,9 @@ export function createJmapFields(
       String,
     ),
     jmapPasswordFile: bindings.bind(
-      option(
-        ...jmapValueOptionNames.jmapPasswordFile,
-        string({ metavar: "VALUE" }),
-        { description: message`File containing the JMAP password.` },
-      ),
+      option(...jmapValueOptionNames.jmapPasswordFile, suggestedPath(), {
+        description: message`File containing the JMAP password.`,
+      }),
       settings.jmapPasswordFile,
       string(),
       String,

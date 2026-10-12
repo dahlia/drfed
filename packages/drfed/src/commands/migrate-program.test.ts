@@ -42,6 +42,48 @@ async function parse(args: string[], env: Record<string, string>, cwd: string) {
   return resolveMigrationOptions(raw, cwd);
 }
 
+it("preserves path characters and CLI/env/TOML precedence with native path parsers", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "drfed-path-precedence-"));
+  const filename = "config with spaces;[draft]$cash.toml";
+  const configuredPath = "configured data/[draft]$cash";
+  try {
+    await writeFile(
+      join(directory, filename),
+      `[database]\ndata_path = "${configuredPath}"\n`,
+    );
+    const configured = await parse(["--config", filename], {}, directory);
+    assert.equal(configured.database.driver, "pglite");
+    if (configured.database.driver !== "pglite") throw new Error();
+    assert.equal(configured.database.dataPath, join(directory, configuredPath));
+    const environment = { DRFED_DATA_PATH: "environment data/[draft]$cash" };
+    const overridden = await parse(
+      ["--config", filename],
+      environment,
+      directory,
+    );
+    if (overridden.database.driver !== "pglite") throw new Error();
+    assert.equal(
+      overridden.database.dataPath,
+      join(directory, environment.DRFED_DATA_PATH),
+    );
+    const cliPath = "CLI data/[draft]$cash";
+    const cli = await parse(
+      ["--config", filename, "-d", cliPath],
+      environment,
+      directory,
+    );
+    if (cli.database.driver !== "pglite") throw new Error();
+    assert.equal(cli.database.dataPath, join(directory, cliPath));
+    assert.equal(
+      describeMigrationConfiguration(cli).settings["database.data_path"]
+        ?.source,
+      "cli",
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 it("shares TOML/env/CLI database precedence while ignoring server and mail domains", async () => {
   const directory = await mkdtemp(join(tmpdir(), "drfed-migrate-parser-"));
   try {

@@ -26,6 +26,7 @@ import {
   type createConfigurationBindings,
   configurationSettings as settings,
 } from "./configuration.ts";
+import { suggestedPath } from "./valueparser.ts";
 
 /** Logging option spellings shared by server and web command metadata. */
 export const loggingValueOptionNames = {
@@ -63,13 +64,9 @@ export function createLoggingParser(
       identity,
     ),
     output: bind(
-      option(
-        ...loggingValueOptionNames.logOutput,
-        string({ metavar: "FILE" }),
-        {
-          description: message`Log output file. Use - for the console.`,
-        },
-      ),
+      option(...loggingValueOptionNames.logOutput, suggestedPath(), {
+        description: message`Log output file. Use - for the console.`,
+      }),
       settings.logOutput,
       string(),
       identity,

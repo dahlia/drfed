@@ -258,9 +258,13 @@ export function createParser(
     object({
       configPath: optional(
         bindings.bindConfigPath(
-          option(...valueOptionNames.configPath, string({ metavar: "FILE" }), {
-            description: message`Read this TOML file. No configuration files are searched automatically.`,
-          }),
+          option(
+            ...valueOptionNames.configPath,
+            path({ metavar: "FILE", type: "file" }),
+            {
+              description: message`Read this TOML file. No configuration files are searched automatically.`,
+            },
+          ),
         ),
       ),
     }),

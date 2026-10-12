@@ -24,7 +24,7 @@ import {
   type createConfigurationBindings,
   configurationSettings as settings,
 } from "./configuration.ts";
-import { suggestedString } from "./valueparser.ts";
+import { suggestedPath, suggestedString } from "./valueparser.ts";
 
 /** API service options included in pure metadata argument arity. */
 export const apiMailValueOptionNames = {
@@ -96,13 +96,9 @@ export function createApiMailFields(
       String,
     ),
     mailApiKeyFile: bindings.bind(
-      option(
-        ...apiMailValueOptionNames.mailApiKeyFile,
-        string({ metavar: "VALUE" }),
-        {
-          description: message`File containing the selected mail API service credential.`,
-        },
-      ),
+      option(...apiMailValueOptionNames.mailApiKeyFile, suggestedPath(), {
+        description: message`File containing the selected mail API service credential.`,
+      }),
       settings.mailApiKeyFile,
       string(),
       String,
@@ -118,11 +114,9 @@ export function createApiMailFields(
       String,
     ),
     plunkApiKeyFile: bindings.bind(
-      option(
-        ...apiMailValueOptionNames.plunkApiKeyFile,
-        string({ metavar: "VALUE" }),
-        { description: message`File containing the Plunk API key.` },
-      ),
+      option(...apiMailValueOptionNames.plunkApiKeyFile, suggestedPath(), {
+        description: message`File containing the Plunk API key.`,
+      }),
       settings.plunkApiKeyFile,
       string(),
       String,
@@ -165,11 +159,9 @@ export function createApiMailFields(
       String,
     ),
     resendApiKeyFile: bindings.bind(
-      option(
-        ...apiMailValueOptionNames.resendApiKeyFile,
-        string({ metavar: "VALUE" }),
-        { description: message`File containing the Resend API key.` },
-      ),
+      option(...apiMailValueOptionNames.resendApiKeyFile, suggestedPath(), {
+        description: message`File containing the Resend API key.`,
+      }),
       settings.resendApiKeyFile,
       string(),
       String,
@@ -237,11 +229,9 @@ export function createApiMailFields(
       String,
     ),
     sesAccessKeyIdFile: bindings.bind(
-      option(
-        ...apiMailValueOptionNames.sesAccessKeyIdFile,
-        string({ metavar: "VALUE" }),
-        { description: message`File containing the SES access key ID.` },
-      ),
+      option(...apiMailValueOptionNames.sesAccessKeyIdFile, suggestedPath(), {
+        description: message`File containing the SES access key ID.`,
+      }),
       settings.sesAccessKeyIdFile,
       string(),
       String,
@@ -259,7 +249,7 @@ export function createApiMailFields(
     sesSecretAccessKeyFile: bindings.bind(
       option(
         ...apiMailValueOptionNames.sesSecretAccessKeyFile,
-        string({ metavar: "VALUE" }),
+        suggestedPath(),
         { description: message`File containing the SES secret access key.` },
       ),
       settings.sesSecretAccessKeyFile,
@@ -277,11 +267,9 @@ export function createApiMailFields(
       String,
     ),
     sesSessionTokenFile: bindings.bind(
-      option(
-        ...apiMailValueOptionNames.sesSessionTokenFile,
-        string({ metavar: "VALUE" }),
-        { description: message`File containing the SES session token.` },
-      ),
+      option(...apiMailValueOptionNames.sesSessionTokenFile, suggestedPath(), {
+        description: message`File containing the SES session token.`,
+      }),
       settings.sesSessionTokenFile,
       string(),
       String,
@@ -320,11 +308,9 @@ export function createApiMailFields(
       String,
     ),
     sendgridApiKeyFile: bindings.bind(
-      option(
-        ...apiMailValueOptionNames.sendgridApiKeyFile,
-        string({ metavar: "VALUE" }),
-        { description: message`File containing the SendGrid API key.` },
-      ),
+      option(...apiMailValueOptionNames.sendgridApiKeyFile, suggestedPath(), {
+        description: message`File containing the SendGrid API key.`,
+      }),
       settings.sendgridApiKeyFile,
       string(),
       String,
@@ -365,11 +351,9 @@ export function createApiMailFields(
       String,
     ),
     mailgunApiKeyFile: bindings.bind(
-      option(
-        ...apiMailValueOptionNames.mailgunApiKeyFile,
-        string({ metavar: "VALUE" }),
-        { description: message`File containing the Mailgun API key.` },
-      ),
+      option(...apiMailValueOptionNames.mailgunApiKeyFile, suggestedPath(), {
+        description: message`File containing the Mailgun API key.`,
+      }),
       settings.mailgunApiKeyFile,
       string(),
       String,
@@ -430,11 +414,9 @@ export function createApiMailFields(
       String,
     ),
     mailtrapApiTokenFile: bindings.bind(
-      option(
-        ...apiMailValueOptionNames.mailtrapApiTokenFile,
-        string({ metavar: "VALUE" }),
-        { description: message`File containing the Mailtrap API token.` },
-      ),
+      option(...apiMailValueOptionNames.mailtrapApiTokenFile, suggestedPath(), {
+        description: message`File containing the Mailtrap API token.`,
+      }),
       settings.mailtrapApiTokenFile,
       string(),
       String,
@@ -515,11 +497,9 @@ export function createApiMailFields(
       String,
     ),
     mailerooApiKeyFile: bindings.bind(
-      option(
-        ...apiMailValueOptionNames.mailerooApiKeyFile,
-        string({ metavar: "VALUE" }),
-        { description: message`File containing the Maileroo API sending key.` },
-      ),
+      option(...apiMailValueOptionNames.mailerooApiKeyFile, suggestedPath(), {
+        description: message`File containing the Maileroo API sending key.`,
+      }),
       settings.mailerooApiKeyFile,
       string(),
       String,
@@ -562,7 +542,7 @@ export function createApiMailFields(
     lettermintApiTokenFile: bindings.bind(
       option(
         ...apiMailValueOptionNames.lettermintApiTokenFile,
-        string({ metavar: "VALUE" }),
+        suggestedPath(),
         { description: message`File containing the Lettermint API token.` },
       ),
       settings.lettermintApiTokenFile,

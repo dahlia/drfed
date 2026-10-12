@@ -24,6 +24,21 @@ import {
   origin,
   string,
 } from "@optique/core/valueparser";
+import { path } from "@optique/run/valueparser";
+
+/**
+ * Delegate file suggestions to the shell without validating inactive paths.
+ * @returns A string parser with Optique's native file suggestions.
+ */
+export function suggestedPath(): ValueParser<"sync", string> {
+  const suggestions = path({ type: "file", metavar: "FILE" });
+  return {
+    ...string({ metavar: "FILE" }),
+    suggest(prefix) {
+      return suggestions.suggest?.(prefix) ?? [];
+    },
+  };
+}
 
 /**
  * Suggest known values while leaving validation to the selected provider.
