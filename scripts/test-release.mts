@@ -42,7 +42,7 @@ const names = ["models", "federation", "graphql", "web", "drfed"];
 const env = Object.fromEntries(
   Object.entries(process.env).filter(
     ([key]) =>
-      !/^(?:ACTIONS_|NPM_|NODE_AUTH_TOKEN|GH_TOKEN|GITHUB_|npm_config_)/u.test(
+      !/^(?:ACTIONS_|NPM_|NODE_AUTH_TOKEN|GH_TOKEN|GITHUB_|GIT_|npm_config_)/u.test(
         key,
       ),
   ),
