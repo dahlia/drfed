@@ -54,6 +54,7 @@ const operations: string[][] = [];
 let readFailures = 0;
 let status = 0;
 let publishFailure = "";
+let publishVisibilityMisses = 8;
 let githubRelease:
   | {
       tag_name: string;
@@ -101,7 +102,7 @@ function handleNpm(
       response.end("E403 immutable version");
       return;
     }
-    visibilityMisses.set(key, 2);
+    visibilityMisses.set(key, publishVisibilityMisses);
     documents.set(key, {
       ...manifest,
       dist: { integrity: operation.integrity },
@@ -466,7 +467,11 @@ try {
     ...manifest,
     dist: { integrity: first.integrity },
   });
-  tags.set(first.name, { latest: "0.0.0" });
+  const bootstrapVersion = `${build.baseVersion}-dev.0`;
+  const bootstrapManifest = { ...manifest, version: bootstrapVersion };
+  delete bootstrapManifest.drfedBuild;
+  documents.set(`${first.name}/${bootstrapVersion}`, bootstrapManifest);
+  tags.set(first.name, { latest: "0.0.0", dev: bootstrapVersion });
   readFailures = 2;
   await run(["publish"]);
   assert.deepEqual(
@@ -483,6 +488,37 @@ try {
   operations.length = 0;
   await run(["publish"]);
   assert.equal(operations.length, 0);
+  // The bootstrap exception must not admit other unmanaged or malformed builds.
+  for (const version of ["0.2.0-dev.0", `${build.baseVersion}-dev.1`]) {
+    documents.set(`${first.name}/${version}`, { name: first.name, version });
+    tags.get(first.name)!.dev = version;
+    await assert.rejects(run(["publish"]), /Cannot order a foreign dev build/u);
+    assert.equal(operations.length, 0);
+  }
+  documents.set(`${first.name}/${bootstrapVersion}`, {
+    ...bootstrapManifest,
+    drfedBuild: {},
+  });
+  tags.get(first.name)!.dev = bootstrapVersion;
+  await assert.rejects(run(["publish"]), /Cannot order a foreign dev build/u);
+  assert.equal(operations.length, 0);
+  tags.get(first.name)!.dev = build.version;
+  // Exhausted read polling must not upload twice or promote an incomplete set.
+  const hiddenKey = `${first.name}/${build.version}`;
+  documents.delete(hiddenKey);
+  publishVisibilityMisses = Number.POSITIVE_INFINITY;
+  await assert.rejects(
+    run(["publish"]),
+    /npm accepted.*registry metadata did not become visible/u,
+  );
+  assert.equal(operations.length, 1);
+  assert.equal(operations[0]![0], "publish");
+  visibilityMisses.delete(hiddenKey);
+  publishVisibilityMisses = 8;
+  operations.length = 0;
+  await run(["publish"]);
+  assert.equal(operations.filter((item) => item[0] === "publish").length, 0);
+  operations.length = 0;
   // A newer main run remains newest after a base-version rollback.
   for (const name of names) {
     const currentVersion = "0.2.0-dev.122";

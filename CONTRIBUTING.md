@@ -294,6 +294,9 @@ Npm publication and GitHub Release jobs share one concurrency group
 Serialization prevents interleaving.  If an older build finishes late, the
 recorded workflow run number keeps `dev` pointing at the newer build, including
 after a base-version rollback.  `latest` and `next` use SemVer ordering.
+A manually seeded `<base>-dev.0` without build metadata is accepted as an
+initial bootstrap only when its base matches the new build's base.  Other
+unmanaged `dev` versions still fail the ordering check.
 Packages first use the temporary `dev-staging` or `release-staging` dist-tag.
 The `dev`, `latest`, or `next` tag advances only after the whole set is
 confirmed, and the staging tag is then removed.  Never unpublish as rollback.
@@ -302,13 +305,17 @@ Artifacts named `drfed-<run-id>` contain tarballs, identity/integrity metadata,
 and, for tag builds, a frozen copy of the release notes.  They are retained for
 90 days, subject to the repository's retention limit.  Reruns reuse the first
 verified artifact from the same run, skip versions already published with
-identical contents, and publish missing packages.  Registry/network failures are
-distinguished from missing versions and retries are bounded.  A mismatch in
-tarball bytes or build identity fails the run.  If the original artifact is
-missing and any package in the set is already published, recovery fails closed:
-use a new main push for a new dev build, or prepare a new reviewed patch tag.
-Do not rebuild an existing immutable version.  Tag deletion or movement is
-checked again immediately before registry writes and GitHub Release writes.
+identical contents, and publish missing packages.  CI distinguishes
+registry/network failures from missing versions and limits retries.  After npm
+accepts an upload, CI polls registry metadata up to 30 times at five-second
+intervals, without uploading that version again.  If visibility polling times
+out, the package set remains incomplete.  Use the original artifacts to
+recover. A mismatch in tarball bytes or build identity fails the run.  If the
+original artifact is missing and any package in the set is already published,
+recovery fails closed: use a new main push for a new dev build, or prepare a
+new reviewed patch tag. Do not rebuild an existing immutable version.  Tag
+deletion or movement is checked again immediately before registry writes and
+GitHub Release writes.
 
 After npm publication, tag builds create or verify the GitHub Release from
 `CHANGES.md` and upload the same verified tarballs.  Reruns keep an existing

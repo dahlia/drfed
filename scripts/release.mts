@@ -554,22 +554,27 @@ async function tagTarget(build: Version): Promise<void> {
     "Remote tag was deleted or retargeted",
   );
 }
+async function waitForPublication(
+  entry: Artifact,
+  build: Version,
+): Promise<void> {
+  // Registry reads can lag a successful upload. Keep this budget separate
+  // from upload retries so an acknowledged version is never uploaded again.
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    if (await published(entry, build)) return;
+    if (attempt < 29) await delay(fixture ? 1 : 5000);
+  }
+  throw new Error(
+    `npm accepted ${entry.name}@${build.version}, but registry metadata did not become visible; rerun with the original verified artifacts`,
+  );
+}
 async function publishOne(
   entry: Artifact,
   build: Version,
   staging: string,
 ): Promise<void> {
-  let complete = false;
-  let acknowledged = false;
-  for (let attempt = 0; attempt < 3 && !complete; attempt += 1) {
-    if (await published(entry, build)) {
-      complete = true;
-      break;
-    }
-    if (acknowledged) {
-      await delay(fixture ? 1 : 2000);
-      continue;
-    }
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (await published(entry, build)) return;
     await tagTarget(build);
     try {
       await run("npm", [
@@ -584,12 +589,8 @@ async function publishOne(
         "--ignore-scripts",
         ...(fixture ? [] : ["--provenance"]),
       ]);
-      acknowledged = true;
     } catch (error) {
-      if (await published(entry, build)) {
-        complete = true;
-        break;
-      }
+      if (await published(entry, build)) return;
       const message = String(error);
       if (
         attempt === 2 ||
@@ -597,11 +598,16 @@ async function publishOne(
       ) {
         throw error;
       }
+      await delay(fixture ? 1 : 2000);
+      continue;
     }
-    complete = await published(entry, build);
-    if (!complete) await delay(fixture ? 1 : 2000);
+    console.log(
+      `npm accepted ${entry.name}@${build.version}; verifying registry visibility`,
+    );
+    await waitForPublication(entry, build);
+    return;
   }
-  assert.ok(complete, `Incomplete publication: ${entry.name}`);
+  throw new Error(`Incomplete publication: ${entry.name}`);
 }
 async function newerChannelVersion(
   entry: Artifact,
@@ -618,6 +624,14 @@ async function newerChannelVersion(
   assert.ok(current, `Missing current dev metadata for ${entry.name}`);
   assert.equal(current.name, entry.name);
   assert.equal(current.version, currentVersion);
+  // A manually seeded dev.0 has no CI run identity. Only accept this exact
+  // same-base bootstrap; every CI dev run has a positive run number.
+  if (
+    current.drfedBuild === undefined &&
+    currentVersion === `${build.baseVersion}-dev.0`
+  ) {
+    return false;
+  }
   assert.equal(
     current.drfedBuild?.workflow,
     workflow,
