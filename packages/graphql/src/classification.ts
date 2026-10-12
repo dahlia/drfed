@@ -126,11 +126,13 @@ export function classificationInput(row: {
 }
 
 /**
- * Extracts the object author's canonical IRI and declared followers IRI.
+ * Extracts the object author's canonical IRI and declared followers IRI: a
+ * local actor's followers collection, or the one a remote actor declares.
  * @returns The author identifiers used by the classification rules.
  */
 export function classificationAuthor(actor: {
   resource: { iri: string };
+  followersUrl: string | null;
   collectionReferences: readonly {
     role: string;
     collection: { resource: { iri: string } };
@@ -140,6 +142,8 @@ export function classificationAuthor(actor: {
     iri: actor.resource.iri,
     followersIri:
       actor.collectionReferences.find((entry) => entry.role === "followers")
-        ?.collection.resource.iri ?? null,
+        ?.collection.resource.iri ??
+      actor.followersUrl ??
+      null,
   };
 }

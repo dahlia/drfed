@@ -268,6 +268,12 @@ export const actors = pgTable(
       .references(() => instances.id, { onDelete: "cascade" }),
     document: json(),
     inboxUrl: text("inbox_url").notNull(),
+    /**
+     * The IRI of the followers collection a remote actor declares, as
+     * received.  It is never fetched, so it is no `collections` row: what the
+     * collection is and holds is unknown.
+     */
+    followersUrl: text("followers_url"),
     profileUrl: text("profile_url"),
     avatarUrl: text("avatar_url"),
     headerUrl: text("header_url"),

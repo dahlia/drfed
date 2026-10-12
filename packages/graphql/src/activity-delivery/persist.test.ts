@@ -35,6 +35,7 @@ import {
 import {
   type Documents,
   PUBLIC,
+  type Signer,
   addActor,
   createOf,
   createRecorder,
@@ -43,7 +44,9 @@ import {
   hostA,
   hostB,
   hostC,
+  idOf,
   post,
+  read,
   seedOtherInstance,
   signed,
   thirdInstanceId,
@@ -788,4 +791,154 @@ it("stores no text PostgreSQL would refuse or alter, but keeps it received", asy
       "<p>a\u0001b</p>",
     );
   });
+});
+
+it("classifies by the followers collection a remote actor declares when first stored", async () => {
+  for (const queued of [false, true]) {
+    await withTestHarness(async ({ db, post: graphql }) => {
+      const member = await seedAuthenticatedLocalInstance(db);
+      const documents: Documents = new Map();
+      const carol = "https://remote.example/users/carol";
+      const carolFans = "https://remote.example/collections/carol-fans";
+      const otherFans = "https://remote.example/collections/other-fans";
+      const dave = "https://remote.example/users/dave";
+      const erin = "https://remote.example/users/erin";
+      const signers: Readonly<Record<string, Signer>> = {
+        [carol]: await addActor(documents, carol, { followers: carolFans }),
+        [dave]: await addActor(documents, dave, {
+          followers: `${dave}/followers`,
+        }),
+        [erin]: await addActor(documents, erin),
+      };
+      const { federation, send } = await createRecorder(
+        db,
+        documents,
+        queued ? { queue: new InProcessMessageQueue() } : {},
+      );
+      const someone = `https://${hostA}/users/${localActorId}`;
+      const cases: readonly {
+        readonly actor: string;
+        readonly addressing: { readonly to: string[]; readonly cc: string[] };
+        readonly expected: readonly [string, string];
+      }[] = [
+        {
+          actor: carol,
+          addressing: { to: [carolFans], cc: [] },
+          expected: ["private", "followers"],
+        },
+        {
+          actor: carol,
+          addressing: { to: [someone], cc: [carolFans] },
+          expected: ["direct", "followers"],
+        },
+        {
+          actor: carol,
+          addressing: { to: [PUBLIC, carolFans], cc: [] },
+          expected: ["public", "public"],
+        },
+        {
+          actor: carol,
+          addressing: { to: [carolFans], cc: [PUBLIC] },
+          expected: ["unlisted", "home"],
+        },
+        {
+          actor: dave,
+          addressing: { to: [`${dave}/followers`], cc: [] },
+          expected: ["private", "followers"],
+        },
+        // Without a declared collection Misskey still guesses the usual path.
+        {
+          actor: erin,
+          addressing: { to: [`${erin}/followers`], cc: [] },
+          expected: ["direct", "followers"],
+        },
+        {
+          actor: erin,
+          addressing: { to: [carolFans], cc: [] },
+          expected: ["direct", "specified"],
+        },
+        // Received after carol declares another collection, which is not
+        // stored since carol is.
+        {
+          actor: carol,
+          addressing: { to: [otherFans], cc: [] },
+          expected: ["direct", "specified"],
+        },
+      ];
+      await withWorkers(federation, async () => {
+        for (const [index, { actor, addressing }] of cases.entries()) {
+          if (index === cases.length - 1) {
+            const declared = documents.get(carol) as Record<string, unknown>;
+            documents.set(carol, { ...declared, followers: otherFans });
+          }
+          const body = createOf(actor, `${index}`, {
+            activity: addressing,
+            object: addressing,
+          });
+          const signer = signers[actor];
+          assert.ok(signer != null);
+          assert.equal((await send(await signed(signer, body))).status, 202);
+          await eventually(
+            () => findDeliveries(db),
+            (rows) =>
+              rows.length === index + 1 &&
+              rows.every(
+                (row) =>
+                  row.activityId != null && row.status !== "acknowledged",
+              ),
+          );
+        }
+      });
+      const actors = await db.query.actors.findMany({
+        columns: { followersUrl: true },
+        with: { resource: true },
+      });
+      assert.deepEqual(
+        new Map(actors.map((row) => [row.resource.iri, row.followersUrl])),
+        new Map([
+          [carol, carolFans],
+          [dave, `${dave}/followers`],
+          [erin, null],
+        ]),
+        `queued: ${queued}`,
+      );
+      const query = `
+        query ($id: ID!) {
+          node(id: $id) {
+            ... on Activity {
+              expectedClassifications { implementation classification }
+            }
+          }
+        }
+      `;
+      for (const [index, { expected }] of cases.entries()) {
+        const id = globalId(
+          "Activity",
+          await idOf(db, `https://remote.example/activities/${index}`),
+        );
+        assert.deepEqual(
+          await read(graphql, query, { id }, member),
+          {
+            node: {
+              expectedClassifications: [
+                { implementation: "MASTODON", classification: expected[0] },
+                { implementation: "MISSKEY", classification: expected[1] },
+              ],
+            },
+          },
+          `queued: ${queued}, case: ${index}`,
+        );
+      }
+      // A viewer who may not read the activity learns nothing of it.
+      assert.deepEqual(
+        await read(graphql, query, {
+          id: globalId(
+            "Activity",
+            await idOf(db, "https://remote.example/activities/0"),
+          ),
+        }),
+        { node: null },
+      );
+    });
+  }
 });

@@ -74,7 +74,12 @@ export async function addActor(
   {
     preferredUsername,
     inbox = true,
-  }: { readonly preferredUsername?: string; readonly inbox?: boolean } = {},
+    followers,
+  }: {
+    readonly preferredUsername?: string;
+    readonly inbox?: boolean;
+    readonly followers?: string;
+  } = {},
 ): Promise<Signer> {
   const pair = await generateCryptoKeyPair();
   const keyId = new URL(`${iri}#main-key`);
@@ -87,6 +92,7 @@ export async function addActor(
     id: new URL(iri),
     preferredUsername: preferredUsername ?? null,
     inbox: inbox ? new URL(`${iri}/inbox`) : null,
+    followers: followers == null ? null : new URL(followers),
     publicKey: key,
   });
   documents.set(iri, await actor.toJsonLd());

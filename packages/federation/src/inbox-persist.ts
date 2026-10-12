@@ -67,6 +67,8 @@ interface Accepted {
   readonly actor: Actor;
   readonly actorType: ActorType;
   readonly inboxUrl: string;
+  /** The followers collection the actor declares, never fetched. */
+  readonly followersUrl: string | null;
   readonly objectIri: string;
   readonly object: APObject;
   readonly objectType: ObjectType;
@@ -398,6 +400,7 @@ async function accept(
     actor,
     actorType,
     inboxUrl: actor.inboxId.href,
+    followersUrl: actor.followersId?.href ?? null,
     objectIri,
     object,
     objectType,
@@ -467,6 +470,7 @@ async function store(db: Database, accepted: Accepted): Promise<void> {
           username: accepted.username,
           instanceId: instance.id,
           inboxUrl: accepted.inboxUrl,
+          followersUrl: accepted.followersUrl,
           document: await actor.toJsonLd(),
         });
         return resource.id;

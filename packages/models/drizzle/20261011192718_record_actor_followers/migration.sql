@@ -1,0 +1,1 @@
+ALTER TABLE "actors" ADD COLUMN "followers_url" text;
