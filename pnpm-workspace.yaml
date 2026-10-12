@@ -30,6 +30,7 @@ catalog:
   "@upyo/plunk": 0.6.0
   "@upyo/retry": 0.6.0
   "@upyo/resend": 0.6.0
+  "@upyo/sendgrid": 0.6.0
   "@upyo/mailgun": 0.6.0
   "@upyo/mailtrap": 0.6.0
   "@upyo/maileroo": 0.6.0
@@ -68,6 +69,7 @@ minimumReleaseAgeExclude:
   - "@upyo/plunk@0.6.0"
   - "@upyo/retry@0.6.0"
   - "@upyo/resend@0.6.0"
+  - "@upyo/sendgrid@0.6.0"
   - "@upyo/mailgun@0.6.0"
   - "@upyo/mailtrap@0.6.0"
   - "@upyo/maileroo@0.6.0"

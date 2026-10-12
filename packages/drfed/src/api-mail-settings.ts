@@ -24,6 +24,7 @@ import type { MailgunConfig } from "@upyo/mailgun";
 import type { MailtrapConfig } from "@upyo/mailtrap";
 import type { PlunkConfig } from "@upyo/plunk";
 import type { ResendConfig } from "@upyo/resend";
+import type { SendGridConfig } from "@upyo/sendgrid";
 
 import type { Sourced } from "./configuration.ts";
 import type { RawMailOptions } from "./mail-parser.ts";
@@ -72,6 +73,19 @@ export type ApiMailSettings =
       readonly transport: "resend";
       readonly connection: Omit<ResendConfig, "apiKey" | "headers">;
       readonly credential: SecretSource;
+    }
+  | {
+      readonly transport: "sendgrid";
+      readonly connection: Omit<
+        SendGridConfig,
+        | "apiKey"
+        | "headers"
+        | "clickTracking"
+        | "openTracking"
+        | "subscriptionTracking"
+        | "googleAnalytics"
+      >;
+      readonly credential: SecretSource;
     };
 
 type Input = Sourced<string | undefined> | undefined;
@@ -95,6 +109,7 @@ function credential(
     lettermint: ["lettermintApiToken", "lettermintApiTokenFile"],
     maileroo: ["mailerooApiKey", "mailerooApiKeyFile"],
     mailtrap: ["mailtrapApiToken", "mailtrapApiTokenFile"],
+    sendgrid: ["sendgridApiKey", "sendgridApiKeyFile"],
     mailgun: ["mailgunApiKey", "mailgunApiKeyFile"],
     plunk: ["plunkApiKey", "plunkApiKeyFile"],
     resend: ["resendApiKey", "resendApiKeyFile"],
@@ -187,7 +202,7 @@ function number(
     value > maximum
   ) {
     throw new Error(
-      `Invalid ${provider[0]!.toUpperCase() + provider.slice(1)} ${field}.`,
+      `Invalid ${provider === "sendgrid" ? "SendGrid" : provider[0]!.toUpperCase() + provider.slice(1)} ${field}.`,
     );
   }
   return value;
@@ -397,6 +412,46 @@ function resendSettings(
   };
 }
 
+function sendgridSettings(
+  raw: RawMailOptions,
+  auth: ReturnType<typeof credential>,
+) {
+  const connection = {
+    baseUrl: endpoint(
+      raw.sendgridBaseUrl,
+      "sendgrid",
+      "https://api.sendgrid.com/v3",
+    ),
+    timeout: number(
+      raw.sendgridTimeout,
+      30000,
+      1,
+      2147483647,
+      "delivery timeout",
+      "sendgrid",
+    ),
+    retries: 0,
+    validateSsl: true,
+    clickTracking: false,
+    openTracking: false,
+    subscriptionTracking: false,
+    googleAnalytics: false,
+  };
+  const mail: ApiMailSettings = {
+    transport: "sendgrid",
+    connection,
+    credential: auth.secret,
+  };
+  return {
+    mail,
+    sources: auth.sources,
+    values: {
+      sendgridBaseUrl: connection.baseUrl,
+      sendgridTimeout: connection.timeout,
+    },
+  };
+}
+
 /** Resolve only the selected API service; credentials remain unopened.
  * @returns Prepared meaning, safe diagnostic values and effective source tags.
  */
@@ -408,6 +463,7 @@ export function resolveApiMailSettings(
   const auth = credential(raw, cwd, provider);
   if (provider === "plunk") return plunkSettings(raw, auth);
   if (provider === "resend") return resendSettings(raw, auth);
+  if (provider === "sendgrid") return sendgridSettings(raw, auth);
   if (provider === "mailgun") return mailgunSettings(raw, auth);
   if (provider === "mailtrap") return mailtrapSettings(raw, auth);
   if (provider === "maileroo") {

@@ -38,6 +38,10 @@ export const apiMailValueOptionNames = {
   resendBaseUrl: ["--resend-base-url"],
   resendTimeout: ["--resend-timeout"],
   resendRetries: ["--resend-retries"],
+  sendgridApiKey: ["--sendgrid-api-key"],
+  sendgridApiKeyFile: ["--sendgrid-api-key-file"],
+  sendgridBaseUrl: ["--sendgrid-base-url"],
+  sendgridTimeout: ["--sendgrid-timeout"],
   mailgunApiKey: ["--mailgun-api-key"],
   mailgunApiKeyFile: ["--mailgun-api-key-file"],
   mailgunDomain: ["--mailgun-domain"],
@@ -197,6 +201,51 @@ export function createApiMailFields(
         String,
       ),
       settings.resendRetries,
+      string(),
+      String,
+    ),
+    sendgridApiKey: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.sendgridApiKey,
+        string({ metavar: "VALUE" }),
+        { description: message`SendGrid sending API key.` },
+      ),
+      settings.sendgridApiKey,
+      string(),
+      String,
+    ),
+    sendgridApiKeyFile: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.sendgridApiKeyFile,
+        string({ metavar: "VALUE" }),
+        { description: message`File containing the SendGrid API key.` },
+      ),
+      settings.sendgridApiKeyFile,
+      string(),
+      String,
+    ),
+    sendgridBaseUrl: bindings.bind(
+      option(
+        ...apiMailValueOptionNames.sendgridBaseUrl,
+        string({ metavar: "VALUE" }),
+        { description: message`SendGrid API base URL including an API path.` },
+      ),
+      settings.sendgridBaseUrl,
+      string(),
+      String,
+    ),
+    sendgridTimeout: bindings.bind(
+      map(
+        option(
+          ...apiMailValueOptionNames.sendgridTimeout,
+          integer({ min: 1, max: 2147483647 }),
+          {
+            description: message`Whole SendGrid delivery timeout in milliseconds.`,
+          },
+        ),
+        String,
+      ),
+      settings.sendgridTimeout,
       string(),
       String,
     ),

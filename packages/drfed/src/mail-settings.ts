@@ -77,6 +77,7 @@ function isMailTransport(value: string): value is MailSettings["transport"] {
     "maileroo",
     "mailtrap",
     "mailgun",
+    "sendgrid",
     "resend",
     "plunk",
   ].includes(value);
@@ -100,7 +101,7 @@ function selectTransport(raw: RawMailOptions): {
     explicit ?? (jmap ? "jmap" : smtp && highest >= 0 ? "smtp" : "logtape");
   if (!isMailTransport(transport)) {
     throw new Error(
-      "Unsupported mail transport; expected logtape, smtp, jmap, lettermint, maileroo, mailtrap, mailgun, plunk or resend.",
+      "Unsupported mail transport; expected logtape, smtp, jmap, lettermint, maileroo, mailtrap, mailgun, plunk, resend or sendgrid.",
     );
   }
   if (
@@ -536,7 +537,8 @@ function selectedMailSettings(
     transport === "mailtrap" ||
     transport === "mailgun" ||
     transport === "plunk" ||
-    transport === "resend"
+    transport === "resend" ||
+    transport === "sendgrid"
   ) {
     return resolveApiMailSettings(raw, cwd, transport);
   }
@@ -578,7 +580,8 @@ function secretFieldForTransport(
       transport === "mailtrap" ||
       transport === "mailgun" ||
       transport === "plunk" ||
-      transport === "resend") &&
+      transport === "resend" ||
+      transport === "sendgrid") &&
     (key === "mailApiKey" || key === "mailApiKeyFile")
   );
 }
@@ -596,7 +599,8 @@ function ignoredMailField(
         provider !== "mailtrap" &&
         provider !== "mailgun" &&
         provider !== "plunk" &&
-        provider !== "resend") ||
+        provider !== "resend" &&
+        provider !== "sendgrid") ||
       sources[key]?.value === undefined
     );
   }
@@ -607,6 +611,7 @@ function ignoredMailField(
     "maileroo",
     "mailtrap",
     "mailgun",
+    "sendgrid",
     "resend",
     "plunk",
   ].find((name) => key.startsWith(name));

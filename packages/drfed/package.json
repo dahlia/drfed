@@ -262,6 +262,7 @@
     "@upyo/mailgun": "catalog:",
     "@upyo/plunk": "catalog:",
     "@upyo/resend": "catalog:",
-    "@upyo/retry": "catalog:"
+    "@upyo/retry": "catalog:",
+    "@upyo/sendgrid": "catalog:"
   }
 }

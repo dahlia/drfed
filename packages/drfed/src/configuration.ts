@@ -102,6 +102,14 @@ export const configurationSchema = table({
           retries: v.optional(v.number("Expected a number.")),
         }),
       ),
+      sendgrid: v.optional(
+        table({
+          api_key: v.optional(text),
+          api_key_file: v.optional(text),
+          base_url: v.optional(text),
+          timeout_ms: v.optional(v.number("Expected a number.")),
+        }),
+      ),
       mailgun: v.optional(
         table({
           api_key: v.optional(text),
@@ -415,6 +423,38 @@ export const configurationSettings = {
     ["server"],
     "Resend retries using one idempotency key (0 through 10)",
     (config) => config.mail?.resend?.retries,
+    false,
+  ),
+  sendgridApiKey: setting(
+    "mail.sendgrid.api_key",
+    "SENDGRID_API_KEY",
+    ["server"],
+    "SendGrid sending API key",
+    (config) => config.mail?.sendgrid?.api_key,
+    true,
+  ),
+  sendgridApiKeyFile: setting(
+    "mail.sendgrid.api_key_file",
+    "SENDGRID_API_KEY_FILE",
+    ["server"],
+    "File containing the SendGrid API key",
+    (config) => config.mail?.sendgrid?.api_key_file,
+    true,
+  ),
+  sendgridBaseUrl: setting(
+    "mail.sendgrid.base_url",
+    "SENDGRID_BASE_URL",
+    ["server"],
+    "SendGrid API base URL including an API path",
+    (config) => config.mail?.sendgrid?.base_url,
+    false,
+  ),
+  sendgridTimeout: setting(
+    "mail.sendgrid.timeout_ms",
+    "SENDGRID_TIMEOUT",
+    ["server"],
+    "Whole SendGrid delivery timeout in milliseconds",
+    (config) => config.mail?.sendgrid?.timeout_ms,
     false,
   ),
   mailgunApiKey: setting(

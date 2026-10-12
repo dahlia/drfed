@@ -93,6 +93,9 @@ catalogs:
     '@upyo/retry':
       specifier: 0.6.0
       version: 0.6.0
+    '@upyo/sendgrid':
+      specifier: 0.6.0
+      version: 0.6.0
     '@upyo/smtp':
       specifier: 0.6.0
       version: 0.6.0
@@ -225,6 +228,9 @@ importers:
         specifier: 'catalog:'
         version: 0.6.0(@upyo/core@0.6.0)
       '@upyo/retry':
+        specifier: 'catalog:'
+        version: 0.6.0(@upyo/core@0.6.0)
+      '@upyo/sendgrid':
         specifier: 'catalog:'
         version: 0.6.0(@upyo/core@0.6.0)
       '@upyo/smtp':
@@ -2224,6 +2230,12 @@ packages:
 
   '@upyo/retry@0.6.0':
     resolution: {integrity: sha512-md0nTGbDomA+U81ZHWe9JcPRkSOVISHT9xIB522E66EOZAsrszCSmQGsDhPbWhNwHWN2jw/hyiYK8goZbzFjVQ==}
+    engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
+    peerDependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/sendgrid@0.6.0':
+    resolution: {integrity: sha512-qkVvtPE4gZhzWGgNfLsHUPrClfi6Q5o2UQ86VdWktOHtW2dNQD2psCV1q7WWg320zInItR2K6dRVYuKwcontGw==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
     peerDependencies:
       '@upyo/core': 0.6.0
@@ -5611,6 +5623,10 @@ snapshots:
       '@upyo/core': 0.6.0
 
   '@upyo/retry@0.6.0(@upyo/core@0.6.0)':
+    dependencies:
+      '@upyo/core': 0.6.0
+
+  '@upyo/sendgrid@0.6.0(@upyo/core@0.6.0)':
     dependencies:
       '@upyo/core': 0.6.0
 
