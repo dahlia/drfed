@@ -118,6 +118,15 @@ mise run dev
  -  Source license header checks with
     `node scripts/add-license/main.mts --check`.
  -  Package version sync with `node scripts/check-versions.mts`.
+ -  GitHub workflow and local composite action validation with jactionlint.
+ -  Changelog fragment validation and formatting with Sacho.
+
+Run `mise run check:workflows` from the repository root whenever you change a
+workflow file. The repository uses jactionlint's `default` profile and
+mise-managed ShellCheck. CI runs this same task through `mise run check` on
+pull requests and pushes. Use the latest release tags for GitHub Actions.  The
+configuration in *.github/jactionlint.yaml* allows version tags instead of
+commit hashes for the actions it lists.
 
 `mise run fmt` formats TypeScript/JavaScript, Markdown, and *mise.toml*.
 
@@ -186,6 +195,126 @@ _packages/\*/package.json_ and prints a summary of the old and new versions.
 
 Commit a version bump together with any other changes that accompany the
 release, such as lockfile updates or changelog edits.
+
+
+Changelog and release notes
+---------------------------
+
+All five packages share one changelog.  Run `mise run changelog:setup` once
+after cloning to register the Git merge drivers declared in *.gitattributes*.
+Add a short user-facing entry with
+`mise run changelog:add <topic>` and edit the resulting fragment in
+*changes.d/*.  Describe the behavior users receive, not the commit history.
+Changes with no user-visible effect, including internal refactors, CI, and
+contributor instructions, do not need an entry.  Historical commits are not
+checked for fragment coverage.
+
+Run `mise run fmt:changelog`, `mise run changelog:preview`, and
+`mise run check:changelog` before committing.  Sacho owns formatting of
+*CHANGES.md* and *changes.d/*; Hongdown excludes them.  With
+`materialize = false` in *sacho.toml*, unreleased entries remain in fragments
+and previews, so do not copy them into *CHANGES.md*.
+
+Before a release, verify all package versions with `mise run check:versions`,
+run `mise run changelog:next <version>`, and review the preview.  Run
+`mise run changelog:release <version>` locally to freeze the notes and consume
+the fragments.  Run the build/check/test gates, commit *CHANGES.md* and the
+consumed fragments with the release changes, then tag that commit with the bare
+version, such as `0.1.0`.  Tag CI reads the frozen notes; it must not
+regenerate them or choose a release date.  After tagging, use
+`mise run bump <next-version>` and `mise run changelog:next <next-version>` in
+a new commit to start the next cycle.  Never bump only one package.
+
+For changelog work, agents must read the official Sacho skill linked at
+*.agents/skills/npm-sacho-sacho-sacho/SKILL.md*.  Contributors do not need a
+global agent plugin.  `mise install` installs the
+pinned binary and runs dependency preparation, which links npm-bundled skills
+from both the workspace packages and the root development dependencies.  To
+update Sacho, change the *mise.toml* pin and run
+`mise exec -- pnpm add -Dw --save-exact @sacho/sacho@<version>` with the same
+version.  Run `mise run changelog:setup` again after installing the new binary
+to update the version-specific Git merge-driver path.  Commit the tool pin,
+root manifest, and lockfile together.
+
+
+Automated npm and GitHub releases
+---------------------------------
+
+Successful upstream pushes to `main` publish all five packages under the `dev`
+dist-tag; `latest` stays unchanged.  CI calculates one identifier such as
+`0.1.0-dev.123+abcdef01` from the shared base version, run number, and commit.
+npm removes build metadata, so manifests, internal dependencies, and installed
+`--version` output use `0.1.0-dev.123`.  The complete identifier and full
+commit SHA remain in each package's `drfedBuild` metadata and the artifact
+manifest. Keep the version checked in on `main` a stable SemVer version with no
+prerelease suffix; CI derives dev identifiers from it.
+
+Release tags are bare SemVer versions with no `v` prefix and must match the
+version of every checked-in public package.
+Stable tags use `latest`; prerelease tags such as `0.1.0-rc.1` use `next`.
+The `v` prefix, build metadata in tags, invalid versions, and mismatched package
+versions are rejected.  PRs, forks, deleted refs, and other branches only run
+validation and never publish.  Existing Linux/macOS/Windows tests remain
+required, and publication also requires a build, check, and test pass at the
+release version, plus installation of the exact packed artifacts through
+`mise run test:packaging --artifacts release-artifacts`. Run
+`mise run check:release` to exercise the release scripts locally against a
+loopback registry, including version, recovery, and GitHub Release fixtures.
+It does not publish to npm or GitHub.
+
+Before enabling automation, an npm maintainer must manually bootstrap all five
+public package names with a verified complete package set, publishing models,
+federation, GraphQL, web, then the `drfed` facade.  Use public access, a
+`bootstrap` dist-tag, and a version lower than every planned release, such as
+`0.0.0-bootstrap.0`.  npm also assigns `latest` on the first publication, even
+when a custom tag is supplied.
+Do not reuse that bootstrap version as an automated release tag.  Build, check,
+test, and verify packed local/global installs first; keep the exact tarballs.
+For each of `@drfed/models`, `@drfed/federation`, `@drfed/graphql`,
+`@drfed/web`, and `@drfed/drfed`, configure an npm trusted publisher for GitHub
+organization `fedify-dev`, repository `drfed`, and workflow filename
+`main.yaml`.  Enable both *Allow npm publish* and *Allow npm dist-tag*.  These
+are separate permissions; dist-tag access is off by default.  Use GitHub-hosted
+runners.  The mise pin of npm 12.2.0 supports OIDC dist-tag changes and shadows
+Node's bundled npm for CI publication.  The packed-install harness uses Node's
+bundled npm separately.  No npm token is supplied to the workflow; publishing
+requests provenance and uses the public repository metadata in each package.
+
+The publishing job alone receives `id-token: write`; validation jobs have read
+access, and only the separate GitHub Release job receives `contents: write`.
+Npm publication and GitHub Release jobs share one concurrency group
+(`queue: max`) with cancellation disabled.  The queue has GitHub's
+100-pending-job limit; rerun any job cancelled because it was full.
+Serialization prevents interleaving.  If an older build finishes late, the
+recorded workflow run number keeps `dev` pointing at the newer build, including
+after a base-version rollback.  `latest` and `next` use SemVer ordering.
+Packages first use the temporary `dev-staging` or `release-staging` dist-tag.
+The `dev`, `latest`, or `next` tag advances only after the whole set is
+confirmed, and the staging tag is then removed.  Never unpublish as rollback.
+
+Artifacts named `drfed-<run-id>` contain tarballs, identity/integrity metadata,
+and, for tag builds, a frozen copy of the release notes.  They are retained for
+90 days, subject to the repository's retention limit.  Reruns reuse the first
+verified artifact from the same run, skip versions already published with
+identical contents, and publish missing packages.  Registry/network failures are
+distinguished from missing versions and retries are bounded.  A mismatch in
+tarball bytes or build identity fails the run.  If the original artifact is
+missing and any package in the set is already published, recovery fails closed:
+use a new main push for a new dev build, or prepare a new reviewed patch tag.
+Do not rebuild an existing immutable version.  Tag deletion or movement is
+checked again immediately before registry writes and GitHub Release writes.
+
+After npm publication, tag builds create or verify the GitHub Release from
+`CHANGES.md` and upload the same verified tarballs.  Reruns keep an existing
+release whose notes, prerelease flag, and asset digests match, upload missing
+assets, and fail on conflicts.  Empty `starter` assets left by failed uploads
+are replaced; completed assets are never clobbered.  A stable GitHub Release is
+marked Latest only when it matches npm `latest`.  Main builds create no GitHub
+Release.  Tag builds also attach 20 completion scripts for all four commands
+and all five shells, named *drfed-server.bash*, *drfed-server.zsh*, and so on.
+These assets are extracted from the same verified application tarball that is
+published to npm.  Their manifest digests and tarball contents are checked
+before release uploads; reruns reuse matching assets and upload missing files.
 
 
 Source license headers

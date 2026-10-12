@@ -1,0 +1,9 @@
+profile: default
+rules:
+  unpinned-uses:
+    # Maintainers use current release tags for these actions rather than hashes.
+    policies:
+      actions/checkout: ref-pin
+      jdx/mise-action: ref-pin
+      actions/upload-artifact: ref-pin
+      actions/download-artifact: ref-pin

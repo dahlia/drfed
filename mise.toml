@@ -5,8 +5,12 @@ experimental = true
 
 [tools]
 "aqua:dahlia/hongdown" = "0.4.3"
+"github:jdx/jactionlint" = "2.1.0"
+"github:dahlia/sacho" = "0.3.2"
+"aqua:koalaman/shellcheck" = "0.11.0"
 "github:nushell/nushell" = "0.114.1"
 node = "26"
+npm = "12.2.0"
 "npm:@fedify/cli" = { version = "2.4.3", allow_low_downloads = true }
 "npm:oxlint" = "1.75.0"
 "npm:oxlint-tsgolint" = "7.0.2001"
@@ -59,6 +63,7 @@ run = "node --test packages/web/src/runtime.test.ts"
 
 [tasks."test:packaging"]
 description = "Test local and global npm tarball installations"
+raw_args = true
 depends = ["build"]
 run = "node scripts/test-packaging.mts"
 
@@ -72,6 +77,18 @@ run = "node scripts/test-packaging.mts"
 [tasks.check]
 description = "Check all"
 depends = ["check:*"]
+
+[tasks."check:workflows"]
+description = "Check GitHub workflows and local composite actions"
+run = "jactionlint"
+
+[tasks."check:changelog"]
+description = "Check changelog fragments and frozen release history"
+run = "sacho check"
+
+[tasks."check:release"]
+description = "Exercise release version, registry, artifact and recovery fixtures"
+run = "node scripts/test-release.mts"
 
 [tasks."check:types"]
 description = "Check TypeScript types"
@@ -120,6 +137,42 @@ run = "node scripts/check-versions.mts"
 description = "Format files"
 depends = ["fmt:*"]
 run = "oxfmt --write"
+
+[tasks."fmt:changelog"]
+description = "Format changelog fragments with Sacho"
+run = "sacho fmt"
+
+[tasks."changelog:setup"]
+description = "Register Sacho Git merge drivers after cloning"
+run = "sacho init --no-interactive"
+
+[tasks."changelog:add"]
+description = "Create a user-facing changelog fragment"
+usage = 'arg "<name>" help="Fragment topic name"'
+run = """
+#!/usr/bin/env nu
+sacho add $env.usage_name
+"""
+
+[tasks."changelog:preview"]
+description = "Preview the next shared release"
+run = "sacho preview"
+
+[tasks."changelog:next"]
+description = "Set the next shared changelog version"
+usage = 'arg "<version>" help="Next shared package version"'
+run = """
+#!/usr/bin/env nu
+sacho next $env.usage_version
+"""
+
+[tasks."changelog:release"]
+description = "Freeze reviewed changelog notes before committing a release"
+usage = 'arg "<version>" help="Verified shared release version"'
+run = """
+#!/usr/bin/env nu
+sacho release $env.usage_version
+"""
 
 [tasks."fmt:docs"]
 description = "Format Markdown documents"
@@ -256,3 +309,31 @@ description = "Invoke drfed-server command"
 depends = ["build"]
 raw_args = true
 run = "node packages/drfed/bin/drfed-server.mjs"
+
+[tasks."release:version"]
+description = "CI release version step"
+run = "node scripts/release.mts version"
+
+[tasks."release:apply"]
+description = "CI release apply step"
+run = "node scripts/release.mts apply"
+
+[tasks."release:pack"]
+description = "CI release pack step"
+run = "node scripts/release.mts pack"
+
+[tasks."release:verify"]
+description = "CI release verify step"
+run = "node scripts/release.mts verify"
+
+[tasks."release:ensure-unpublished"]
+description = "CI release ensure-unpublished step"
+run = "node scripts/release.mts ensure-unpublished"
+
+[tasks."release:publish"]
+description = "CI release publish step"
+run = "node scripts/release.mts publish"
+
+[tasks."release:github"]
+description = "CI release github step"
+run = "node scripts/release.mts github-release"

@@ -7,9 +7,10 @@
     "@logtape/logtape": "catalog:",
     "drizzle-orm": "catalog:",
     "@drfed/graphql": "workspace:*",
-    "graphql": "catalog:"
+    "graphql": "catalog:",
+    "@sacho/sacho": "0.3.2"
   },
   "scripts": {
-    "prepare": "skills-npm --recursive --yes --force"
+    "prepare": "skills-npm --recursive --yes --force && skills-npm --yes --force --no-cleanup"
   }
 }

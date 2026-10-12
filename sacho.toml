@@ -1,0 +1,19 @@
+[changelog]
+path = "CHANGES.md"
+title = "DrFed changelog"
+unreleased-heading = "To be released."
+materialize = false
+region-detection = "heading"
+
+[fragments]
+directory = "changes.d"
+next-file = "next"
+
+[vcs]
+preset = "git"
+
+[check]
+paths = []
+
+[links]
+"#" = "https://github.com/fedify-dev/drfed/issues/{n}"

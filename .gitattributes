@@ -1,2 +1,4 @@
 # Preserve the raw SQL bytes used by immutable migration checksums on every OS.
 /packages/models/drizzle/**/migration.sql text eol=lf
+CHANGES.md merge=sacho
+changes.d/next merge=ours

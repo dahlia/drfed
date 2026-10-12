@@ -266,5 +266,13 @@
     "@upyo/retry": "catalog:",
     "@upyo/sendgrid": "catalog:",
     "@upyo/ses": "catalog:"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fedify-dev/drfed.git",
+    "directory": "packages/drfed"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
