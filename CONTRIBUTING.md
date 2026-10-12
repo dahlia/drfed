@@ -260,12 +260,13 @@ Stable tags use `latest`; prerelease tags such as `0.1.0-rc.1` use `next`.
 The `v` prefix, build metadata in tags, invalid versions, and mismatched package
 versions are rejected.  PRs, forks, deleted refs, and other branches only run
 validation and never publish.  Existing Linux/macOS/Windows tests remain
-required, and publication also requires a build, check, and test pass at the
-release version, plus installation of the exact packed artifacts through
-`mise run test:packaging --artifacts release-artifacts`. Run
+required.  The release workflow waits for the check and test jobs, then builds
+with the calculated release version and verifies installation of the exact
+packed artifacts through
+`mise run --skip-deps test:packaging --artifacts release-artifacts`. Run
 `mise run check:release` to exercise the release scripts locally against a
 loopback registry, including version, recovery, and GitHub Release fixtures.
-It does not publish to npm or GitHub.
+This command does not publish to npm or GitHub.
 
 Before enabling automation, an npm maintainer must manually bootstrap all five
 public package names with a verified complete package set, publishing models,

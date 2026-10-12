@@ -130,13 +130,13 @@ jobs:
           path: release-artifacts
       - name: Apply the single calculated registry version before building
         run: mise run release:apply
-      - name: Validate the versioned build
-        run: mise run build && mise run check && mise run test
+      - name: Build the versioned packages
+        run: mise run build
       - name: Pack the complete public package set
         if: steps.original.outputs.reuse != 'true'
         run: mise run release:pack
       - name: Verify artifact identity and installed behavior
-        run: mise run release:verify && mise run test:packaging --artifacts release-artifacts
+        run: mise run release:verify && mise run --skip-deps test:packaging --artifacts release-artifacts
       - uses: actions/upload-artifact@v7.0.2
         if: steps.original.outputs.reuse != 'true'
         with:
