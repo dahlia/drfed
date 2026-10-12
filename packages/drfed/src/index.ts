@@ -281,6 +281,7 @@ export async function main(): Promise<void> {
           parsed.mode[0] === "schema" ? undefined : invocation.load(parsed),
       },
       help: "option",
+      completion: "both",
       showChoices: true,
       showDefault: true,
       version: {

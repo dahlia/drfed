@@ -21,8 +21,9 @@ import { message } from "@optique/core/message";
 import { map, optional, withDefault } from "@optique/core/modifiers";
 import type { InferValue } from "@optique/core/parser";
 import { flag, option } from "@optique/core/primitives";
-import { origin, socketAddress, string } from "@optique/core/valueparser";
+import { origin, socketAddress } from "@optique/core/valueparser";
 import { textFormatter } from "@optique/logtape";
+import { path } from "@optique/run/valueparser";
 
 import {
   configurationBoolean,
@@ -46,7 +47,7 @@ export function createWebProgram(
   const parser = object({
     configPath: optional(
       bindings.bindConfigPath(
-        option("--config", string({ metavar: "FILE" }), {
+        option("--config", path({ metavar: "FILE", type: "file" }), {
           description: message`Read the shared DrFed TOML configuration file.`,
         }),
       ),

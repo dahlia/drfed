@@ -22,7 +22,7 @@ postinstall = ["mise deps", "mise generate git-pre-commit --task check --write"]
 
 [tasks.build]
 description = "Build the project"
-depends = ["build:web", "build:server"]
+depends = ["build:web", "generate:completion"]
 silent = "stdout"
 
 [tasks."build:backend"]
@@ -47,6 +47,11 @@ depends = [
 dir = "./packages/web"
 run = "pnpm exec relay-compiler --noWatchman && pnpm run build"
 
+[tasks."generate:completion"]
+description = "Generate bundled completion scripts for all commands and shells"
+depends = ["build:server"]
+run = "node scripts/generate-completion.mts"
+
 [tasks."test:web-runtime"]
 description = "Test the embedded SolidStart runtime without an HTTP listener"
 depends = ["build:web"]
@@ -55,6 +60,13 @@ run = "node --test packages/web/src/runtime.test.ts"
 [tasks."test:packaging"]
 description = "Test local and global npm tarball installations"
 depends = ["build"]
+run = "node scripts/test-packaging.mts"
+
+[tasks."test:completion-installation"]
+description = "Probe packed completion discovery and manual loading in five shells"
+depends = ["build"]
+tools = { "aqua:fish-shell/fish-shell" = "4.9.3", "github:PowerShell/PowerShell" = "7.6.6" }
+env = { DRFED_TEST_COMPLETION_SHELLS = "1" }
 run = "node scripts/test-packaging.mts"
 
 [tasks.check]
@@ -139,7 +151,7 @@ if "usage_debug" in $env {
   $env.LOGTAPE_TEST_MODE = "on-failure"
   $env.LOGTAPE_TEST_LOWEST_LEVEL = "debug"
 }
-pnpm run --parallel --recursive test
+pnpm run --parallel --recursive test --test-concurrency=1
 '''
 
 [tasks."test:postgres"]

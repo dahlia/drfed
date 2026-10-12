@@ -48,7 +48,7 @@ export function createMigrationProgram(
   const parser = object({
     configPath: optional(
       bindings.bindConfigPath(
-        option("--config", string({ metavar: "FILE" }), {
+        option("--config", path({ metavar: "FILE", type: "file" }), {
           description: message`Read the shared DrFed TOML configuration file.`,
         }),
       ),

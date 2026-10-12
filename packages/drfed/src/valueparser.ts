@@ -19,9 +19,43 @@ import {
   type NonEmptyString,
   type ValueParser,
   type ValueParserResult,
+  choice,
   ensureNonEmptyString,
   origin,
+  string,
 } from "@optique/core/valueparser";
+import { path } from "@optique/run/valueparser";
+
+/**
+ * Delegate file suggestions to the shell without validating inactive paths.
+ * @returns A string parser with Optique's native file suggestions.
+ */
+export function suggestedPath(): ValueParser<"sync", string> {
+  const suggestions = path({ type: "file", metavar: "FILE" });
+  return {
+    ...string({ metavar: "FILE" }),
+    suggest(prefix) {
+      return suggestions.suggest?.(prefix) ?? [];
+    },
+  };
+}
+
+/**
+ * Suggest known values while leaving validation to the selected provider.
+ * @returns A string parser with static Optique choice suggestions.
+ */
+export function suggestedString(
+  choices: readonly string[],
+  metavar: NonEmptyString = "VALUE",
+): ValueParser<"sync", string> {
+  const suggestions = choice(choices);
+  return {
+    ...string({ metavar }),
+    suggest(prefix) {
+      return suggestions.suggest?.(prefix) ?? [];
+    },
+  };
+}
 
 /**
  * A host name that the WHATWG URL parser has canonicalized into a dotted-quad

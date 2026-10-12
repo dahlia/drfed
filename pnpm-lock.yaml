@@ -43,20 +43,20 @@ catalogs:
       specifier: 2.3.0-dev.840
       version: 2.3.0-dev.840
     '@optique/config':
-      specifier: 1.3.0
-      version: 1.3.0
+      specifier: 1.3.5
+      version: 1.3.5
     '@optique/core':
-      specifier: ^1.3.0
-      version: 1.3.0
+      specifier: ^1.3.5
+      version: 1.3.5
     '@optique/env':
-      specifier: 1.3.0
-      version: 1.3.0
+      specifier: 1.3.5
+      version: 1.3.5
     '@optique/logtape':
-      specifier: ^1.3.0
-      version: 1.3.0
+      specifier: ^1.3.5
+      version: 1.3.5
     '@optique/run':
-      specifier: ^1.3.0
-      version: 1.3.0
+      specifier: ^1.3.5
+      version: 1.3.5
     '@types/node':
       specifier: ^26.0.0
       version: 26.0.0
@@ -190,19 +190,19 @@ importers:
         version: 2.3.0-dev.840
       '@optique/config':
         specifier: 'catalog:'
-        version: 1.3.0(@standard-schema/spec@1.1.0)
+        version: 1.3.5(@standard-schema/spec@1.1.0)
       '@optique/core':
         specifier: 'catalog:'
-        version: 1.3.0
+        version: 1.3.5
       '@optique/env':
         specifier: 'catalog:'
-        version: 1.3.0
+        version: 1.3.5
       '@optique/logtape':
         specifier: 'catalog:'
-        version: 1.3.0(@logtape/file@2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840))(@logtape/logtape@2.3.0-dev.840)
+        version: 1.3.5(@logtape/file@2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840))(@logtape/logtape@2.3.0-dev.840)
       '@optique/run':
         specifier: 'catalog:'
-        version: 1.3.0
+        version: 1.3.5
       '@upyo/core':
         specifier: 'catalog:'
         version: 0.6.0
@@ -1286,22 +1286,22 @@ packages:
     resolution: {integrity: sha512-eSYWTm620tTk45EKSedaUL8MFYI8hW164hIXsgIHyxu3VobUB3fFCu5t0hQby6OoWRPsG1KkKUG2M5UadiLiVg==}
     engines: {node: '>=14'}
 
-  '@optique/config@1.3.0':
-    resolution: {integrity: sha512-hKDtLeXV27Vu0PSRxJ/61yRChiWsypCBJAwaNHl2+WbYKir8/yuklmsCCFQ1SqjDrH5HoOfsMaQKzg3RL0/FPw==}
+  '@optique/config@1.3.5':
+    resolution: {integrity: sha512-4PZihaFREQY7joJgjk+ZUtkRFqOQaztf5+jE5ffgTw4MBhjv9u1SCCskqLc8Prb0ia9/K6lh7Z9s4NDGCEsLvw==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
     peerDependencies:
       '@standard-schema/spec': ^1.1.0
 
-  '@optique/core@1.3.0':
-    resolution: {integrity: sha512-Mg0onYl6TswC2+BGkTIycltIQ/rFzPfu6g6LcxT63wXiu8MiyK7xoXnoRmmQGPHv+gJ3qFvl4gc/q1C8bMpdew==}
+  '@optique/core@1.3.5':
+    resolution: {integrity: sha512-tZASQ0TXsuk+6aqnA+n9vO3anHJ5Vr5oZIIpU/YfCqB0+Q8p3GRQyd5giBB9EnSoOE7/++0pR0xl+q0PSwWZnA==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
 
-  '@optique/env@1.3.0':
-    resolution: {integrity: sha512-HclAdTvBaE17MIxMKwu9w8+9fq1bqSicvuHQ8Mc3aqPFAfH8bh1cYFk5l+FBdJCdhbUZoQOP5Llh85u4f0ClIQ==}
+  '@optique/env@1.3.5':
+    resolution: {integrity: sha512-PFPc5E0Y2004O7KH2glgIpQjEkbP3nJMLolHNyS7NKZZCNeL8jPvncpxRm5Xky7AwfOZj1RfEFrNdWDc7pF4Yg==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
 
-  '@optique/logtape@1.3.0':
-    resolution: {integrity: sha512-ZrPrmrGZC3CW6dGS9omGnU8U7uJfPRFOzUinVKz63yxEx8ohdr5chkESu8pI14xwhlOf05pCm8us3bw71Yt6TA==}
+  '@optique/logtape@1.3.5':
+    resolution: {integrity: sha512-ztukGBh17eAKfznPh0KZe2iksGUn9gyu0rWSThs29hDf7IXzPPEvyLO6tlSC0PqKwbeNnhi/q4ErLoYyu7Xh7Q==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
     peerDependencies:
       '@logtape/file': ^2.2.2
@@ -1310,8 +1310,8 @@ packages:
       '@logtape/file':
         optional: true
 
-  '@optique/run@1.3.0':
-    resolution: {integrity: sha512-LhnBjIGK1CfF1nW+1sLxyI+EZ4/JZBy5EEMmkdXfmViDdQzJOvJKjEkF1ofxDpjfWcbs4fW8XkMBxE8zRCnwrA==}
+  '@optique/run@1.3.5':
+    resolution: {integrity: sha512-VDPJorzfWZHx0YWZHQ3i4O/Umo4usB5l3wJIbvovNtGeZ/+Kl1BA1ldDF08RbEWtUdUCxL0SdmdA/p5WolKkMg==}
     engines: {bun: '>=1.2.0', deno: '>=2.3.0', node: '>=20.0.0'}
 
   '@oxc-parser/binding-android-arm-eabi@0.134.0':
@@ -4956,27 +4956,27 @@ snapshots:
 
   '@opentelemetry/semantic-conventions@1.43.0': {}
 
-  '@optique/config@1.3.0(@standard-schema/spec@1.1.0)':
+  '@optique/config@1.3.5(@standard-schema/spec@1.1.0)':
     dependencies:
-      '@optique/core': 1.3.0
+      '@optique/core': 1.3.5
       '@standard-schema/spec': 1.1.0
 
-  '@optique/core@1.3.0': {}
+  '@optique/core@1.3.5': {}
 
-  '@optique/env@1.3.0':
+  '@optique/env@1.3.5':
     dependencies:
-      '@optique/core': 1.3.0
+      '@optique/core': 1.3.5
 
-  '@optique/logtape@1.3.0(@logtape/file@2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840))(@logtape/logtape@2.3.0-dev.840)':
+  '@optique/logtape@1.3.5(@logtape/file@2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840))(@logtape/logtape@2.3.0-dev.840)':
     dependencies:
       '@logtape/logtape': 2.3.0-dev.840
-      '@optique/core': 1.3.0
+      '@optique/core': 1.3.5
     optionalDependencies:
       '@logtape/file': 2.3.0-dev.840(@logtape/logtape@2.3.0-dev.840)
 
-  '@optique/run@1.3.0':
+  '@optique/run@1.3.5':
     dependencies:
-      '@optique/core': 1.3.0
+      '@optique/core': 1.3.5
 
   '@oxc-parser/binding-android-arm-eabi@0.134.0':
     optional: true

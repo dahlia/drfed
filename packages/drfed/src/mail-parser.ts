@@ -30,6 +30,7 @@ import {
   configurationSettings as settings,
 } from "./configuration.ts";
 import { createJmapFields, jmapValueOptionNames } from "./jmap-parser.ts";
+import { suggestedPath, suggestedString } from "./valueparser.ts";
 
 /** Mail value-option spellings shared by parsing and metadata arity. */
 export const mailValueOptionNames = {
@@ -69,7 +70,22 @@ export function createMailParser(
     mailTransport: bind(
       option(
         ...mailValueOptionNames.mailTransport,
-        string({ metavar: "TRANSPORT" }),
+        suggestedString(
+          [
+            "logtape",
+            "smtp",
+            "jmap",
+            "lettermint",
+            "maileroo",
+            "mailtrap",
+            "mailgun",
+            "plunk",
+            "resend",
+            "sendgrid",
+            "ses",
+          ],
+          "TRANSPORT",
+        ),
         {
           description: message`Select logtape, smtp, jmap, lettermint, maileroo, mailtrap, mailgun, plunk, resend, sendgrid or ses. SMTP host/URL and JMAP session URL select their provider.`,
         },
@@ -128,9 +144,13 @@ export function createMailParser(
       String,
     ),
     smtpTls: bind(
-      option(...mailValueOptionNames.smtpTls, string({ metavar: "VALUE" }), {
-        description: message`SMTP TLS mode: direct, starttls-required or opportunistic.`,
-      }),
+      option(
+        ...mailValueOptionNames.smtpTls,
+        suggestedString(["direct", "starttls-required", "opportunistic"]),
+        {
+          description: message`SMTP TLS mode: direct, starttls-required or opportunistic.`,
+        },
+      ),
       settings.smtpTls,
       string(),
       identity,
@@ -154,11 +174,9 @@ export function createMailParser(
       identity,
     ),
     smtpPasswordFile: bind(
-      option(
-        ...mailValueOptionNames.smtpPasswordFile,
-        string({ metavar: "VALUE" }),
-        { description: message`File containing the SMTP password.` },
-      ),
+      option(...mailValueOptionNames.smtpPasswordFile, suggestedPath(), {
+        description: message`File containing the SMTP password.`,
+      }),
       settings.smtpPasswordFile,
       string(),
       identity,
@@ -166,7 +184,7 @@ export function createMailParser(
     smtpAuthMethod: bind(
       option(
         ...mailValueOptionNames.smtpAuthMethod,
-        string({ metavar: "VALUE" }),
+        suggestedString(["plain", "login", "xoauth2", "oauthbearer"]),
         { description: message`SMTP authentication method.` },
       ),
       settings.smtpAuthMethod,
@@ -184,11 +202,9 @@ export function createMailParser(
       identity,
     ),
     smtpAccessTokenFile: bind(
-      option(
-        ...mailValueOptionNames.smtpAccessTokenFile,
-        string({ metavar: "VALUE" }),
-        { description: message`File containing the SMTP OAuth access token.` },
-      ),
+      option(...mailValueOptionNames.smtpAccessTokenFile, suggestedPath(), {
+        description: message`File containing the SMTP OAuth access token.`,
+      }),
       settings.smtpAccessTokenFile,
       string(),
       identity,
@@ -243,7 +259,7 @@ export function createMailParser(
       identity,
     ),
     smtpCaFile: bind(
-      option(...mailValueOptionNames.smtpCaFile, string({ metavar: "VALUE" }), {
+      option(...mailValueOptionNames.smtpCaFile, suggestedPath(), {
         description: message`File containing additional SMTP certificate authorities.`,
       }),
       settings.smtpCaFile,
@@ -251,21 +267,17 @@ export function createMailParser(
       identity,
     ),
     smtpCertFile: bind(
-      option(
-        ...mailValueOptionNames.smtpCertFile,
-        string({ metavar: "VALUE" }),
-        { description: message`File containing the SMTP client certificate.` },
-      ),
+      option(...mailValueOptionNames.smtpCertFile, suggestedPath(), {
+        description: message`File containing the SMTP client certificate.`,
+      }),
       settings.smtpCertFile,
       string(),
       identity,
     ),
     smtpKeyFile: bind(
-      option(
-        ...mailValueOptionNames.smtpKeyFile,
-        string({ metavar: "VALUE" }),
-        { description: message`File containing the SMTP client private key.` },
-      ),
+      option(...mailValueOptionNames.smtpKeyFile, suggestedPath(), {
+        description: message`File containing the SMTP client private key.`,
+      }),
       settings.smtpKeyFile,
       string(),
       identity,

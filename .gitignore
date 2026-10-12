@@ -9,6 +9,7 @@ __generated__/
 mise.local.toml
 node_modules/
 packages/*/dist/
+packages/drfed/completions/
 
 index.db
 

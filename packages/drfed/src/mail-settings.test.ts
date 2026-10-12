@@ -22,6 +22,7 @@ import { createConfigurationBindings } from "@drfed/drfed/configuration";
 import { createMailParser } from "@drfed/drfed/mail-parser";
 import { prepareMail } from "@drfed/drfed/mail-runtime";
 import { resolveMailSettings } from "@drfed/drfed/mail-settings";
+import { suggest } from "@optique/core/parser";
 import { run } from "@optique/run";
 
 async function parsed(
@@ -52,11 +53,21 @@ it("defaults to log-only without logging message contents", async () => {
 });
 
 it("switches providers before validating foreign settings and reading files", async () => {
-  const raw = await parsed(["--mail-transport", "logtape"], {
-    DRFED_SMTP_URL: "invalid SECRET",
-    DRFED_SMTP_PASSWORD_FILE: "PRIVATE_MISSING",
-    DRFED_SMTP_PORT: "invalid",
-  });
+  const raw = await parsed(
+    [
+      "--mail-transport",
+      "logtape",
+      "--smtp-tls=invalid",
+      "--smtp-auth-method=invalid",
+      "--ses-auth=invalid",
+      "--mailgun-region=invalid",
+    ],
+    {
+      DRFED_SMTP_URL: "invalid SECRET",
+      DRFED_SMTP_PASSWORD_FILE: "PRIVATE_MISSING",
+      DRFED_SMTP_PORT: "invalid",
+    },
+  );
   const resolved = resolveMailSettings(raw);
   assert.equal(resolved.mail.transport, "logtape");
   assert.ok(
@@ -74,6 +85,50 @@ it("switches providers before validating foreign settings and reading files", as
         smtpUrl: { source: "cli", value: "smtp://localhost" },
       }),
     /same source/u,
+  );
+});
+
+it("suggests static mail choices through configuration bindings without reading environment settings", () => {
+  const parser = createMailParser(
+    createConfigurationBindings({
+      env: () => {
+        throw new Error("Completion must not read environment settings.");
+      },
+    }),
+  );
+  const cases: readonly [string, readonly string[]][] = [
+    [
+      "--mail-transport",
+      [
+        "logtape",
+        "smtp",
+        "jmap",
+        "lettermint",
+        "maileroo",
+        "mailtrap",
+        "mailgun",
+        "plunk",
+        "resend",
+        "sendgrid",
+        "ses",
+      ],
+    ],
+    ["--smtp-tls", ["direct", "starttls-required", "opportunistic"]],
+    ["--smtp-auth-method", ["plain", "login", "xoauth2", "oauthbearer"]],
+    ["--ses-auth", ["credentials", "session"]],
+    ["--mailgun-region", ["us", "eu"]],
+  ];
+  for (const [option, expected] of cases) {
+    const values = Array.from(suggest(parser, [option, ""]))
+      .filter((item) => item.kind === "literal")
+      .map((item) => item.text);
+    assert.deepEqual(values, expected, option);
+  }
+  assert.deepEqual(
+    Array.from(suggest(parser, ["--mail-transport", "re"]))
+      .filter((item) => item.kind === "literal")
+      .map((item) => item.text),
+    ["resend"],
   );
 });
 
