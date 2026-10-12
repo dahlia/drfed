@@ -187,14 +187,15 @@ differs from the rest, reporting which packages are at which versions.
 To bump every package to a new version at once:
 
 ~~~~ sh
-mise run bump 1.2.0
+mise bump-version 1.2.0
 ~~~~
 
 Pass a valid semver string as the only argument.  The task updates every
-_packages/\*/package.json_ and prints a summary of the old and new versions.
+_packages/\*/package.json_, sets *changes.d/next*, and regenerates the
+unreleased section of *CHANGES.md* with Sacho.  `mise bump` remains an alias.
+Review and commit these files together to start the next release cycle.
 
-Commit a version bump together with any other changes that accompany the
-release, such as lockfile updates or changelog edits.
+Include any accompanying lockfile updates in the version-bump commit.
 
 
 Changelog and release notes
@@ -212,8 +213,9 @@ checked for fragment coverage.
 Run `mise run fmt:changelog`, `mise run changelog:preview`, and
 `mise run check:changelog` before committing.  Sacho owns formatting of
 *CHANGES.md* and *changes.d/*; Hongdown excludes them.  With
-`materialize = false` in *sacho.toml*, unreleased entries remain in fragments
-and previews, so do not copy them into *CHANGES.md*.
+`materialize = true` in *sacho.toml*, Sacho also keeps the unreleased section
+of *CHANGES.md* in sync.  Run `mise exec -- sacho sync` after editing fragments
+and commit the generated changelog with them.
 
 Before a release, verify all package versions with `mise run check:versions`,
 run `mise run changelog:next <version>`, and review the preview.  Run
@@ -221,9 +223,12 @@ run `mise run changelog:next <version>`, and review the preview.  Run
 the fragments.  Run the build/check/test gates, commit *CHANGES.md* and the
 consumed fragments with the release changes, then tag that commit with the bare
 version, such as `0.1.0`.  Tag CI reads the frozen notes; it must not
-regenerate them or choose a release date.  After tagging, use
-`mise run bump <next-version>` and `mise run changelog:next <next-version>` in
-a new commit to start the next cycle.  Never bump only one package.
+regenerate them or choose a release date.
+
+After tagging, use
+`mise bump-version <next-version>` and commit the package metadata,
+*changes.d/next*, and *CHANGES.md* to start the next cycle.  Never bump only
+one package.
 
 For changelog work, agents must read the official Sacho skill linked at
 *.agents/skills/npm-sacho-sacho-sacho/SKILL.md*.  Contributors do not need a

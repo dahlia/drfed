@@ -234,14 +234,21 @@ if ($env.DRFED_TEST_POSTGRES_URL | str trim | is-empty) {
 node --test packages/models/src/migration-session.test.ts
 """
 
-[tasks.bump]
-description = "Bump all package versions"
+[tasks.bump-version]
+alias = "bump"
+description = "Prepare all package versions and the changelog for the next release"
 usage = """
 arg "<version>" help="New version number"
 """
 run = """
 #!/usr/bin/env nu
 node scripts/bump-versions.mts $env.usage_version
+if $env.LAST_EXIT_CODE != 0 { exit $env.LAST_EXIT_CODE }
+sacho next $env.usage_version
+if $env.LAST_EXIT_CODE != 0 { exit $env.LAST_EXIT_CODE }
+node scripts/check-versions.mts
+if $env.LAST_EXIT_CODE != 0 { exit $env.LAST_EXIT_CODE }
+sacho check
 """
 
 [tasks."generate:account"]

@@ -2,7 +2,7 @@
 path = "CHANGES.md"
 title = "DrFed changelog"
 unreleased-heading = "To be released."
-materialize = false
+materialize = true
 region-detection = "heading"
 
 [fragments]
