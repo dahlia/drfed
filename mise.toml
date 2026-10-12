@@ -22,7 +22,7 @@ postinstall = ["mise deps", "mise generate git-pre-commit --task check --write"]
 
 [tasks.build]
 description = "Build the project"
-depends = ["build:web", "build:server"]
+depends = ["build:web", "generate:completion"]
 silent = "stdout"
 
 [tasks."build:backend"]
@@ -46,6 +46,11 @@ depends = [
 ]
 dir = "./packages/web"
 run = "pnpm exec relay-compiler --noWatchman && pnpm run build"
+
+[tasks."generate:completion"]
+description = "Generate bundled completion scripts for all commands and shells"
+depends = ["build:server"]
+run = "node scripts/generate-completion.mts"
 
 [tasks."test:web-runtime"]
 description = "Test the embedded SolidStart runtime without an HTTP listener"

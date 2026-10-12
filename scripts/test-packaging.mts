@@ -119,6 +119,92 @@ async function smokeMigration(
   assert.equal(JSON.parse(checked.stdout).applied, migrationCount);
 }
 
+function completionFiles(
+  command: string,
+): readonly (readonly [string, string])[] {
+  return [
+    ["bash", command],
+    ["zsh", `_${command}`],
+    ["fish", `${command}.fish`],
+    ["pwsh", `${command}.ps1`],
+    ["nu", `${command}.nu`],
+  ];
+}
+
+async function smokeCompletion(
+  application: string,
+  prefix: string,
+  modules: string,
+  global: boolean,
+) {
+  for (const command of [
+    "drfed-server",
+    "drfed-web",
+    "drfed-migrate",
+    "drfed-account",
+  ]) {
+    const linked = global
+      ? join(prefix, windows ? `${command}.cmd` : `bin/${command}`)
+      : join(modules, ".bin", windows ? `${command}.cmd` : command);
+    const invoke = (args: string[]) =>
+      windows
+        ? run(
+            process.execPath,
+            [
+              npm,
+              "exec",
+              "--offline",
+              ...(global ? ["--global", "--prefix", prefix] : []),
+              "--",
+              command,
+              ...args,
+            ],
+            prefix,
+          )
+        : run(linked, args, prefix);
+    for (const [shell, filename] of completionFiles(command)) {
+      // oxlint-disable-next-line no-await-in-loop
+      const generated = await invoke(["completion", shell]);
+      assert.equal(generated.stderr, "");
+      // Bundled files belong to the installed package, independent of cwd.
+      // oxlint-disable-next-line no-await-in-loop
+      const bundled = await readFile(
+        join(application, "completions", shell, filename),
+        "utf8",
+      );
+      assert.equal(generated.stdout, bundled);
+      const option =
+        command === "drfed-web" ? "--public-origin" : "--data-path";
+      // oxlint-disable-next-line no-await-in-loop
+      const suggestions = await invoke([
+        "--completion",
+        shell,
+        ...(command === "drfed-account" ? ["create"] : []),
+        option.slice(0, -2),
+      ]);
+      assert.equal(suggestions.stderr, "");
+      assert.ok(suggestions.stdout.includes(option), `${command}: ${shell}`);
+      if (command === "drfed-server") {
+        // oxlint-disable-next-line no-await-in-loop
+        const values = await invoke([
+          "completion",
+          shell,
+          "--mail-transport=re",
+        ]);
+        assert.equal(values.stderr, "");
+        assert.ok(values.stdout.includes("resend"));
+        assert.ok(!values.stdout.includes("smtp"));
+      }
+      if (command === "drfed-account") {
+        // oxlint-disable-next-line no-await-in-loop
+        const subcommands = await invoke(["completion", shell, "cr"]);
+        assert.equal(subcommands.stderr, "");
+        assert.ok(subcommands.stdout.includes("create"));
+      }
+    }
+  }
+}
+
 async function pack(name: string) {
   const { stdout } = await run(
     "pnpm",
@@ -160,6 +246,16 @@ async function pack(name: string) {
   checkTargets(manifest.exports);
   checkTargets(manifest.bin);
   assert.ok(![...files].some((path) => path.startsWith("src/")));
+  if (name === "drfed") {
+    for (const command of Object.keys(manifest.bin ?? {})) {
+      for (const [shell, filename] of completionFiles(command)) {
+        assert.ok(
+          files.has(`completions/${shell}/${filename}`),
+          `Missing packed completion: ${shell}/${filename}`,
+        );
+      }
+    }
+  }
   if (name === "models") {
     assert.ok(files.has("dist/migrations-manifest.json"));
     const migrations = await readdir(join(root, "packages/models/drizzle"), {
@@ -593,6 +689,10 @@ try {
         ? join(prefix, "lib/node_modules")
         : join(prefix, "node_modules");
     const application = join(modules, "@drfed/drfed");
+    await smokeCompletion(application, prefix, modules, global);
+    console.log(
+      `${global ? "Global" : "Local"} npm install: bundled completion and all five suggestion protocols passed`,
+    );
     const require = createRequire(join(application, "package.json"));
     for (const { manifest } of packed) {
       const installed = JSON.parse(

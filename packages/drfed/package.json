@@ -169,6 +169,7 @@
   },
   "files": [
     "bin/",
+    "completions/",
     "dist/",
     "README.md"
   ],

@@ -185,6 +185,31 @@ login links, explicitly pass `--mail-log-content`; `mise run dev` does this for
 the development server.
 
 
+Building completion scripts
+---------------------------
+
+`mise run build` generates completion scripts for all four commands and the
+five Optique shells. To regenerate them explicitly, run
+`mise run generate:completion` from the repository root.
+
+The published package includes these files under *completions/*:
+
+ -  *bash/drfed-COMMAND*
+ -  *zsh/\_drfed-COMMAND*
+ -  *fish/drfed-COMMAND.fish*
+ -  *pwsh/drfed-COMMAND.ps1*
+ -  *nu/drfed-COMMAND.nu*
+
+Replace `COMMAND` with `server`, `web`, `migrate`, or `account`. The files are
+generated from the built command runners; installation does not run the
+generator or require development dependencies.
+
+Optique 1.3.0 may still suggest option names after the `--` terminator;
+this is tracked in [Optique #1028].
+
+[Optique #1028]: https://github.com/dahlia/optique/issues/1028
+
+
 Testing npm installation
 ------------------------
 
@@ -195,8 +220,11 @@ and empty npm configuration files, omits development dependencies, and disables
 installation scripts.  It needs network access to the public npm registry for
 external dependencies.
 
-The check verifies packed entry points and migrations, npm's bin links and
-help for all four commands, standalone migration and account creation, a
+The check verifies packed entry points, migrations and all 20 completion
+scripts. It exercises script generation and runtime suggestions for all five
+shell protocols through the installed binaries, including account subcommands
+and mail choices. It also checks npm's bin links and help for all four
+commands, standalone migration and account creation, a
 database-backed GraphQL request after initial migration, and a restart with
 `--no-migrate` using the same PGlite directory.  It removes
 the temporary installations and databases after stopping their servers.
