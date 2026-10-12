@@ -17,6 +17,7 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { createServer } from "node:http";
+import { resolve as resolvePath } from "node:path";
 import { type TestContext, it } from "node:test";
 
 import { createBoundedTransport } from "@drfed/drfed/bounded-mail-runtime";
@@ -114,12 +115,13 @@ it("rejects same-source API credential representations but discards lower confli
   if (corrected.mail.transport !== "lettermint") throw new Error();
   assert.deepEqual(corrected.mail.credential, {
     type: "file",
-    path: "/work/selected",
+    path: resolvePath("/work/selected"),
   });
   await assert.rejects(
     prepareMail(corrected.mail),
     (error) =>
-      error instanceof Error && !error.message.includes("/work/selected"),
+      error instanceof Error &&
+      !error.message.includes(resolvePath("/work/selected")),
   );
   assert.throws(
     () =>

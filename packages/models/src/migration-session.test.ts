@@ -666,7 +666,7 @@ it(
               "SELECT count(*)::integer AS count FROM drizzle.__drizzle_migrations",
             )
           ).rows[0]?.count,
-          20,
+          (await verifyMigrationManifest()).migrations.length,
         );
       });
     } finally {

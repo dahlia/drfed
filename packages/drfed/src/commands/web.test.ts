@@ -256,7 +256,7 @@ it("closes an acquired web runtime when HTTP listener startup fails", async () =
   try {
     const preload = join(directory, "rollback.mjs");
     const closed = join(directory, "closed.txt");
-    const source = `import { writeFile } from 'node:fs/promises'; export async function createWebRuntime(){return {fetch:()=>Response.json({}),close:()=>writeFile(${JSON.stringify(closed)},'closed')}}`;
+    const source = `import { writeFile } from 'node:fs/promises'; export async function createWebRuntime(){return {fetch:()=>Response.json({}),close:()=>writeFile('closed.txt','closed')}}`;
     await writeFile(
       preload,
       `import { registerHooks } from "node:module";

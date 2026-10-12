@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import assert from "node:assert/strict";
+import { resolve } from "node:path";
 import { it } from "node:test";
 
 import { createConfigurationBindings } from "@drfed/drfed/configuration";
@@ -88,7 +89,7 @@ it("inherits SMTP URL host and replaces lower credentials without decoding them"
   assert.equal(resolved.mail.connection.requireTls, true);
   assert.deepEqual(resolved.mail.authentication?.secret, {
     type: "file",
-    path: "/work/selected-secret",
+    path: resolve("/work/selected-secret"),
   });
   assert.deepEqual(resolved.diagnostic["mail.smtp.password_file"], {
     value: "<redacted>",
@@ -245,7 +246,7 @@ it("discards lower password representation conflicts before selecting a file", a
   if (resolved.mail.transport !== "smtp") throw new Error();
   assert.deepEqual(resolved.mail.authentication?.secret, {
     type: "file",
-    path: "/work/selected",
+    path: resolve("/work/selected"),
   });
 });
 
@@ -332,7 +333,7 @@ it("uses a username-only URL with separately supplied credentials", async () => 
   if (password.mail.transport !== "smtp") throw new Error();
   assert.deepEqual(password.mail.authentication?.secret, {
     type: "file",
-    path: "/work/password",
+    path: resolve("/work/password"),
   });
   const token = resolveMailSettings(
     {

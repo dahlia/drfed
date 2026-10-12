@@ -17,7 +17,7 @@
 import assert from "node:assert/strict";
 import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { it } from "node:test";
 
 import {
@@ -33,7 +33,7 @@ it("selects one credential variant by source and rejects same-source ambiguity",
       "test",
       "/work",
     ),
-    { type: "file", path: "/work/secret" },
+    { type: "file", path: resolve("/work/secret") },
   );
   assert.deepEqual(
     resolveSecretSource(
@@ -63,7 +63,7 @@ it("selects one credential variant by source and rejects same-source ambiguity",
       "test",
       "/work",
     ),
-    { type: "file", path: "/settings/password" },
+    { type: "file", path: resolve("/settings/password") },
   );
 });
 
