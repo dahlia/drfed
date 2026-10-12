@@ -19,7 +19,9 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import type { Database } from "@drfed/models";
 import {
   type OutboundSettlement,
+  linkInboundActivity,
   receiveInbound,
+  recordFetchedObject,
   settleOutbound,
 } from "@drfed/models/activity-delivery";
 import { type Uuid, validateUuid } from "@drfed/models/uuid";
@@ -37,6 +39,7 @@ import { getLogger } from "@logtape/logtape";
 import {
   type ObservedResponse,
   type ObservedSpan,
+  type Receipt,
   trackRequest,
   tracking,
   untracked,
@@ -108,6 +111,12 @@ export interface QueuedAttempt {
  */
 const DELIVERY_ID = "drfedActivityDeliveryId";
 
+/**
+ * When the request that enqueued an inbox message arrived; Fedify carries the
+ * activity as received in the message itself.
+ */
+const RECEIVED = "drfedReceived";
+
 interface OutboxMessage {
   readonly type: "outbox";
   readonly activityId?: string;
@@ -119,6 +128,7 @@ interface InboxMessage {
   readonly type: "inbox";
   readonly activity?: unknown;
   readonly [DELIVERY_ID]?: unknown;
+  readonly [RECEIVED]?: unknown;
 }
 
 const attempts = new AsyncLocalStorage<QueuedAttempt>();
@@ -205,9 +215,30 @@ function deliveryOf(message: unknown): Uuid | undefined {
 
 function tag(message: unknown): unknown {
   const deliveryId = deliveryOf(message);
-  return deliveryId == null
-    ? message
-    : { ...(message as object), [DELIVERY_ID]: deliveryId };
+  if (deliveryId == null) return message;
+  const received = isInbox(message) ? tracking()?.receipt?.received : undefined;
+  return {
+    ...(message as object),
+    [DELIVERY_ID]: deliveryId,
+    ...(received == null ? {} : { [RECEIVED]: received.toString() }),
+  };
+}
+
+/**
+ * What the request that enqueued an inbox message carried.
+ * @returns The receipt, or undefined for a message that names no arrival.
+ */
+function receiptOf(message: InboxMessage): Receipt | undefined {
+  const received = message[RECEIVED];
+  if (typeof received !== "string") return undefined;
+  try {
+    return {
+      payload: message.activity,
+      received: Temporal.Instant.from(received),
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 const RECEIVED_TTL = Temporal.Duration.from({ hours: 1 });
@@ -247,6 +278,46 @@ export async function receivedMeanwhile(
   if ((await kv.get(receivedKey(deliveryId))) === true) {
     await receiveInbound(db, deliveryId);
   }
+}
+
+const fetchedObjectKey = (deliveryId: Uuid): KvKey => [
+  "drfed",
+  "activityDelivery",
+  "fetchedObject",
+  deliveryId,
+];
+
+async function fetchObject(
+  db: Database,
+  kv: KvStore,
+  deliveryId: Uuid,
+  document: unknown,
+): Promise<void> {
+  try {
+    // Leave it first, as receive() does, for an inbox request that has not
+    // recorded its delivery yet.
+    await kv.set(fetchedObjectKey(deliveryId), document, {
+      ttl: RECEIVED_TTL,
+    });
+    await recordFetchedObject(db, deliveryId, document);
+  } catch (error) {
+    logger.error("Could not record a queued fetched object: {error}", {
+      error,
+    });
+  }
+}
+
+/**
+ * Give an inbound delivery recorded after the queue worker already ran its
+ * inbox listener the object the listener fetched, which it left for it.
+ */
+export async function fetchedMeanwhile(
+  db: Database,
+  kv: KvStore,
+  deliveryId: Uuid,
+): Promise<void> {
+  const document = await kv.get(fetchedObjectKey(deliveryId));
+  if (document != null) await recordFetchedObject(db, deliveryId, document);
 }
 
 /** Note an outbox failure on the attempt the worker is making. */
@@ -382,10 +453,26 @@ async function handleInbox(
   handler: (message: unknown) => Promise<void> | void,
 ): Promise<void> {
   const reception = { activityIri: inboxActivityIri(message), deliveryId };
-  const { handled } = await receptions.run(reception, () =>
-    trackRequest(async () => await handler(message)),
+  const receipt = receiptOf(message);
+  const { handled, fetchedObject } = await receptions.run(reception, () =>
+    trackRequest(
+      async () => await handler(message),
+      receipt == null ? {} : { receipt },
+    ),
   );
   if (handled) await receive(db, kv, deliveryId);
+  if (fetchedObject != null) {
+    await fetchObject(db, kv, deliveryId, fetchedObject);
+  }
+  // Fedify skips the listener of a duplicate, whose activity is stored anyway;
+  // an inbox request recorded after this links the delivery itself.
+  try {
+    await linkInboundActivity(db, deliveryId);
+  } catch (error) {
+    logger.error("Could not link a queued inbox reception: {error}", {
+      error,
+    });
+  }
 }
 
 async function handle(

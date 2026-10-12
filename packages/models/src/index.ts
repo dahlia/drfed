@@ -22,3 +22,5 @@ export * from "./login.ts";
 export * from "./resource.ts";
 export * from "./key.ts";
 export * from "./activity-delivery.ts";
+export * from "./instance.ts";
+export * from "./text.ts";

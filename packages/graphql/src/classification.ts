@@ -19,7 +19,7 @@
 // app/lib/activitypub/parser/status_parser.rb and app/lib/activitypub/tag_manager.rb
 // misskey-dev/misskey 5e52f8609913a7a4f8bc76cbe26c2b99938310ae
 // packages/backend/src/core/activitypub/ApAudienceService.ts
-import { PUBLIC_IRI } from "@drfed/models/resource";
+import { PUBLIC_IRIS } from "./readable.ts";
 
 /** Missing/null properties permit Mastodon's activity fallback; [] does not. */
 export interface AddressingRows {
@@ -36,8 +36,7 @@ interface Author {
   readonly followersIri: string | null;
   readonly iri: string;
 }
-const isPublic = (iri: string): boolean =>
-  [PUBLIC_IRI, "as:Public", "Public"].includes(iri);
+const isPublic = (iri: string): boolean => PUBLIC_IRIS.includes(iri);
 
 /**
  * Expected Mastodon classification, independent of receiver state or policy.
@@ -127,11 +126,13 @@ export function classificationInput(row: {
 }
 
 /**
- * Extracts the object author's canonical IRI and declared followers IRI.
+ * Extracts the object author's canonical IRI and declared followers IRI: a
+ * local actor's followers collection, or the one a remote actor declares.
  * @returns The author identifiers used by the classification rules.
  */
 export function classificationAuthor(actor: {
   resource: { iri: string };
+  followersUrl: string | null;
   collectionReferences: readonly {
     role: string;
     collection: { resource: { iri: string } };
@@ -141,6 +142,8 @@ export function classificationAuthor(actor: {
     iri: actor.resource.iri,
     followersIri:
       actor.collectionReferences.find((entry) => entry.role === "followers")
-        ?.collection.resource.iri ?? null,
+        ?.collection.resource.iri ??
+      actor.followersUrl ??
+      null,
   };
 }

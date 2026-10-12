@@ -34,6 +34,7 @@ import {
   primaryKey,
   text,
   unique,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -256,13 +257,23 @@ export const actors = pgTable(
       .unique()
       .references(() => localActors.id, { onDelete: "cascade" }),
     type: actorTypeEnum().notNull(),
-    username: text().notNull(),
+    /**
+     * A local actor's handle username; a remote actor's `preferredUsername`
+     * as received, which ActivityPub neither requires nor makes unique.
+     */
+    username: text(),
     instanceId: uuid("instance_id")
       .$type<Uuid>()
       .notNull()
       .references(() => instances.id, { onDelete: "cascade" }),
     document: json(),
     inboxUrl: text("inbox_url").notNull(),
+    /**
+     * The IRI of the followers collection a remote actor declares, as
+     * received.  It is never fetched, so it is no `collections` row: what the
+     * collection is and holds is unknown.
+     */
+    followersUrl: text("followers_url"),
     profileUrl: text("profile_url"),
     avatarUrl: text("avatar_url"),
     headerUrl: text("header_url"),
@@ -312,8 +323,17 @@ export const actors = pgTable(
     deleted: instant(),
   },
   (t) => [
-    unique("username_key").on(t.username, t.instanceId),
-    check("actors_username_check", sql`${t.username} NOT LIKE '%@%'`),
+    uniqueIndex("username_key")
+      .on(t.username, t.instanceId)
+      .where(sql`${t.localId} IS NOT NULL`),
+    check(
+      "actors_username_check",
+      sql`${t.localId} IS NULL OR ${t.username} NOT LIKE '%@%'`,
+    ),
+    check(
+      "actors_local_username_check",
+      sql`${t.localId} IS NULL OR ${t.username} IS NOT NULL`,
+    ),
     check(
       "actors_suspended_check",
       sql`
@@ -383,6 +403,19 @@ export const objects = pgTable(
       .$type<Uuid>()
       .notNull()
       .references(() => actors.id, { onDelete: "cascade" }),
+    /**
+     * The activity that carried the stored snapshot.  Who may read a remote
+     * object follows it, not the activities that refer to the object later
+     * with another version of it.
+     */
+    activityId: uuid("activity_id")
+      .$type<Uuid>()
+      .references(() => resources.id, { onDelete: "set null" }),
+    /**
+     * Whether `document` was fetched from the object's IRI rather than taken
+     * from the activity that carried it, which then proves nothing of it.
+     */
+    fetched: boolean().notNull().default(false),
     type: objectTypeEnum().notNull(),
     document: json(),
     url: text(),
@@ -404,6 +437,7 @@ export const objects = pgTable(
       "objects_content_html_check",
       sql`trim(both from ${t.contentHtml}) <> ''`,
     ),
+    unique("objects_activity_id_key").on(t.activityId),
     index("object_actor_published_index").on(
       t.actorId,
       desc(t.published),
@@ -673,6 +707,34 @@ export const activityDeliveries = pgTable(
       .notNull()
       .default(sql`'{}'`),
     activityIri: text("activity_iri"),
+    /**
+     * The stored activity `activityIri` names: for an inbound delivery, only
+     * one Fedify verified and accepted.  The database enforces the latter;
+     * `linkInboundActivity()` matches the IRI.
+     */
+    activityId: uuid("activity_id")
+      .$type<Uuid>()
+      .references(() => activities.id, { onDelete: "set null" }),
+    /**
+     * Whether an inbound delivery carried the stored activity as it is, not
+     * only its IRI.  `linkInboundActivity()` decides it, and only such a
+     * delivery opens the activity to its instance.
+     */
+    carriedSnapshot: boolean("carried_snapshot").notNull().default(false),
+    /**
+     * The object an inbound delivery's inbox listener fetched from its IRI,
+     * when it had to.
+     */
+    fetchedObject: jsonb("fetched_object").$type<unknown>(),
+    /**
+     * Whether an inbound delivery carried the object stored with its activity
+     * as it is: the activity carried it, or the delivery fetched it as stored.
+     * `linkInboundActivity()` decides it, and only such a delivery opens the
+     * object to its instance.
+     */
+    carriedObjectSnapshot: boolean("carried_object_snapshot")
+      .notNull()
+      .default(false),
     objectType: text("object_type"),
     objectIri: text("object_iri"),
     signedKeyIri: text("signed_key_iri"),
@@ -730,12 +792,21 @@ export const activityDeliveries = pgTable(
       "activity_deliveries_body_check",
       sql`(${table.direction} = 'inbound') = (${table.body} IS NOT NULL)`,
     ),
+    check(
+      "activity_deliveries_activity_check",
+      sql`${table.activityId} IS NULL OR ${table.direction} = 'outbound' OR (${table.verificationResult} = 'verified' AND ${table.status} IN ('received', 'acknowledged'))`,
+    ),
     index("activity_delivery_instance_created_index").on(
       table.instanceId,
       desc(table.created),
       desc(table.id),
     ),
     index("activity_delivery_actor_index").on(table.actorId),
+    index("activity_delivery_activity_created_index").on(
+      table.activityId,
+      desc(table.created),
+      desc(table.id),
+    ),
     index("activity_delivery_verification_key_index").on(
       table.verificationKeyId,
     ),

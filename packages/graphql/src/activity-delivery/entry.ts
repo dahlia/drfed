@@ -24,6 +24,7 @@ import type { Uuid } from "@drfed/models/uuid";
 import { drizzleConnectionHelpers } from "@pothos/plugin-drizzle";
 
 import builder, { type DrFedObjectRef } from "../builder.ts";
+import { readableResource, viewableInstance } from "../readable.ts";
 
 const ActivityDeliveryDirection = builder.enumType(
   "ActivityDeliveryDirection",
@@ -222,6 +223,20 @@ const ActivityDeliveryRef = builder.drizzleNode("activityDeliveries", {
       description: "Every type the activity declares.",
     }),
     activityIri: t.expose("activityIri", { type: "URL", nullable: true }),
+    activity: t.relation("activity", {
+      nullable: true,
+      // The link names the activity whatever the delivery carried, so it
+      // opens no more than a node lookup would.
+      query: (_, ctx) => ({
+        where: { RAW: (table) => readableResource(ctx, table.id) },
+      }),
+      description:
+        "The stored activity `activityIri` names, for an inbound delivery " +
+        "that was verified and accepted, or a delivery DrFed sent.  Null " +
+        "when the activity has no ID, did not meet the rules for storing " +
+        "it, the delivery was not verified, or the viewer may not read the " +
+        "activity.",
+    }),
     objectType: t.exposeString("objectType", { nullable: true }),
     objectIri: t.expose("objectIri", { type: "URL", nullable: true }),
     signedKeyIri: t.expose("signedKeyIri", {
@@ -405,6 +420,49 @@ builder.drizzleObjectField("instances", "activityDeliveries", (t) =>
         instance,
       ),
     authScopes: (instance) => access(instance.localId),
+  }),
+);
+// Rows are filtered before paging: an activity's deliveries span instances,
+// and the node's own check would fail the whole connection, while cursors
+// and page info would tell of rows it hides.
+const activityDeliveriesConnection = drizzleConnectionHelpers(
+  builder,
+  "activityDeliveries",
+  {
+    query: ({ filter }: { filter?: DeliveryFilter }, ctx) => ({
+      where: {
+        ...deliveryWhere(filter),
+        RAW: (table) => viewableInstance(ctx, table.instanceId),
+      },
+      orderBy: { created: "desc", id: "desc" },
+    }),
+  },
+);
+builder.drizzleObjectField("activities", "deliveries", (t) =>
+  t.connection({
+    type: ActivityDelivery,
+    args: { filter: t.arg({ type: ActivityDeliveryFilter }) },
+    description:
+      "Deliveries of this activity, newest first: those it arrived in, " +
+      "verified and accepted, and those DrFed sent it in.  Only those of " +
+      "the local instances the viewer is a member of, or of every one for " +
+      "an administrator.",
+    select: (args, ctx, nestedSelection) => ({
+      with: {
+        deliveries: activityDeliveriesConnection.getQuery(
+          args,
+          ctx,
+          nestedSelection,
+        ),
+      },
+    }),
+    resolve: (activity, args, ctx) =>
+      activityDeliveriesConnection.resolve(
+        activity.deliveries,
+        args,
+        ctx,
+        activity,
+      ),
   }),
 );
 builder.drizzleObjectField("actors", "activityDeliveries", (t) =>
