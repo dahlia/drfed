@@ -62,6 +62,13 @@ description = "Test local and global npm tarball installations"
 depends = ["build"]
 run = "node scripts/test-packaging.mts"
 
+[tasks."test:completion-installation"]
+description = "Probe packed completion discovery and manual loading in five shells"
+depends = ["build"]
+tools = { "aqua:fish-shell/fish-shell" = "4.9.3", "github:PowerShell/PowerShell" = "7.6.6" }
+env = { DRFED_TEST_COMPLETION_SHELLS = "1" }
+run = "node scripts/test-packaging.mts"
+
 [tasks.check]
 description = "Check all"
 depends = ["check:*"]

@@ -210,6 +210,155 @@ this is tracked in [Optique #1028].
 [Optique #1028]: https://github.com/dahlia/optique/issues/1028
 
 
+Completion installation
+-----------------------
+
+npm installation does not activate shell completion automatically. Packed
+local and custom global installations keep the scripts inside the package;
+fresh shells do not discover them through npm's bin links. A version-manager
+prefix is also not necessarily a shell completion search path.
+
+| Shell      | Loading requirement                                                 |
+| ---------- | ------------------------------------------------------------------- |
+| Bash       | Source the script, or use an initialized bash-completion framework. |
+| zsh        | Initialize `compinit` and source the script.                        |
+| fish       | Source the script, or put it in `fish_complete_path`.               |
+| PowerShell | Dot-source the script in the session or a profile.                  |
+| Nushell    | Source the script in the session or *config.nu*.                    |
+
+The [bash-completion lookup conventions] allow prefix-based discovery with
+recent versions of that framework. zsh uses [`fpath`], and fish uses
+[`fish_complete_path`]; neither necessarily searches an npm prefix. PowerShell
+[profiles] and Nushell [custom completions] require explicit loading.
+
+DrFed does not install shared completion links or use lifecycle hooks for
+setup. npm has [no uninstall lifecycle hook] to reliably remove shared
+registrations, and installation scripts can be disabled. Shell setup stays
+under the operator's control, including when several DrFed installations
+coexist. Select the intended binary through `PATH`; regenerate your copied
+scripts after upgrades and remove your copies and startup references when
+you no longer use them.
+
+To probe packed installations and explicit loading in all five shells, run
+`mise run test:completion-installation`. This selects fish 4.9.3 and PowerShell
+7.6.6 through mise, in addition to Bash, zsh and the pinned Nushell. Probes
+use temporary shell configuration directories and do not edit startup files.
+They check zsh registration; actual zsh Tab requests are not yet covered.
+The bash-completion framework, live version-manager prefixes, Linux and
+Windows installation behavior have not yet been tested.
+
+[bash-completion lookup conventions]: https://github.com/scop/bash-completion#faq
+[`fpath`]: https://zsh.sourceforge.io/Doc/Release/Completion-System.html#Initialization
+[`fish_complete_path`]: https://fishshell.com/docs/current/completions.html#where-to-put-completions
+[profiles]: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_profiles
+[custom completions]: https://www.nushell.sh/book/custom_completions.html
+[no uninstall lifecycle hook]: https://docs.npmjs.com/cli/v11/using-npm/scripts#a-note-on-a-lack-of-npm-uninstall-scripts
+
+
+Manual loading
+--------------
+
+Register all four commands. For a local installation, first put the project's
+*node\_modules/.bin/* on the current shell's `PATH`, so callbacks can find the
+same binaries that generated the scripts. For example, in Bash or zsh:
+
+~~~~ sh
+export PATH="$PWD/node_modules/.bin:$PATH"
+~~~~
+
+In fish use `set -gx PATH "$PWD/node_modules/.bin" $PATH`. In PowerShell use
+`$env:PATH = "$(Join-Path $PWD 'node_modules/.bin')$([IO.Path]::PathSeparator)$env:PATH"`.
+In Nushell use
+`$env.PATH = ($env.PATH | prepend ($env.PWD | path join node_modules .bin))`.
+On Windows the local executable shims are
+*node\_modules/.bin/drfed-COMMAND.cmd*; for example,
+`& .\node_modules\.bin\drfed-server.cmd completion pwsh` generates the
+PowerShell script. Local npm installation does not add these binaries to your
+general `PATH`.
+
+Generate files in a directory you control. The following commands replace
+files with the same names, so choose a fresh directory for initial setup.
+
+### Bash
+
+~~~~ bash
+for command in drfed-server drfed-web drfed-migrate drfed-account; do
+  "$command" completion bash > "$command-completion.bash"
+  source "./$command-completion.bash"
+done
+~~~~
+
+For persistent loading, move the files to a stable user-owned directory and
+add four `source` statements with their absolute paths to your interactive
+Bash startup file. This route does not require bash-completion.
+
+### zsh
+
+~~~~ zsh
+autoload -Uz compinit
+compinit
+for command in drfed-server drfed-web drfed-migrate drfed-account; do
+  "$command" completion zsh > "$command-completion.zsh"
+  source "./$command-completion.zsh"
+done
+~~~~
+
+For persistent loading, source all four files from a stable directory in
+*.zshrc*, after your existing `compinit` initialization.
+
+### fish
+
+~~~~ fish
+for command in drfed-server drfed-web drfed-migrate drfed-account
+  $command completion fish > "$command-completion.fish"
+  source "./$command-completion.fish"
+end
+~~~~
+
+For persistent discovery, generate files named *drfed-server.fish*,
+*drfed-web.fish*, *drfed-migrate.fish* and *drfed-account.fish* in your chosen
+fish user completion directory, usually *~/.config/fish/completions/*.
+
+### PowerShell
+
+~~~~ powershell
+foreach ($command in 'drfed-server', 'drfed-web', 'drfed-migrate', 'drfed-account') {
+  & $command completion pwsh | Set-Content -Encoding utf8 "$command-completion.ps1"
+  . "./$command-completion.ps1"
+}
+~~~~
+
+For persistent loading, dot-source all four files by absolute path in the
+current user's PowerShell profile, whose path is shown by `$PROFILE`.
+PowerShell profile loading applies on Windows too; UNIX completion
+directories do not configure it.
+
+### Nushell
+
+First generate the scripts:
+
+~~~~ nu
+for command in [drfed-server drfed-web drfed-migrate drfed-account] {
+  ^$command completion nu | save --force $"($command)-completion.nu"
+}
+~~~~
+
+Then load them as separate commands, after the files exist:
+
+~~~~ nu
+source ./drfed-server-completion.nu
+source ./drfed-web-completion.nu
+source ./drfed-migrate-completion.nu
+source ./drfed-account-completion.nu
+~~~~
+
+For persistent loading, add these four `source` statements with absolute
+paths to the configuration file shown by `$nu.config-path`. The scripts
+chain their external completers so all four commands remain registered.
+Nushell 0.114.1 emits a deprecation warning for Optique 1.3.0's generated
+`str downcase` calls; the calls still work in that version.
+
+
 Testing npm installation
 ------------------------
 

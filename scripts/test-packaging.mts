@@ -37,11 +37,14 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
+import { probeCompletionInstallation } from "./completion-installation.mts";
+
 const execute = promisify(execFile);
 const root = fileURLToPath(new URL("../", import.meta.url));
 const temporary = await mkdtemp(join(tmpdir(), "drfed-packaging-"));
 const packages = ["models", "federation", "graphql", "web", "drfed"];
 const windows = process.platform === "win32";
+const probeShells = process.env.DRFED_TEST_COMPLETION_SHELLS === "1";
 const npm = windows
   ? join(dirname(process.execPath), "node_modules/npm/bin/npm-cli.js")
   : resolve(
@@ -690,6 +693,17 @@ try {
         : join(prefix, "node_modules");
     const application = join(modules, "@drfed/drfed");
     await smokeCompletion(application, prefix, modules, global);
+    if (probeShells) {
+      await probeCompletionInstallation(
+        application,
+        global ? join(prefix, "bin") : join(modules, ".bin"),
+        join(temporary, global ? "global-shells" : "local-shells"),
+        env,
+      );
+      console.log(
+        `${global ? "Global" : "Local"} npm install: shell discovery and explicit loading probes passed`,
+      );
+    }
     console.log(
       `${global ? "Global" : "Local"} npm install: bundled completion and all five suggestion protocols passed`,
     );
