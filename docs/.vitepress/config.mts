@@ -39,6 +39,10 @@ export default defineConfig({
         text: "Installation",
         items: [
           {
+            text: "Run from source",
+            link: "/installation/run-from-source",
+          },
+          {
             text: "Manual installation",
             link: "/installation/manual-installation",
           },
