@@ -263,6 +263,7 @@
     "@upyo/plunk": "catalog:",
     "@upyo/resend": "catalog:",
     "@upyo/retry": "catalog:",
-    "@upyo/sendgrid": "catalog:"
+    "@upyo/sendgrid": "catalog:",
+    "@upyo/ses": "catalog:"
   }
 }

@@ -30,6 +30,7 @@ import {
 import { type JmapSettings, resolveJmapSettings } from "./jmap-settings.ts";
 import type { RawMailOptions } from "./mail-parser.ts";
 import { type SecretSource, resolveSecretSource } from "./secret-source.ts";
+import { type SesMailSettings, resolveSesSettings } from "./ses-settings.ts";
 import { resolveSmtpConnection } from "./smtp-settings.ts";
 
 /** SMTP authentication selected before credential files are read. */
@@ -51,6 +52,7 @@ export type MailAuthentication =
 export type MailSettings =
   | ApiMailSettings
   | JmapSettings
+  | SesMailSettings
   | { readonly transport: "logtape"; readonly logContent: boolean }
   | {
       readonly transport: "smtp";
@@ -78,6 +80,7 @@ function isMailTransport(value: string): value is MailSettings["transport"] {
     "mailtrap",
     "mailgun",
     "sendgrid",
+    "ses",
     "resend",
     "plunk",
   ].includes(value);
@@ -101,7 +104,7 @@ function selectTransport(raw: RawMailOptions): {
     explicit ?? (jmap ? "jmap" : smtp && highest >= 0 ? "smtp" : "logtape");
   if (!isMailTransport(transport)) {
     throw new Error(
-      "Unsupported mail transport; expected logtape, smtp, jmap, lettermint, maileroo, mailtrap, mailgun, plunk, resend or sendgrid.",
+      "Unsupported mail transport; expected logtape, smtp, jmap, lettermint, maileroo, mailtrap, mailgun, plunk, resend, sendgrid or ses.",
     );
   }
   if (
@@ -531,6 +534,7 @@ function selectedMailSettings(
   sources: Record<string, Input>;
   values: Record<string, unknown>;
 } {
+  if (transport === "ses") return resolveSesSettings(raw, cwd);
   if (
     transport === "lettermint" ||
     transport === "maileroo" ||
@@ -612,6 +616,7 @@ function ignoredMailField(
     "mailtrap",
     "mailgun",
     "sendgrid",
+    "ses",
     "resend",
     "plunk",
   ].find((name) => key.startsWith(name));

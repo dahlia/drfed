@@ -138,43 +138,43 @@ setup, which is what makes per-instance subdomains usable locally.
 Options
 -------
 
-| Option                            | Short | Description                                                                                                        |
-| --------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------ |
-| `--web` / `--no-web`              |       | Enable or disable the frontend (default: enabled)                                                                  |
-| `--public-origin ORIGIN`          |       | Frontend origin (default: root origin; unused with `--no-web`)                                                     |
-| `--print-config`                  |       | Print effective settings and sources with secrets redacted; exit                                                   |
-| `--config FILE`                   |       | Explicit TOML configuration file                                                                                   |
-| `--database-driver KIND`          |       | Select `pglite` or `postgres`                                                                                      |
-| `--migrate`                       |       | Enable automatic migrations                                                                                        |
-| `--mail-transport KIND`           |       | Select `logtape`, `smtp`, `jmap`, `lettermint`, `maileroo`, `mailtrap`, `mailgun`, `plunk`, `resend` or `sendgrid` |
-| `--root-origin ORIGIN`            | `-r`  | Origin instances are subdomains of (required)                                                                      |
-| `--login-origin ORIGIN`           |       | Origin allowed in login links (required with `--no-web`; repeatable)                                               |
-| `--listen HOST:PORT`              | `-l`  | Address to listen on (default: `localhost:8888`)                                                                   |
-| `--pglite-data-path PATH`         | `-d`  | Directory for PGlite storage                                                                                       |
-| `--postgres-url URL`              | `-D`  | PostgreSQL connection URL                                                                                          |
-| `--no-migrate`                    | `-M`  | Skip automatic migrations                                                                                          |
-| `--email-from ADDRESS`            | `-f`  | Sender of login mail (default: `noreply@` at the root origin's host)                                               |
-| `--smtp-url URL`                  | `-s`  | SMTP server to deliver mail through                                                                                |
-| `--mail-log-content`              |       | Include subject/body and login codes in log-only output                                                            |
-| `--no-mail-log-content`           |       | Exclude mail subject/body (default)                                                                                |
-| `--smtp-host VALUE`               |       | SMTP server hostname                                                                                               |
-| `--smtp-port VALUE`               |       | SMTP server port                                                                                                   |
-| `--smtp-tls VALUE`                |       | SMTP TLS mode: direct, starttls-required or opportunistic                                                          |
-| `--smtp-user VALUE`               |       | SMTP authentication username                                                                                       |
-| `--smtp-password VALUE`           |       | SMTP authentication password                                                                                       |
-| `--smtp-password-file VALUE`      |       | File containing the SMTP password                                                                                  |
-| `--smtp-auth-method VALUE`        |       | SMTP authentication method                                                                                         |
-| `--smtp-access-token VALUE`       |       | Static SMTP OAuth access token                                                                                     |
-| `--smtp-access-token-file VALUE`  |       | File containing the SMTP OAuth access token                                                                        |
-| `--smtp-connection-timeout VALUE` |       | SMTP connection timeout in milliseconds                                                                            |
-| `--smtp-socket-timeout VALUE`     |       | SMTP socket timeout in milliseconds                                                                                |
-| `--smtp-pool-size VALUE`          |       | Maximum owned SMTP connections                                                                                     |
-| `--smtp-local-name VALUE`         |       | Local name for SMTP EHLO                                                                                           |
-| `--smtp-ca-file VALUE`            |       | File containing additional SMTP certificate authorities                                                            |
-| `--smtp-cert-file VALUE`          |       | File containing the SMTP client certificate                                                                        |
-| `--smtp-key-file VALUE`           |       | File containing the SMTP client private key                                                                        |
-| `--help`                          |       | Show help                                                                                                          |
-| `--version`                       |       | Show version                                                                                                       |
+| Option                            | Short | Description                                                                                                               |
+| --------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------- |
+| `--web` / `--no-web`              |       | Enable or disable the frontend (default: enabled)                                                                         |
+| `--public-origin ORIGIN`          |       | Frontend origin (default: root origin; unused with `--no-web`)                                                            |
+| `--print-config`                  |       | Print effective settings and sources with secrets redacted; exit                                                          |
+| `--config FILE`                   |       | Explicit TOML configuration file                                                                                          |
+| `--database-driver KIND`          |       | Select `pglite` or `postgres`                                                                                             |
+| `--migrate`                       |       | Enable automatic migrations                                                                                               |
+| `--mail-transport KIND`           |       | Select `logtape`, `smtp`, `jmap`, `lettermint`, `maileroo`, `mailtrap`, `mailgun`, `plunk`, `resend`, `sendgrid` or `ses` |
+| `--root-origin ORIGIN`            | `-r`  | Origin instances are subdomains of (required)                                                                             |
+| `--login-origin ORIGIN`           |       | Origin allowed in login links (required with `--no-web`; repeatable)                                                      |
+| `--listen HOST:PORT`              | `-l`  | Address to listen on (default: `localhost:8888`)                                                                          |
+| `--pglite-data-path PATH`         | `-d`  | Directory for PGlite storage                                                                                              |
+| `--postgres-url URL`              | `-D`  | PostgreSQL connection URL                                                                                                 |
+| `--no-migrate`                    | `-M`  | Skip automatic migrations                                                                                                 |
+| `--email-from ADDRESS`            | `-f`  | Sender of login mail (default: `noreply@` at the root origin's host)                                                      |
+| `--smtp-url URL`                  | `-s`  | SMTP server to deliver mail through                                                                                       |
+| `--mail-log-content`              |       | Include subject/body and login codes in log-only output                                                                   |
+| `--no-mail-log-content`           |       | Exclude mail subject/body (default)                                                                                       |
+| `--smtp-host VALUE`               |       | SMTP server hostname                                                                                                      |
+| `--smtp-port VALUE`               |       | SMTP server port                                                                                                          |
+| `--smtp-tls VALUE`                |       | SMTP TLS mode: direct, starttls-required or opportunistic                                                                 |
+| `--smtp-user VALUE`               |       | SMTP authentication username                                                                                              |
+| `--smtp-password VALUE`           |       | SMTP authentication password                                                                                              |
+| `--smtp-password-file VALUE`      |       | File containing the SMTP password                                                                                         |
+| `--smtp-auth-method VALUE`        |       | SMTP authentication method                                                                                                |
+| `--smtp-access-token VALUE`       |       | Static SMTP OAuth access token                                                                                            |
+| `--smtp-access-token-file VALUE`  |       | File containing the SMTP OAuth access token                                                                               |
+| `--smtp-connection-timeout VALUE` |       | SMTP connection timeout in milliseconds                                                                                   |
+| `--smtp-socket-timeout VALUE`     |       | SMTP socket timeout in milliseconds                                                                                       |
+| `--smtp-pool-size VALUE`          |       | Maximum owned SMTP connections                                                                                            |
+| `--smtp-local-name VALUE`         |       | Local name for SMTP EHLO                                                                                                  |
+| `--smtp-ca-file VALUE`            |       | File containing additional SMTP certificate authorities                                                                   |
+| `--smtp-cert-file VALUE`          |       | File containing the SMTP client certificate                                                                               |
+| `--smtp-key-file VALUE`           |       | File containing the SMTP client private key                                                                               |
+| `--help`                          |       | Show help                                                                                                                 |
+| `--version`                       |       | Show version                                                                                                              |
 
 `--pglite-data-path` and `--postgres-url` conflict at the winning input source.
 Provide the path or URL for the selected database through CLI, environment or
@@ -944,3 +944,72 @@ See [Upyo SendGrid] and [SendGrid sending options].
 
 [Upyo SendGrid]: https://upyo.org/transports/sendgrid
 [SendGrid sending options]: https://www.twilio.com/docs/sendgrid/api-reference/mail-send/mail-send
+
+
+Amazon SES mail
+---------------
+
+Set the mail transport to `ses` and provide an AWS access key ID and secret
+access key. DrFed uses Upyo's SES API transport; these are AWS credentials,
+not SMTP credentials. Use the SES-specific settings below. The shared
+`--mail-api-key` settings belong to the other API providers and are ignored
+for SES. CLI values take precedence over environment variables, which take
+precedence over TOML. At the highest source level that supplies a credential,
+set its literal or file setting, not both. Credential files from lower sources
+or other providers are not opened.
+
+~~~~ toml
+[mail]
+transport = "ses"
+
+[mail.ses]
+auth = "session"
+access_key_id_file = "/run/secrets/aws-access-key-id"
+secret_access_key_file = "/run/secrets/aws-secret-access-key"
+session_token_file = "/run/secrets/aws-session-token"
+region = "eu-west-1"
+~~~~
+
+| CLI option                     | Environment variable               | TOML setting                      |
+| ------------------------------ | ---------------------------------- | --------------------------------- |
+| `--ses-auth`                   | `DRFED_SES_AUTH`                   | `mail.ses.auth`                   |
+| `--ses-access-key-id`          | `DRFED_SES_ACCESS_KEY_ID`          | `mail.ses.access_key_id`          |
+| `--ses-access-key-id-file`     | `DRFED_SES_ACCESS_KEY_ID_FILE`     | `mail.ses.access_key_id_file`     |
+| `--ses-secret-access-key`      | `DRFED_SES_SECRET_ACCESS_KEY`      | `mail.ses.secret_access_key`      |
+| `--ses-secret-access-key-file` | `DRFED_SES_SECRET_ACCESS_KEY_FILE` | `mail.ses.secret_access_key_file` |
+| `--ses-session-token`          | `DRFED_SES_SESSION_TOKEN`          | `mail.ses.session_token`          |
+| `--ses-session-token-file`     | `DRFED_SES_SESSION_TOKEN_FILE`     | `mail.ses.session_token_file`     |
+| `--ses-region`                 | `DRFED_SES_REGION`                 | `mail.ses.region`                 |
+| `--ses-timeout`                | `DRFED_SES_TIMEOUT`                | `mail.ses.timeout_ms`             |
+
+Authentication defaults to `credentials`. A session token at a higher source
+level selects `session`; an explicit authentication setting at the same or a
+higher level wins. Session mode requires a token. Explicit `credentials` mode
+leaves unused token files unopened. Access key IDs must contain ASCII letters
+and digits; secret keys and session tokens must be nonempty printable ASCII
+without whitespace. Selected files are read once at startup, with the final
+LF or CRLF removed.
+
+Upyo does not obtain IAM roles or refresh credentials. Obtain temporary
+credentials outside DrFed and restart with fresh settings when they change.
+DrFed reads the `DRFED_SES_*` variables above, not the AWS SDK's profile or
+credential-provider chain.
+
+The region defaults to `us-east-1`. Upyo constructs the HTTPS endpoint
+`https://email.{region}.amazonaws.com/v2/email/outbound-emails` and signs
+requests with AWS SigV4. Regions must use an ASCII AWS region name. China,
+isolated and sovereign partitions that need another endpoint suffix are
+unsupported by this SDK. There is no custom endpoint option. Certificate
+verification remains enabled.
+
+DrFed disables Upyo's SES retries because a lost response may leave message
+acceptance unknown, and an automatic retry could send duplicate mail. The
+timeout covers the whole delivery, including reading the response body, and
+defaults to 30,000 milliseconds. CLI options, environment variables and TOML
+all use milliseconds; values must be positive and at most 2,147,483,647.
+Cancellation and shutdown abort active sends and wait for them to settle.
+
+See [Upyo SES] and [AWS SES endpoints].
+
+[Upyo SES]: https://upyo.org/transports/ses
+[AWS SES endpoints]: https://docs.aws.amazon.com/general/latest/gr/ses.html

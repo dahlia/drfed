@@ -49,9 +49,15 @@ import {
 } from "./mail-settings.ts";
 import { createResendTransport } from "./resend-runtime.ts";
 import { readSecretSource } from "./secret-source.ts";
+import {
+  type PreparedSesMail,
+  createSesTransport,
+  prepareSesMail,
+} from "./ses-runtime.ts";
 
 /** Mail settings with operational credential reads completed before DB writes. */
 export type PreparedMail =
+  | PreparedSesMail
   | { readonly transport: "plunk"; readonly connection: PlunkConfig }
   | { readonly transport: "resend"; readonly connection: ResendConfig }
   | { readonly transport: "sendgrid"; readonly connection: SendGridConfig }
@@ -208,6 +214,9 @@ export async function prepareMail(
   if (isApiMailSettings(settings)) {
     return await prepareApiMail(settings, signal);
   }
+  if (settings.transport === "ses") {
+    return await prepareSesMail(settings, signal);
+  }
   if (settings.transport === "jmap") {
     const { authentication } = settings;
     const credential = await readSecretSource(
@@ -307,79 +316,81 @@ export interface MailRuntime {
  */
 export function createMailRuntime(settings: PreparedMail): MailRuntime {
   const transport =
-    settings.transport === "sendgrid"
-      ? createBoundedTransport(
-          new SendGridTransport({
-            ...settings.connection,
-            retries: 0,
-            validateSsl: true,
-            clickTracking: false,
-            openTracking: false,
-            subscriptionTracking: false,
-            googleAnalytics: false,
-          }),
-          settings.connection.timeout ?? 30000,
-          "SendGrid",
-        )
-      : settings.transport === "resend"
-        ? createResendTransport(settings.connection)
-        : settings.transport === "plunk"
-          ? createBoundedTransport(
-              new PlunkTransport({
-                ...settings.connection,
-                retries: 0,
-                validateSsl: true,
-              }),
-              settings.connection.timeout ?? 30000,
-              "Plunk",
-            )
-          : settings.transport === "mailgun"
+    settings.transport === "ses"
+      ? createSesTransport(settings.connection)
+      : settings.transport === "sendgrid"
+        ? createBoundedTransport(
+            new SendGridTransport({
+              ...settings.connection,
+              retries: 0,
+              validateSsl: true,
+              clickTracking: false,
+              openTracking: false,
+              subscriptionTracking: false,
+              googleAnalytics: false,
+            }),
+            settings.connection.timeout ?? 30000,
+            "SendGrid",
+          )
+        : settings.transport === "resend"
+          ? createResendTransport(settings.connection)
+          : settings.transport === "plunk"
             ? createBoundedTransport(
-                new MailgunTransport({
+                new PlunkTransport({
                   ...settings.connection,
                   retries: 0,
                   validateSsl: true,
-                  tracking: false,
-                  clickTracking: false,
-                  openTracking: false,
                 }),
                 settings.connection.timeout ?? 30000,
-                "Mailgun",
+                "Plunk",
               )
-            : settings.transport === "mailtrap"
+            : settings.transport === "mailgun"
               ? createBoundedTransport(
-                  new MailtrapTransport({
+                  new MailgunTransport({
                     ...settings.connection,
                     retries: 0,
                     validateSsl: true,
+                    tracking: false,
+                    clickTracking: false,
+                    openTracking: false,
                   }),
                   settings.connection.timeout ?? 30000,
-                  "Mailtrap",
+                  "Mailgun",
                 )
-              : settings.transport === "maileroo"
+              : settings.transport === "mailtrap"
                 ? createBoundedTransport(
-                    new MailerooTransport({
+                    new MailtrapTransport({
                       ...settings.connection,
                       retries: 0,
+                      validateSsl: true,
                     }),
                     settings.connection.timeout ?? 30000,
-                    "Maileroo",
+                    "Mailtrap",
                   )
-                : settings.transport === "lettermint"
+                : settings.transport === "maileroo"
                   ? createBoundedTransport(
-                      new LettermintTransport(settings.connection),
-                      settings.connection.timeout ?? 30_000,
-                      "Lettermint",
+                      new MailerooTransport({
+                        ...settings.connection,
+                        retries: 0,
+                      }),
+                      settings.connection.timeout ?? 30000,
+                      "Maileroo",
                     )
-                  : settings.transport === "jmap"
-                    ? createJmapTransport(settings.connection)
-                    : settings.transport === "smtp"
-                      ? new SmtpTransport(settings.connection)
-                      : new LogTapeTransport({
-                          ...(settings.logContent
-                            ? { recordMessage: "inline" as const }
-                            : {}),
-                        });
+                  : settings.transport === "lettermint"
+                    ? createBoundedTransport(
+                        new LettermintTransport(settings.connection),
+                        settings.connection.timeout ?? 30_000,
+                        "Lettermint",
+                      )
+                    : settings.transport === "jmap"
+                      ? createJmapTransport(settings.connection)
+                      : settings.transport === "smtp"
+                        ? new SmtpTransport(settings.connection)
+                        : new LogTapeTransport({
+                            ...(settings.logContent
+                              ? { recordMessage: "inline" as const }
+                              : {}),
+                          });
   if (settings.transport === "logtape") {
     getLogger(["drfed", "mail"]).warning(
       "Mail delivery is disabled. Select a delivery transport; use --mail-log-content only to inspect login codes in development logs.",
