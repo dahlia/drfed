@@ -462,17 +462,21 @@ async function verify(): Promise<Bundle> {
   return bundle;
 }
 async function get<T>(url: string, github = false): Promise<T | null> {
+  const requestUrl = new URL(url);
+  // Match npm's fresh revision reads when deciding whether a write is needed.
+  if (!github) requestUrl.searchParams.set("write", "true");
   for (let attempt = 0; attempt < 3; attempt += 1) {
     let response: Response;
     try {
-      response = await fetch(url, {
+      response = await fetch(requestUrl, {
+        cache: github ? "default" : "no-store",
         signal: AbortSignal.timeout(10_000),
         headers: github
           ? {
               Accept: "application/vnd.github+json",
               Authorization: `Bearer ${process.env.GH_TOKEN ?? ""}`,
             }
-          : {},
+          : { "Cache-Control": "no-cache" },
       });
     } catch (error) {
       if (attempt === 2) throw error;
@@ -554,27 +558,27 @@ async function tagTarget(build: Version): Promise<void> {
     "Remote tag was deleted or retargeted",
   );
 }
-async function waitForPublication(
+async function confirmExistingPublication(
   entry: Artifact,
   build: Version,
 ): Promise<void> {
-  // Registry reads can lag a successful upload. Keep this budget separate
-  // from upload retries so an acknowledged version is never uploaded again.
-  for (let attempt = 0; attempt < 30; attempt += 1) {
+  // Only a conflicting retry needs registry confirmation. Successful uploads
+  // are acknowledged by npm's exit status and require no read-after-write.
+  for (let attempt = 0; attempt < 60; attempt += 1) {
     if (await published(entry, build)) return;
-    if (attempt < 29) await delay(fixture ? 1 : 5000);
+    if (attempt < 59) await delay(fixture ? 1 : 5000);
   }
   throw new Error(
-    `npm accepted ${entry.name}@${build.version}, but registry metadata did not become visible; rerun with the original verified artifacts`,
+    `Existing ${entry.name}@${build.version} could not be verified against the original artifacts`,
   );
 }
 async function publishOne(
   entry: Artifact,
   build: Version,
   staging: string,
-): Promise<void> {
+): Promise<boolean> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    if (await published(entry, build)) return;
+    if (await published(entry, build)) return false;
     await tagTarget(build);
     try {
       await run("npm", [
@@ -590,8 +594,16 @@ async function publishOne(
         ...(fixture ? [] : ["--provenance"]),
       ]);
     } catch (error) {
-      if (await published(entry, build)) return;
+      if (await published(entry, build)) return false;
       const message = String(error);
+      if (
+        /(?:EPUBLISHCONFLICT|previously published versions?|immutable version)/iu.test(
+          message,
+        )
+      ) {
+        await confirmExistingPublication(entry, build);
+        return false;
+      }
       if (
         attempt === 2 ||
         !/(?:E429|E5\d\d|ETIMEDOUT|ECONNRESET|EAI_AGAIN)/u.test(message)
@@ -601,11 +613,8 @@ async function publishOne(
       await delay(fixture ? 1 : 2000);
       continue;
     }
-    console.log(
-      `npm accepted ${entry.name}@${build.version}; verifying registry visibility`,
-    );
-    await waitForPublication(entry, build);
-    return;
+    console.log(`Published ${entry.name}@${build.version}`);
+    return true;
   }
   throw new Error(`Incomplete publication: ${entry.name}`);
 }
@@ -614,6 +623,7 @@ async function newerChannelVersion(
   currentVersion: string,
   build: Version,
 ): Promise<boolean> {
+  if (currentVersion === build.version) return false;
   if (build.channel !== "dev") {
     return compare(build.version, currentVersion) < 0;
   }
@@ -642,20 +652,6 @@ async function newerChannelVersion(
   assert.match(runNumber!, /^[1-9]\d*$/u);
   return BigInt(runNumber!) > BigInt(build.runNumber);
 }
-async function waitForChannel(entry: Artifact, build: Version): Promise<void> {
-  const url = new URL(
-    `-/package/${encodeURIComponent(entry.name)}/dist-tags`,
-    registry,
-  ).href;
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    const current = await get<Record<string, string>>(url);
-    if (current?.[build.channel] === build.version) return;
-    if (attempt < 29) await delay(fixture ? 1 : 5000);
-  }
-  throw new Error(
-    `Registry did not confirm ${entry.name} ${build.channel} tag at ${build.version}; rerun with the original verified artifacts`,
-  );
-}
 async function publish(): Promise<void> {
   const bundle = await verify();
   const { build } = bundle;
@@ -666,9 +662,18 @@ async function publish(): Promise<void> {
   const staging = build.channel === "dev" ? "dev-staging" : "release-staging";
   await tagTarget(build);
   // Preflight the complete set so an existing conflict cannot cause new uploads.
-  for (const entry of bundle.packages) await published(entry, build);
+  const existing = new Map<string, boolean>();
   for (const entry of bundle.packages) {
-    await publishOne(entry, build, staging);
+    existing.set(entry.name, await published(entry, build));
+  }
+  const uploaded = new Set<string>();
+  for (const entry of bundle.packages) {
+    if (
+      !existing.get(entry.name) &&
+      (await publishOne(entry, build, staging))
+    ) {
+      uploaded.add(entry.name);
+    }
   }
   // All members exist before any shared tag is advanced. The workflow serializes
   // this entire operation; comparison also protects against late older builds.
@@ -701,7 +706,6 @@ async function publish(): Promise<void> {
           registry,
         ]);
       }
-      await waitForChannel(entry, build);
     }
   } else {
     console.log(
@@ -709,19 +713,34 @@ async function publish(): Promise<void> {
     );
   }
   for (const [index, entry] of bundle.packages.entries()) {
-    if (tags[index]![staging]) {
-      await run("npm", [
-        "dist-tag",
-        "rm",
-        entry.name,
-        staging,
-        "--registry",
-        registry,
-      ]);
+    if (uploaded.has(entry.name) || tags[index]![staging]) {
+      try {
+        await run("npm", [
+          "dist-tag",
+          "rm",
+          entry.name,
+          staging,
+          "--registry",
+          registry,
+        ]);
+      } catch (error) {
+        // Npm reads tags before deleting. A staging tag hidden by propagation
+        // can be removed by a later run; publication and promotion succeeded.
+        if (
+          !String(error).includes(
+            `${staging} is not a dist-tag on ${entry.name}`,
+          )
+        ) {
+          throw error;
+        }
+        console.log(
+          `Staging tag not visible for ${entry.name}; leaving cleanup to a later run.`,
+        );
+      }
     }
   }
   console.log(
-    `Confirmed complete package set: ${build.fullVersion} (${build.sha})`,
+    `Published complete package set: ${build.fullVersion} (${build.sha})`,
   );
 }
 interface Release {

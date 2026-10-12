@@ -303,19 +303,23 @@ confirmed, and the staging tag is then removed.  Never unpublish as rollback.
 
 Artifacts named `drfed-<run-id>` contain tarballs, identity/integrity metadata,
 and, for tag builds, a frozen copy of the release notes.  They are retained for
-90 days, subject to the repository's retention limit.  Reruns reuse the first
-verified artifact from the same run, skip versions already published with
-identical contents, and publish missing packages.  CI distinguishes
-registry/network failures from missing versions and limits retries.  After npm
-accepts an upload or a channel-tag change, CI polls registry metadata up to
-30 times at five-second intervals without repeating the accepted write.  If
-visibility polling times out, the run fails.  Use the
-original artifacts to recover. A mismatch in tarball bytes or build identity
-fails the run.  If the original artifact is missing and any package in the set
-is already published, recovery fails closed: use a new main push for a new dev
-build, or prepare a new reviewed patch tag. Do not rebuild an existing
-immutable version.  Tag deletion or movement is checked again immediately
-before registry writes and GitHub Release writes.
+90 days, subject to the repository's retention limit.
+
+On a rerun, CI reuses the first verified artifact from the same run, requests
+fresh registry metadata, and checks each existing version against the original
+artifact.  Versions with identical contents are skipped, missing packages are
+published, and a mismatch in tarball bytes or build identity fails the run.
+CI distinguishes registry/network failures from missing versions and limits
+retries.  If npm rejects a retry because the version already exists but its
+metadata is not visible yet, CI waits up to five minutes to verify it.
+Successful npm uploads and dist-tag changes need no read-after-write
+confirmation.
+
+If the original artifact is missing and any package in the set is already
+published, recovery fails closed.  Push a new commit to `main` to produce a new
+dev build, or prepare a new reviewed patch tag.  Do not rebuild an existing
+immutable version.  Immediately before registry writes and GitHub Release
+writes, CI checks again whether the release tag has been deleted or moved.
 
 After npm publication, tag builds create or verify the GitHub Release from
 `CHANGES.md` and upload the same verified tarballs.  Reruns keep an existing

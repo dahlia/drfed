@@ -58,8 +58,10 @@ const operations: string[][] = [];
 let readFailures = 0;
 let status = 0;
 let publishFailure = "";
-let publishVisibilityMisses = 8;
-let tagVisibilityMisses = 8;
+let publishFailureName = "";
+let publishVisibilityMisses = 0;
+let publishTagVisibilityMisses = 0;
+let tagVisibilityMisses = 0;
 let githubRelease:
   | {
       tag_name: string;
@@ -94,13 +96,16 @@ function handleNpm(
   operations.push(operation.args);
   const [command, target, ...rest] = operation.args;
   if (command === "publish") {
-    if (publishFailure) {
+    const manifest = operation.manifest!;
+    const name = manifest.name as string;
+    if (
+      publishFailure &&
+      (!publishFailureName || publishFailureName === name)
+    ) {
       response.writeHead(500);
       response.end(publishFailure);
       return;
     }
-    const manifest = operation.manifest!;
-    const name = manifest.name as string;
     const key = `${name}/${manifest.version}`;
     if (documents.has(key)) {
       response.writeHead(409);
@@ -112,9 +117,14 @@ function handleNpm(
       ...manifest,
       dist: { integrity: operation.integrity },
     });
+    const previous = { ...tags.get(name) };
     tags.set(name, {
-      ...tags.get(name),
+      ...previous,
       [rest[rest.indexOf("--tag") + 1]!]: manifest.version as string,
+    });
+    tagVisibility.set(name, {
+      tags: previous,
+      remaining: publishTagVisibilityMisses,
     });
   } else if (command === "dist-tag") {
     const action = target;
@@ -130,6 +140,11 @@ function handleNpm(
         remaining: tagVisibilityMisses,
       });
     } else {
+      if (!visibleTags(spec)?.[tag]) {
+        response.writeHead(404);
+        response.end(`${tag} is not a dist-tag on ${spec}`);
+        return;
+      }
       const current = tags.get(spec)!;
       delete current[tag];
     }
@@ -144,8 +159,27 @@ function visibleTags(name: string): Record<string, string> | undefined {
   }
   return tags.get(name);
 }
+const registryReadCache = new Map<string, unknown>();
+function registryDocument(path: string, fresh: boolean): unknown {
+  if (!fresh && registryReadCache.has(path)) return registryReadCache.get(path);
+  const key = path.slice(1);
+  const misses = visibilityMisses.get(key) ?? 0;
+  let document: unknown;
+  if (misses > 0) {
+    visibilityMisses.set(key, misses - 1);
+    document = null;
+  } else {
+    const tagPrefix = "/-/package/";
+    document = path.startsWith(tagPrefix)
+      ? visibleTags(path.slice(tagPrefix.length, -"/dist-tags".length))
+      : documents.get(key);
+  }
+  if (!fresh) registryReadCache.set(path, structuredClone(document ?? null));
+  return document;
+}
 const server = createServer(async (request, response) => {
-  const path = decodeURIComponent(request.url ?? "");
+  const requestUrl = new URL(request.url ?? "/", "http://127.0.0.1");
+  const path = decodeURIComponent(requestUrl.pathname);
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
   const bytes = Buffer.concat(chunks);
@@ -201,19 +235,11 @@ const server = createServer(async (request, response) => {
     response.end("{}");
     return;
   }
-  const key = path.slice(1);
-  const misses = visibilityMisses.get(key) ?? 0;
-  if (misses > 0) {
-    visibilityMisses.set(key, misses - 1);
-    response.writeHead(404);
-    response.end("{}");
-    return;
-  }
-  const tagPrefix = "/-/package/";
-  const tagName = path.slice(tagPrefix.length, -"/dist-tags".length);
-  const document = path.startsWith(tagPrefix)
-    ? visibleTags(tagName)
-    : documents.get(path.slice(1));
+  const document = registryDocument(
+    path,
+    requestUrl.searchParams.get("write") === "true" &&
+      request.headers["cache-control"] === "no-cache",
+  );
   if (!document) {
     response.writeHead(404);
     response.end("{}");
@@ -492,12 +518,20 @@ try {
   documents.set(`${first.name}/${bootstrapVersion}`, bootstrapManifest);
   tags.set(first.name, { latest: "0.0.0", dev: bootstrapVersion });
   readFailures = 2;
+  publishFailure = "E503 fixture failure";
+  publishFailureName = "@drfed/graphql";
+  await assert.rejects(run(["publish"]));
+  assert.ok(documents.has(`@drfed/federation/${build.version}`));
+  assert.equal(tags.get(first.name)!.dev, bootstrapVersion);
+  publishFailure = "";
+  publishFailureName = "";
+  operations.length = 0;
   await run(["publish"]);
   assert.deepEqual(
     operations
       .filter((item) => item[0] === "publish")
       .map((item) => item[1]!.split("/").at(-1)),
-    bundle.packages.slice(1).map((item: { filename: string }) => item.filename),
+    bundle.packages.slice(2).map((item: { filename: string }) => item.filename),
   );
   for (const name of names) {
     assert.equal(tags.get(`@drfed/${name}`)?.dev, build.version);
@@ -522,34 +556,51 @@ try {
   await assert.rejects(run(["publish"]), /Cannot order a foreign dev build/u);
   assert.equal(operations.length, 0);
   tags.get(first.name)!.dev = build.version;
-  // A tag-write acknowledgment needs bounded read confirmation too.
+  // Successful tag writes do not need immediate registry visibility.
   documents.set(`${first.name}/${bootstrapVersion}`, bootstrapManifest);
   tags.get(first.name)!.dev = bootstrapVersion;
   tagVisibilityMisses = Number.POSITIVE_INFINITY;
-  await assert.rejects(run(["publish"]), /Registry did not confirm/u);
+  await run(["publish"]);
   assert.equal(operations.length, 1);
   assert.equal(operations[0]![0], "dist-tag");
   assert.equal(operations[0]![1], "add");
   tagVisibility.delete(first.name);
-  tagVisibilityMisses = 8;
+  tagVisibilityMisses = 0;
   operations.length = 0;
   await run(["publish"]);
   assert.equal(operations.length, 0);
-  // Exhausted read polling must not upload twice or promote an incomplete set.
+  // Successful uploads are accepted even while version reads remain hidden.
   const hiddenKey = `${first.name}/${build.version}`;
   documents.delete(hiddenKey);
   publishVisibilityMisses = Number.POSITIVE_INFINITY;
-  await assert.rejects(
-    run(["publish"]),
-    /npm accepted.*registry metadata did not become visible/u,
-  );
-  assert.equal(operations.length, 1);
-  assert.equal(operations[0]![0], "publish");
+  publishTagVisibilityMisses = Number.POSITIVE_INFINITY;
+  await run(["publish"]);
+  assert.equal(operations.filter((item) => item[0] === "publish").length, 1);
+  assert.equal(visibilityMisses.get(hiddenKey), Number.POSITIVE_INFINITY);
+  assert.equal(tags.get(first.name)?.["dev-staging"], build.version);
   visibilityMisses.delete(hiddenKey);
-  publishVisibilityMisses = 8;
+  publishVisibilityMisses = 0;
+  publishTagVisibilityMisses = 0;
+  tagVisibility.delete(first.name);
   operations.length = 0;
   await run(["publish"]);
   assert.equal(operations.filter((item) => item[0] === "publish").length, 0);
+  assert.equal(tags.get(first.name)?.["dev-staging"], undefined);
+  operations.length = 0;
+  // A retry can encounter an immutable version before its metadata is visible.
+  visibilityMisses.set(hiddenKey, 8);
+  await run(["publish"]);
+  assert.equal(operations.filter((item) => item[0] === "publish").length, 1);
+  operations.length = 0;
+  const existingDocument = documents.get(hiddenKey)!;
+  documents.set(hiddenKey, {
+    ...existingDocument,
+    dist: { integrity: "sha512-conflicting-artifact" },
+  });
+  visibilityMisses.set(hiddenKey, 8);
+  await assert.rejects(run(["publish"]), /Immutable version conflict/u);
+  assert.equal(operations.filter((item) => item[0] === "publish").length, 1);
+  documents.set(hiddenKey, existingDocument);
   operations.length = 0;
   // A newer main run remains newest after a base-version rollback.
   for (const name of names) {
