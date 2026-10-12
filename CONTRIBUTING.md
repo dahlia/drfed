@@ -118,6 +118,14 @@ mise run dev
  -  Source license header checks with
     `node scripts/add-license/main.mts --check`.
  -  Package version sync with `node scripts/check-versions.mts`.
+ -  GitHub workflow and local composite action validation with jactionlint.
+
+Run `mise run check:workflows` from the repository root whenever you change a
+workflow file. The repository uses jactionlint's `default` profile and
+mise-managed ShellCheck. CI runs this same task through `mise run check` on
+pull requests and pushes. Use the latest release tags for GitHub Actions.  The
+configuration in *.github/jactionlint.yaml* allows version tags instead of
+commit hashes for the actions it lists.
 
 `mise run fmt` formats TypeScript/JavaScript, Markdown, and *mise.toml*.
 

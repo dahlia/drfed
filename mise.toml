@@ -5,6 +5,8 @@ experimental = true
 
 [tools]
 "aqua:dahlia/hongdown" = "0.4.3"
+"github:jdx/jactionlint" = "2.1.0"
+"aqua:koalaman/shellcheck" = "0.11.0"
 "github:nushell/nushell" = "0.114.1"
 node = "26"
 "npm:@fedify/cli" = { version = "2.4.3", allow_low_downloads = true }
@@ -72,6 +74,10 @@ run = "node scripts/test-packaging.mts"
 [tasks.check]
 description = "Check all"
 depends = ["check:*"]
+
+[tasks."check:workflows"]
+description = "Check GitHub workflows and local composite actions"
+run = "jactionlint"
 
 [tasks."check:types"]
 description = "Check TypeScript types"
