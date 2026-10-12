@@ -261,7 +261,7 @@ it("closes an acquired web runtime when HTTP listener startup fails", async () =
       preload,
       `import { registerHooks } from "node:module";
 import { Server } from "node:net";
-Server.prototype.listen = function () { throw new Error("LISTEN_FAILED"); };
+Server.prototype.listen = function () { throw Object.assign(new Error("PRIVATE_LISTEN_DETAIL"), {code:"EADDRINUSE"}); };
 const source = ${JSON.stringify(source)};
 registerHooks({ resolve(specifier, context, next) {
  const result = next(specifier, context);
@@ -280,6 +280,12 @@ registerHooks({ resolve(specifier, context, next) {
     );
     assert.equal(result.code, 1);
     assert.equal(await readFile(closed, "utf8"), "closed");
+    assert.match(result.stdout + result.stderr, /HTTP listener/u);
+    assert.match(result.stdout + result.stderr, /EADDRINUSE/u);
+    assert.doesNotMatch(
+      result.stdout + result.stderr,
+      /PRIVATE_LISTEN_DETAIL/u,
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

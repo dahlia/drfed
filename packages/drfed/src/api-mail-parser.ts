@@ -513,7 +513,7 @@ export function createApiMailFields(
       option(
         ...apiMailValueOptionNames.mailerooApiKeyFile,
         string({ metavar: "VALUE" }),
-        { description: message`Maileroo File containing the API sending key.` },
+        { description: message`File containing the Maileroo API sending key.` },
       ),
       settings.mailerooApiKeyFile,
       string(),
@@ -535,7 +535,7 @@ export function createApiMailFields(
           ...apiMailValueOptionNames.mailerooTimeout,
           integer({ min: 1, max: 2147483647 }),
           {
-            description: message`Maileroo Whole delivery timeout in milliseconds.`,
+            description: message`Whole Maileroo delivery timeout in milliseconds.`,
           },
         ),
         String,

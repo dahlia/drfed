@@ -39,6 +39,23 @@ import {
   resolveWebOptions,
 } from "./web-program.ts";
 
+function startupFailure(stage: string, error: unknown): string {
+  const knownCodes = [
+    "EADDRINUSE",
+    "EACCES",
+    "ENOENT",
+    "ENOTDIR",
+    "ERR_MODULE_NOT_FOUND",
+  ];
+  const code =
+    error != null && typeof error === "object" && "code" in error
+      ? error.code
+      : undefined;
+  return typeof code === "string" && knownCodes.includes(code)
+    ? `${stage} (${code})`
+    : stage;
+}
+
 async function startWeb(options: WebOptions): Promise<void> {
   const owner = new ResourceOwner();
   const operations = new OperationRegistry();
@@ -46,6 +63,7 @@ async function startWeb(options: WebOptions): Promise<void> {
   let server: ReturnType<typeof serve> | undefined;
   let closing: Promise<void> | undefined;
   let signalled = false;
+  let startupStage = "web runtime";
 
   async function cleanup(): Promise<void> {
     operations.abort();
@@ -128,6 +146,7 @@ async function startWeb(options: WebOptions): Promise<void> {
       signal.throwIfAborted();
       return runtime;
     });
+    startupStage = "HTTP listener";
     const listener = owner.register(
       serve({
         async fetch(request) {
@@ -159,6 +178,12 @@ async function startWeb(options: WebOptions): Promise<void> {
       origin: options.publicOrigin.origin,
     });
   } catch (error) {
+    getLogger(["drfed", "web"]).error(
+      "Web frontend startup failed during {failure}.",
+      {
+        failure: startupFailure(startupStage, error),
+      },
+    );
     process.off("SIGINT", shutdown);
     process.off("SIGTERM", shutdown);
     const deadline = Promise.withResolvers<never>();
@@ -204,6 +229,7 @@ export async function main(): Promise<void> {
     console.log(JSON.stringify(describeWebConfiguration(options), null, 2));
     return;
   }
+  let startupStage = "logging";
   try {
     const config = await createLoggingConfig(
       options.logging,
@@ -232,11 +258,12 @@ export async function main(): Promise<void> {
       },
     );
     await configure(config);
+    startupStage = "web frontend";
     await startWeb(options);
-  } catch {
+  } catch (error) {
     printError([
       text(
-        "Could not start the web frontend; check the listen address, logging output and installed files.",
+        `Could not start ${startupFailure(startupStage, error)}; check the listen address, logging output and installed files.`,
       ),
     ]);
     process.exitCode = 1;

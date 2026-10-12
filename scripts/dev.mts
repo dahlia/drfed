@@ -317,15 +317,22 @@ try {
 
   await waitForBuilds(buildExit);
 
-  const loginOrigins: unknown =
-    process.env.DRFED_LOGIN_ORIGINS === undefined
-      ? defaultLoginOrigins
-      : JSON.parse(process.env.DRFED_LOGIN_ORIGINS);
+  const invalidLoginOrigins =
+    'DRFED_LOGIN_ORIGINS must be a JSON string array, for example ["http://localhost:3000"].';
+  let loginOrigins: unknown;
+  try {
+    loginOrigins =
+      process.env.DRFED_LOGIN_ORIGINS === undefined
+        ? defaultLoginOrigins
+        : JSON.parse(process.env.DRFED_LOGIN_ORIGINS);
+  } catch {
+    throw new Error(invalidLoginOrigins);
+  }
   if (
     !Array.isArray(loginOrigins) ||
     !loginOrigins.every((value) => typeof value === "string")
   ) {
-    throw new Error("DRFED_LOGIN_ORIGINS must be a JSON string array.");
+    throw new Error(invalidLoginOrigins);
   }
   const serverArgs: string[] = [
     "--watch",
