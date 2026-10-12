@@ -47,7 +47,7 @@ it("uses the shared web namespace and ignores backend database/mail domains", as
   try {
     await writeFile(
       join(directory, "drfed.toml"),
-      '[server]\nroot_origin="invalid"\nlisten="invalid"\n[web]\npublic_origin="https://APP.EXAMPLE:443/"\nbackend_url="http://backend.example:8888"\nlisten="localhost:3001"\n[database]\ndriver="invalid"\nurl="PRIVATE_TOKEN"\n[mail.smtp]\nurl="invalid"\n[telemetry]\nlog_output="web.log"\nlog_level="debug"\n',
+      '[server]\nroot_origin="invalid"\nlisten="invalid"\n[web]\npublic_origin="https://APP.EXAMPLE:443/"\nbackend_url="https://backend.example:8888"\nlisten="localhost:3001"\n[database]\ndriver="invalid"\nurl="PRIVATE_TOKEN"\n[mail.smtp]\nurl="invalid"\n[telemetry]\nlog_output="web.log"\nlog_level="debug"\n',
     );
     const configured = await parse(
       ["--config", "drfed.toml"],
@@ -60,7 +60,7 @@ it("uses the shared web namespace and ignores backend database/mail domains", as
       directory,
     );
     assert.equal(configured.publicOrigin.origin, "https://app.example");
-    assert.equal(configured.backendUrl.origin, "http://backend.example:8888");
+    assert.equal(configured.backendUrl.origin, "https://backend.example:8888");
     assert.deepEqual(configured.address, { host: "localhost", port: 3001 });
     assert.equal(configured.logging.logOutput.type, "file");
     if (configured.logging.logOutput.type === "file") {
@@ -107,7 +107,7 @@ it("requires only HTTP origins and validates the active logging projection", asy
     parse(
       [
         "--public-origin=ftp://app.example",
-        "--backend-url=http://backend.example",
+        "--backend-url=https://backend.example",
       ],
       {},
       process.cwd(),
@@ -116,13 +116,13 @@ it("requires only HTTP origins and validates the active logging projection", asy
   const normalized = await parse(
     [
       "--public-origin=http://app.example/page",
-      "--backend-url=http://backend.example/graphql",
+      "--backend-url=https://backend.example/graphql",
     ],
     {},
     process.cwd(),
   );
   assert.equal(normalized.publicOrigin.origin, "http://app.example");
-  assert.equal(normalized.backendUrl.origin, "http://backend.example");
+  assert.equal(normalized.backendUrl.origin, "https://backend.example");
   await assert.rejects(
     parse(
       [
@@ -137,7 +137,7 @@ it("requires only HTTP origins and validates the active logging projection", asy
     parse(
       [
         "--public-origin=http://app.example",
-        "--backend-url=http://backend.example",
+        "--backend-url=https://backend.example",
         "--log-output=   ",
       ],
       {},
@@ -148,11 +148,87 @@ it("requires only HTTP origins and validates the active logging projection", asy
   const resolved = await parse(
     [
       "--public-origin=http://app.example",
-      "--backend-url=http://backend.example",
+      "--backend-url=https://backend.example",
     ],
     {},
     process.cwd(),
   );
   assert.deepEqual(resolved.address, { host: "localhost", port: 3000 });
   assert.equal(resolved.logging.logLevel, "info");
+});
+
+it("requires HTTPS outside loopback unless explicitly allowed", async () => {
+  const args = ["--public-origin=https://app.example"];
+  await Promise.all(
+    ["localhost", "dev.localhost", "127.0.0.1", "127.255.2.3", "[::1]"].map(
+      async (backend) => {
+        const result = await parse(
+          [...args, `--backend-url=http://${backend}:8888`],
+          {},
+          process.cwd(),
+        );
+        assert.equal(result.insecureBackend, false);
+      },
+    ),
+  );
+  await Promise.all(
+    [
+      "backend.example",
+      "127.evil.example",
+      "localhost.example",
+      "192.168.1.1",
+      "[::2]",
+    ].map(async (backend) => {
+      const options = [...args, `--backend-url=http://${backend}`];
+      await assert.rejects(
+        parse(options, {}, process.cwd()),
+        /requires HTTPS/u,
+      );
+      const allowed = await parse(
+        [...options, "--allow-insecure-backend"],
+        {},
+        process.cwd(),
+      );
+      assert.equal(allowed.allowInsecureBackend, true);
+      assert.equal(allowed.insecureBackend, true);
+      assert.equal(
+        describeWebConfiguration(allowed).settings["web.allow_insecure_backend"]
+          ?.source,
+        "cli",
+      );
+    }),
+  );
+});
+
+it("uses shared HTTP permission precedence and supports explicitly revoking it", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "drfed-web-http-policy-"));
+  try {
+    await writeFile(
+      join(directory, "drfed.toml"),
+      '[web]\npublic_origin="https://app.example"\nbackend_url="http://backend.internal"\nallow_insecure_backend=true\n',
+    );
+    const args = ["--config", "drfed.toml"];
+    const configured = await parse(args, {}, directory);
+    assert.equal(configured.allowInsecureBackend, true);
+    assert.equal(configured.provenance.allowInsecureBackend?.source, "config");
+    await assert.rejects(
+      parse(args, { DRFED_ALLOW_INSECURE_BACKEND: "false" }, directory),
+      /requires HTTPS/u,
+    );
+    const env = { DRFED_ALLOW_INSECURE_BACKEND: "true" };
+    const fromEnv = await parse(args, env, directory);
+    assert.equal(fromEnv.provenance.allowInsecureBackend?.source, "env");
+    await assert.rejects(
+      parse([...args, "--no-allow-insecure-backend"], env, directory),
+      /requires HTTPS/u,
+    );
+    const fromCli = await parse(
+      [...args, "--allow-insecure-backend"],
+      { DRFED_ALLOW_INSECURE_BACKEND: "false" },
+      directory,
+    );
+    assert.equal(fromCli.provenance.allowInsecureBackend?.source, "cli");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });

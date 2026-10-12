@@ -1015,3 +1015,15 @@ See [Upyo SES] and [AWS SES endpoints].
 
 [Upyo SES]: https://upyo.org/transports/ses
 [AWS SES endpoints]: https://docs.aws.amazon.com/general/latest/gr/ses.html
+
+
+Standalone backend security
+---------------------------
+
+`drfed-web` requires HTTPS for non-loopback backends because requests carry
+session tokens. HTTP is allowed for `localhost`, its subdomains, IPv4
+loopback addresses and `::1`. For a trusted internal network, explicitly use
+`--allow-insecure-backend`, `DRFED_ALLOW_INSECURE_BACKEND=true`, or
+`web.allow_insecure_backend = true` in TOML. This permits unencrypted session
+tokens and logs a warning at startup. `--no-allow-insecure-backend` overrides
+permission from the environment or configuration file.

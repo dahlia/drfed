@@ -71,7 +71,7 @@ registerHooks({ resolve(specifier, context, next) {
     );
     const base = [
       "--public-origin=https://app.example",
-      "--backend-url=http://backend.example",
+      "--backend-url=https://backend.example",
       `--log-output=${logPath}`,
     ];
     const help = await command(["--help"], directory, preload);
@@ -92,8 +92,23 @@ registerHooks({ resolve(specifier, context, next) {
       preload,
     );
     assert.equal(invalid.code, 1);
+    const insecure = await command(
+      base.map((value) =>
+        value.startsWith("--backend-url=")
+          ? "--backend-url=http://backend.internal"
+          : value,
+      ),
+      directory,
+      preload,
+    );
+    assert.equal(insecure.code, 1);
+    assert.match(insecure.stderr, /requires HTTPS/u);
     assert.doesNotMatch(
-      help.stderr + version.stderr + diagnostic.stderr + invalid.stderr,
+      help.stderr +
+        version.stderr +
+        diagnostic.stderr +
+        invalid.stderr +
+        insecure.stderr,
       /EARLY_/u,
     );
     await assert.rejects(access(logPath));
@@ -273,7 +288,7 @@ registerHooks({ resolve(specifier, context, next) {
     const result = await command(
       [
         "--public-origin=http://app.example",
-        "--backend-url=http://backend.example",
+        "--backend-url=https://backend.example",
       ],
       directory,
       preload,

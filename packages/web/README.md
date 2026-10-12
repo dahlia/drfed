@@ -130,3 +130,15 @@ and `/graphql` on its single listener. The web runtime calls Yoga directly in
 that process, using the same controlled GraphQL bridge as standalone mode.
 Use `--no-web` with explicit backend login origins when running `drfed-web`
 separately. Repository `mise run dev` uses this split mode for Vite HMR.
+
+
+Standalone backend security
+---------------------------
+
+`drfed-web` requires HTTPS for non-loopback backends because requests carry
+session tokens. HTTP is allowed for `localhost`, its subdomains, IPv4
+loopback addresses and `::1`. For a trusted internal network, explicitly use
+`--allow-insecure-backend`, `DRFED_ALLOW_INSECURE_BACKEND=true`, or
+`web.allow_insecure_backend = true` in TOML. This permits unencrypted session
+tokens and logs a warning at startup. `--no-allow-insecure-backend` overrides
+permission from the environment or configuration file.

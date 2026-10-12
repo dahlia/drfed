@@ -61,6 +61,7 @@ export const configurationSchema = table({
       public_origin: v.optional(text),
       listen: v.optional(text),
       backend_url: v.optional(text),
+      allow_insecure_backend: v.optional(boolean),
     }),
   ),
   database: v.optional(
@@ -299,6 +300,13 @@ export const configurationSettings = {
     ["web"],
     "Backend URL",
     (config) => config.web?.backend_url,
+  ),
+  allowInsecureBackend: setting(
+    "web.allow_insecure_backend",
+    "ALLOW_INSECURE_BACKEND",
+    ["web"],
+    "Allow an insecure HTTP backend",
+    (config) => config.web?.allow_insecure_backend,
   ),
   databaseDriver: setting(
     "database.driver",

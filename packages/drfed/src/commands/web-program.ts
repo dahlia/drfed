@@ -14,15 +14,18 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import { object } from "@optique/core/constructs";
+import { isIP } from "node:net";
+
+import { object, or } from "@optique/core/constructs";
 import { message } from "@optique/core/message";
-import { optional, withDefault } from "@optique/core/modifiers";
+import { map, optional, withDefault } from "@optique/core/modifiers";
 import type { InferValue } from "@optique/core/parser";
 import { flag, option } from "@optique/core/primitives";
 import { origin, socketAddress, string } from "@optique/core/valueparser";
 import { textFormatter } from "@optique/logtape";
 
 import {
+  configurationBoolean,
   configurationProjection,
   configurationProvenance,
   createConfigurationBindings,
@@ -58,11 +61,28 @@ export function createWebProgram(
     ),
     backendUrl: bind(
       option("--backend-url", webOrigin, {
-        description: message`The backend HTTP or HTTPS origin. GraphQL requests target its /graphql endpoint. Required.`,
+        description: message`The backend origin. HTTPS is required outside loopback unless explicitly allowed. GraphQL requests target its /graphql endpoint. Required.`,
       }),
       settings.backendUrl,
       webOrigin,
       String,
+    ),
+    allowInsecureBackend: bind(
+      or(
+        flag("--allow-insecure-backend", {
+          description: message`Allow HTTP to a non-loopback backend only on a trusted internal network. Session tokens travel without encryption.`,
+        }),
+        map(
+          flag("--no-allow-insecure-backend", {
+            description: message`Require HTTPS for non-loopback backends, overriding environment and configuration permission.`,
+          }),
+          () => false,
+        ),
+      ),
+      settings.allowInsecureBackend,
+      configurationBoolean(),
+      String,
+      false,
     ),
     address: bind(
       option("--listen", "-l", address, {
@@ -115,16 +135,32 @@ export function resolveWebOptions(raw: RawWebOptions, cwd = process.cwd()) {
       "Missing --backend-url, DRFED_BACKEND_URL or web.backend_url.",
     );
   }
+  const allowInsecureBackend = raw.allowInsecureBackend?.value ?? false;
+  const hostname = backendUrl.hostname;
+  const loopback =
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    (isIP(hostname) === 4 && hostname.startsWith("127.")) ||
+    hostname === "[::1]";
+  const insecureBackend = backendUrl.protocol === "http:" && !loopback;
+  if (insecureBackend && !allowInsecureBackend) {
+    throw new Error(
+      "The backend requires HTTPS outside loopback. Use --allow-insecure-backend only on a trusted internal network.",
+    );
+  }
   if (address === undefined) throw new Error("Missing web listen address.");
   return {
     publicOrigin,
     backendUrl,
+    allowInsecureBackend,
+    insecureBackend,
     address,
     logging: resolveLogging(raw.logging, cwd),
     printConfig: raw.printConfig,
     provenance: configurationProvenance({
       publicOrigin: raw.publicOrigin,
       backendUrl: raw.backendUrl,
+      allowInsecureBackend: raw.allowInsecureBackend,
       webListen: raw.address,
       logLevel: raw.logging.level,
       logFormat: raw.logging.format,
@@ -145,6 +181,7 @@ export function describeWebConfiguration(options: WebOptions) {
       formatter === undefined ? "default" : textFormatter().format(formatter),
     publicOrigin: options.publicOrigin.origin,
     backendUrl: options.backendUrl.origin,
+    allowInsecureBackend: options.allowInsecureBackend,
     webListen: options.address,
     logLevel: options.logging.logLevel,
     logOutput:

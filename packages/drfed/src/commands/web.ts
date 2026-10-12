@@ -123,6 +123,11 @@ async function startWeb(options: WebOptions): Promise<void> {
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
   try {
+    if (options.insecureBackend) {
+      getLogger(["drfed", "web"]).warning(
+        "HTTP backend explicitly allowed on a trusted internal network; session tokens are sent without encryption.",
+      );
+    }
     const web: WebRuntime = await operations.run(async (signal) => {
       const runtime = owner.register(
         await createWebRuntime({
