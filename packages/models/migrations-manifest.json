@@ -80,6 +80,30 @@
     {
       "name": "20261006122653_local_actor_keys",
       "sha256": "f4761a17dda22ffc7a578f9dd55668eee03ff6525707c85df83cbe1706fa9a3d"
+    },
+    {
+      "name": "20261010044954_link_activity_deliveries_to_activities",
+      "sha256": "8dfa33c73cf9abb9096b3742f4546937a1d2113fe20ce0c1263c42b6ece5a931"
+    },
+    {
+      "name": "20261010073134_check_inbound_activity_link",
+      "sha256": "450493aafc42035067fc4dc54a55bd065def8e1f901cee8d9964c6743d0b8108"
+    },
+    {
+      "name": "20261010104304_record_object_activity",
+      "sha256": "2afbd79ef6f6ee9d507261c8c63bdb780dcb7cdb757a9cfaafbc9e02d5d29d41"
+    },
+    {
+      "name": "20261010111648_record_delivery_snapshot",
+      "sha256": "22cf87bfd0ee7386df1a6fb377606bb20f5ddd0517250cb434c47eb7c0876965"
+    },
+    {
+      "name": "20261011144453_record_object_snapshot",
+      "sha256": "b4f9ae1fd9c0e8c193313814e54c8a49a7459a22e205006183b9f1d09475b56d"
+    },
+    {
+      "name": "20261011192718_record_actor_followers",
+      "sha256": "7ad5dafd71aae445354315e4bec4466196228dabd081bb76171874817cb38ff4"
     }
   ]
 }

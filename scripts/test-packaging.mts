@@ -83,7 +83,12 @@ async function run(command: string, args: string[], cwd: string) {
   });
 }
 
-async function smokeMigration(binary: string, cwd: string, dataPath: string) {
+async function smokeMigration(
+  binary: string,
+  cwd: string,
+  dataPath: string,
+  migrationCount: number,
+) {
   const config = join(cwd, "migrate.toml");
   await writeFile(
     config,
@@ -111,7 +116,7 @@ async function smokeMigration(binary: string, cwd: string, dataPath: string) {
     cwd,
   );
   assert.equal(JSON.parse(checked.stdout).status, "ready");
-  assert.equal(JSON.parse(checked.stdout).applied, 20);
+  assert.equal(JSON.parse(checked.stdout).applied, migrationCount);
 }
 
 async function pack(name: string) {
@@ -668,10 +673,17 @@ try {
       );
       assert.ok(migrationHelp.stdout.includes("--check"));
     }
+    const installedMigrations = JSON.parse(
+      await readFile(
+        join(modules, "@drfed/models/dist/migrations-manifest.json"),
+        "utf8",
+      ),
+    ) as { migrations: unknown[] };
     await smokeMigration(
       migrationBinary,
       prefix,
       join(prefix, "migration-data"),
+      installedMigrations.migrations.length,
     );
     const webBinary = join(application, "bin/drfed-web.mjs");
     const webLink = global

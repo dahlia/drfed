@@ -24,7 +24,11 @@ import { it } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
-import { inspectMigrationState, openPersistentPglite } from "@drfed/models";
+import {
+  inspectMigrationState,
+  openPersistentPglite,
+  verifyMigrationManifest,
+} from "@drfed/models";
 
 const execute = promisify(execFile);
 const binary = fileURLToPath(
@@ -143,7 +147,10 @@ it(
       assert.equal(JSON.parse(applied.stdout).status, "ready");
       const ready = await run(["--config", config, "--check"]);
       assert.equal(ready.code, 0, ready.stderr);
-      assert.equal(JSON.parse(ready.stdout).applied, 20);
+      assert.equal(
+        JSON.parse(ready.stdout).applied,
+        (await verifyMigrationManifest()).migrations.length,
+      );
       const changed = await openPersistentPglite(data);
       try {
         await changed.ready;
