@@ -843,6 +843,254 @@ async function release(): Promise<void> {
     await uploadAsset(entry, existing, build);
   }
 }
+/** The payload of a docs deployment record, written by `docs-record`. */
+interface DocsRecord {
+  version: string;
+  channel: string;
+  runNumber: string;
+  sha: string;
+}
+interface GitHubDeployment {
+  id: number;
+  sha: string;
+  environment: string;
+  payload: unknown;
+}
+interface GitHubDeploymentStatus {
+  id: number;
+  state: string;
+}
+function docsEnvironment(build: Version): string {
+  if (build.channel === "dev") return "docs-canary";
+  assert.ok(
+    build.channel === "latest" || build.channel === "next",
+    `No docs environment for channel ${build.channel}`,
+  );
+  return "docs-release";
+}
+function requireGitHubToken(): void {
+  assert.ok(
+    fixture || process.env.GH_TOKEN,
+    "GH_TOKEN is required to read and record docs deployments",
+  );
+}
+async function githubList<T>(
+  path: string,
+  query: Record<string, string> = {},
+): Promise<T[]> {
+  const pageSize = 100;
+  const items: T[] = [];
+  for (let page = 1; ; page += 1) {
+    const url = new URL(path, githubApi);
+    for (const [key, value] of Object.entries(query)) {
+      url.searchParams.set(key, value);
+    }
+    url.searchParams.set("per_page", String(pageSize));
+    url.searchParams.set("page", String(page));
+    // A missing repository or deployment is an API failure here, never an
+    // empty history; treating it as "no record" could deploy older docs.
+    const result = await get<T[]>(url.href, true);
+    assert.ok(Array.isArray(result), `GET ${url.href}: expected a list`);
+    items.push(...result);
+    if (result.length < pageSize) return items;
+  }
+}
+function githubId(value: unknown): number {
+  assert.ok(
+    typeof value === "number" && Number.isSafeInteger(value) && value > 0,
+    `Malformed GitHub identifier: ${String(value)}`,
+  );
+  return value;
+}
+function docsRecord(
+  deployment: GitHubDeployment,
+  environment: string,
+): DocsRecord {
+  // A malformed record fails closed rather than being ignored: skipping it
+  // could let an older build overwrite newer docs. It cannot deadlock the
+  // channel permanently, because posting any non-success status (such as
+  // `inactive`) on that deployment makes it no longer the last success.
+  const message = `Malformed docs deployment ${deployment.id} in ${environment}`;
+  let payload: Partial<Record<keyof DocsRecord, unknown>> | null;
+  try {
+    payload =
+      typeof deployment.payload === "string"
+        ? JSON.parse(deployment.payload)
+        : deployment.payload;
+  } catch (cause) {
+    throw new Error(message, { cause });
+  }
+  assert.ok(payload != null && typeof payload === "object", message);
+  const { version, channel, runNumber, sha } = payload;
+  assert.ok(
+    typeof version === "string" &&
+      typeof channel === "string" &&
+      typeof runNumber === "string" &&
+      typeof sha === "string",
+    message,
+  );
+  const prerelease = parseVersion(version)[4];
+  assert.ok(
+    environment === "docs-canary"
+      ? channel === "dev"
+      : channel === (prerelease ? "next" : "latest"),
+    message,
+  );
+  assert.match(runNumber, /^[1-9]\d*$/u, message);
+  assert.match(sha, /^[a-f0-9]{40}$/u, message);
+  assert.equal(deployment.sha, sha, message);
+  return { version, channel, runNumber, sha };
+}
+async function lastSuccessfulDocsDeployment(
+  environment: string,
+): Promise<DocsRecord | null> {
+  // GitHub does not document the order of either listing, so read every
+  // deployment and status and order them by their increasing identifiers.
+  const deployments = (
+    await githubList<GitHubDeployment>(`repos/${repository}/deployments`, {
+      environment,
+    })
+  ).toSorted((left, right) => githubId(right.id) - githubId(left.id));
+  for (const deployment of deployments) {
+    assert.equal(deployment.environment, environment);
+    const statuses = await githubList<GitHubDeploymentStatus>(
+      `repos/${repository}/deployments/${deployment.id}/statuses`,
+    );
+    const newest = statuses.reduce<GitHubDeploymentStatus | null>(
+      (latest, item) =>
+        latest === null || githubId(item.id) > latest.id ? item : latest,
+      null,
+    );
+    // A deployment without a final success (an interrupted record, or one a
+    // maintainer marked otherwise) is not the docs that are being served.
+    if (newest?.state === "success") {
+      return docsRecord(deployment, environment);
+    }
+  }
+  return null;
+}
+async function docsCurrent(): Promise<void> {
+  const build = buildFromEnvironment();
+  requireGitHubToken();
+  // A queued tag run must not deploy after its tag was deleted or moved.
+  await tagTarget(build);
+  const environment = docsEnvironment(build);
+  const last = await lastSuccessfulDocsDeployment(environment);
+  let current = true;
+  if (last !== null) {
+    const order =
+      build.channel === "dev"
+        ? BigInt(build.runNumber) - BigInt(last.runNumber)
+        : BigInt(compare(build.version, last.version));
+    if (order === 0n) {
+      assert.equal(last.sha, build.sha, "Same docs build from another commit");
+    }
+    current = order >= 0n;
+  }
+  if (current) {
+    console.log(
+      last === null
+        ? `No successful ${environment} deployment yet; deploying ${build.version}.`
+        : `Last ${environment} deployment is ${last.version}; deploying ${build.version}.`,
+    );
+  } else {
+    // A skip is intended (SemVer orders latest and next together, so a stable
+    // patch after a higher prerelease is skipped), but it should be noticed.
+    console.log(
+      `::warning title=Docs deployment skipped::Skipped docs ${build.version} (run ${build.runNumber}) because ${environment} already serves ${last!.version} (run ${last!.runNumber}, ${last!.sha}).`,
+    );
+  }
+  if (process.env.GITHUB_OUTPUT) {
+    await appendFile(process.env.GITHUB_OUTPUT, `current=${current}\n`);
+  }
+}
+// Whether a failed `gh api` call is worth retrying.
+function transientGhFailure(error: unknown): boolean {
+  const { code, killed, stderr } = error as {
+    code?: unknown;
+    killed?: boolean;
+    stderr?: unknown;
+  };
+  // The gh CLI reports an HTTP error as "message (HTTP status)" on stderr.
+  const status =
+    typeof stderr === "string"
+      ? /\(HTTP (?<status>\d{3})\)/u.exec(stderr)?.groups?.status
+      : undefined;
+  if (status != null) return status === "429" || status.startsWith("5");
+  // Without a response, a timeout or gh's generic exit status 1 is a network
+  // failure, while a missing login (status 4) or a spawn error such as ENOENT
+  // is not going to resolve itself.
+  return killed === true || code === 1;
+}
+async function githubPost(path: string, body: unknown): Promise<unknown> {
+  // Writes go through gh like the GitHub Release path, so the same token
+  // handling applies and fixtures intercept them with the same stub.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const pending = execute(
+      "gh",
+      ["api", "--method", "POST", path, "--input", "-"],
+      { cwd: root, timeout: 120_000, maxBuffer: 32 * 1024 * 1024 },
+    );
+    pending.child.stdin?.end(JSON.stringify(body));
+    let stdout: string;
+    try {
+      ({ stdout } = await pending);
+    } catch (error) {
+      if (attempt === 2 || !transientGhFailure(error)) throw error;
+      await delay(fixture ? 1 : 1000 * (attempt + 1));
+      continue;
+    }
+    return JSON.parse(stdout) as unknown;
+  }
+  throw new Error("Unreachable request state");
+}
+async function docsRecordDeployment(): Promise<void> {
+  const build = buildFromEnvironment();
+  requireGitHubToken();
+  const environment = docsEnvironment(build);
+  const payload: DocsRecord = {
+    version: build.version,
+    channel: build.channel,
+    runNumber: build.runNumber,
+    sha: build.sha,
+  };
+  // The commit, not the tag or branch name, is what was deployed; a ref name
+  // could be resolved after it has moved. Required contexts are left empty
+  // because the workflow has already gated the deployment on its own jobs.
+  // Retrying either POST is safe. A deployment that a failed attempt created
+  // anyway has no success status, so docs-current never reads it. The status
+  // is retried against the same deployment, and a repeated success status
+  // leaves that deployment's newest status a success.
+  const deployment = (await githubPost(`repos/${repository}/deployments`, {
+    ref: build.sha,
+    task: "deploy",
+    auto_merge: false,
+    required_contexts: [],
+    environment,
+    payload,
+    description: `Documentation ${build.version}`,
+    transient_environment: false,
+    production_environment: true,
+  })) as Partial<GitHubDeployment>;
+  const id = githubId(deployment.id);
+  assert.equal(deployment.sha, build.sha);
+  const environmentUrl = process.env.DRFED_DOCS_URL;
+  // Earlier records keep their success state, so marking the newest record
+  // otherwise falls back to the previous deployment instead of to none.
+  const status = (await githubPost(
+    `repos/${repository}/deployments/${id}/statuses`,
+    {
+      state: "success",
+      log_url: `https://github.com/${repository}/actions/runs/${build.runId}`,
+      auto_inactive: false,
+      ...(environmentUrl ? { environment_url: environmentUrl } : {}),
+    },
+  )) as Partial<GitHubDeploymentStatus>;
+  assert.equal(status.state, "success");
+  console.log(
+    `Recorded ${environment} deployment ${id} for ${build.version} (${build.sha})`,
+  );
+}
 if (command === "version") {
   const build = await calculate();
   console.log(JSON.stringify(build));
@@ -861,10 +1109,12 @@ else if (command === "verify") {
   console.log("Verified release artifact identities and contents");
 } else if (command === "publish") await publish();
 else if (command === "github-release") await release();
+else if (command === "docs-current") await docsCurrent();
+else if (command === "docs-record") await docsRecordDeployment();
 else if (command === "compare") {
   console.log(compare(cliArgs[0]!, cliArgs[1]!));
 } else {
   throw new Error(
-    "Expected version, apply, pack, verify, publish, github-release or compare",
+    "Expected version, apply, ensure-unpublished, tag-target, pack, verify, publish, github-release, docs-current, docs-record or compare",
   );
 }
