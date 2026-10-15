@@ -7,3 +7,5 @@ rules:
       jdx/mise-action: ref-pin
       actions/upload-artifact: ref-pin
       actions/download-artifact: ref-pin
+      actions/upload-pages-artifact: ref-pin
+      actions/deploy-pages: ref-pin
