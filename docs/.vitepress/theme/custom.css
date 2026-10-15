@@ -163,3 +163,39 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 .VPFooter {
   background: var(--vp-c-bg-alt);
 }
+
+/*
+Between 768px and 1279px, VitePress shows every top nav item next to the
+search button and folds the appearance switch and social links into the "..."
+flyout.  At the default spacing the nav items do not fit there, and they push
+the last item and the flyout off screen, so the search button is reduced to its
+icon (it keeps its "Search" label for assistive technology) and the nav items
+are set closer together.
+*/
+@media (min-width: 768px) and (max-width: 1279px) {
+  .VPNavBar .DocSearch-Button {
+    justify-content: center;
+    padding: 0;
+    width: 40px;
+  }
+
+  .VPNavBar .DocSearch-Button .DocSearch-Search-Icon {
+    margin-right: 0;
+  }
+
+  .VPNavBar .DocSearch-Button .DocSearch-Button-Placeholder,
+  .VPNavBar .DocSearch-Button .DocSearch-Button-Keys {
+    display: none;
+  }
+
+  .VPNavBar .VPNavBarMenu .VPNavBarMenuLink {
+    padding: 0 6px;
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 959px) {
+  .VPNavBar .VPNavBarSearch {
+    padding-left: 12px;
+  }
+}
