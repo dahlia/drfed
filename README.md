@@ -125,5 +125,6 @@ The documentation site lives in *docs/* and uses [VitePress]. After
 `mise install`, run `mise run dev:docs` to start it locally. Run
 `mise run build:docs` to build the static site and `mise run preview:docs` to
 preview the result.
+See [*DEPLOY.md*](./DEPLOY.md) for how the site is deployed.
 
 [VitePress]: https://vitepress.dev/
