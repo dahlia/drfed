@@ -1,13 +1,13 @@
 {
   "private": true,
   "devDependencies": {
+    "@dahlia/sacho": "github:dahlia/sacho#0.3.2",
     "@drfed/models": "workspace:*",
     "@electric-sql/pglite": "catalog:",
     "@logtape/logtape": "catalog:",
     "drizzle-orm": "catalog:",
     "@drfed/graphql": "workspace:*",
     "graphql": "catalog:",
-    "@sacho/sacho": "0.3.2",
     "vitepress": "^1.6.4"
   }
 }

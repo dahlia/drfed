@@ -1,7 +1,7 @@
 Vendored agent skills
 =====================
 
-These GitHub-only skills are checked in. pnpm links approved dependency skills
+These skills from GitHub are checked in. pnpm links approved dependency skills
 beside them during `mise install`; it does not fetch these snapshots. To update
 a snapshot, review its upstream changes and replace its files manually.
 
@@ -13,7 +13,9 @@ a snapshot, review its upstream changes and replace its files manually.
 | `relay-performance`     | [facebook/relay: relay-performance]               |
 | `valibot`               | [open-circle/agent-skills: valibot]               |
 
-Sacho comes from the pinned `@sacho/sacho` development dependency.
+Sacho is installed from `github:dahlia/sacho#0.3.2` as the `@dahlia/sacho`
+development dependency. Its commit and integrity are recorded in
+*pnpm-lock.yaml*; pnpm links its approved skill beside these snapshots.
 
 [open-circle/agent-skills: formisch]: https://github.com/open-circle/agent-skills/tree/HEAD/skills/formisch
 [ChilliCream/agent-skills: graphql-schema-design]: https://github.com/ChilliCream/agent-skills/tree/HEAD/skills/graphql-schema-design
