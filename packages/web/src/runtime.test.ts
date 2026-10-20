@@ -73,7 +73,9 @@ void it(
               { status: 500 },
             );
           }
-          return Response.json({ data: { viewer: null } });
+          return Response.json({
+            data: { viewer: null, localInstanceBySlug: null },
+          });
         },
       });
       publicOrigin.hostname = "mutated.invalid";
@@ -89,6 +91,13 @@ void it(
         );
         assert.equal(page.status, 200);
         assert.match(await page.text(), /DrFed/u);
+        const instancePage = await runtime.fetch(
+          new Request("https://drfed.test/instance/test-instance", {
+            headers: { cookie: `session=${"A".repeat(43)}` },
+          }),
+        );
+        assert.equal(instancePage.status, 200);
+        assert.match(await instancePage.text(), /Instance not found\./u);
         assert.ok(requests.length > 0);
         for (const request of requests) {
           assert.equal(request.url, "https://drfed.test/graphql");
