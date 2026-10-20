@@ -16,7 +16,7 @@ npm = "12.2.0"
 "npm:oxlint-tsgolint" = "7.0.2001"
 "npm:pglite-cli" = { version = "0.0.1", allow_low_downloads = true }
 oxfmt = "0.55.0"
-pnpm = "11"
+pnpm = "12"
 
 [deps.pnpm]
 auto = true
