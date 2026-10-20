@@ -8,10 +8,6 @@
     "@drfed/graphql": "workspace:*",
     "graphql": "catalog:",
     "@sacho/sacho": "0.3.2",
-    "skills-npm": "catalog:",
     "vitepress": "^1.6.4"
-  },
-  "scripts": {
-    "prepare": "skills-npm --recursive --yes --force && skills-npm --yes --force --no-cleanup"
   }
 }

@@ -231,11 +231,20 @@ After tagging, use
 one package.
 
 For changelog work, agents must read the official Sacho skill linked at
-*.agents/skills/npm-sacho-sacho-sacho/SKILL.md*.  Contributors do not need a
+*.agents/skills/pnpm-@sacho+sacho-sacho/SKILL.md*.  Contributors do not need a
 global agent plugin.  `mise install` installs the
-pinned binary and runs dependency preparation, which links npm-bundled skills
-from both the workspace packages and the root development dependencies.  To
-update Sacho, change the *mise.toml* pin and run
+pinned binary and installs dependencies.  pnpm 12.11 or newer links approved
+npm-bundled skills from workspace and root dependencies into *.agents/skills/*
+and *.crush/skills/*.  *.claude/skills* points to *.agents/skills/*.
+Approvals and destination directories are declared in *pnpm-workspace.yaml*.
+Review new dependency skills before adding their `permissions.<package>.skills`
+approval.  GitHub-only skills are checked in with their sources listed in
+*.agents/skills/README.md*.
+
+When updating an existing checkout, remove the old `npm-*` symlinks left by
+skills-npm in agent skill directories once; keep checked-in skill directories.
+
+To update Sacho, change the *mise.toml* pin and run
 `mise exec -- pnpm add -Dw --save-exact @sacho/sacho@<version>` with the same
 version.  Run `mise run changelog:setup` again after installing the new binary
 to update the version-specific Git merge-driver path.  Commit the tool pin,

@@ -6,6 +6,24 @@ allowBuilds:
   "@parcel/watcher": true
   esbuild: true
 
+# Link approved dependency skills for the agents previously served by skills-npm.
+skills:
+  dirs:
+    - .agents/skills
+    - .crush/skills
+
+permissions:
+  "@fedify/fedify":
+    skills: true
+  "@logtape/logtape":
+    skills: true
+  "@optique/core":
+    skills: true
+  "@sacho/sacho":
+    skills: true
+  solid-relay:
+    skills: true
+
 catalog:
   "@electric-sql/pglite": ^0.5.3
   "@faker-js/faker": ^10.5.0
@@ -43,7 +61,6 @@ catalog:
   graphql: ^16.14.2
   pg: ^8.21.0
   postgres: ^3.4.9
-  skills-npm: ^1.2.0
   tsdown: ^0.22.14
   typescript: ^7.0.2
   uuid: ^14.0.1
