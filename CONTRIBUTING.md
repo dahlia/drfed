@@ -238,8 +238,10 @@ npm-bundled skills from workspace and root dependencies into *.agents/skills/*
 and *.crush/skills/*.  *.claude/skills* points to *.agents/skills/*.
 Approvals and destination directories are declared in *pnpm-workspace.yaml*.
 Review new dependency skills before adding their `permissions.<package>.skills`
-approval.  Skills sourced from GitHub are checked in with their sources listed
-in *.agents/skills/README.md*.
+approval.  Standalone skill collections are Git development dependencies;
+pnpm locks their source commits and links them alongside package-bundled
+skills.  Sources and update instructions are listed in
+*.agents/skills/README.md*.
 
 When updating an existing checkout, remove the old `npm-*` symlinks left by
 skills-npm in agent skill directories once; keep checked-in skill directories.

@@ -124,10 +124,15 @@ catalogs:
       specifier: ^14.0.1
       version: 14.0.1
 
+pnpmfileChecksum: sha256-8LzmDpMtRRIXQ30YxJ3SHpyOsWi3PFsgEWC16a+we9s=
+
 importers:
 
   .:
     devDependencies:
+      '@chillicream/agent-skills':
+        specifier: github:ChilliCream/agent-skills#23b4e12f696885fb5a71dacddddec69124207f94
+        version: https://codeload.github.com/ChilliCream/agent-skills/tar.gz/23b4e12f696885fb5a71dacddddec69124207f94
       '@dahlia/sacho':
         specifier: github:dahlia/sacho#0.3.2
         version: https://codeload.github.com/dahlia/sacho/tar.gz/e8cb82260b34a29685fbe341e9c196d919cf9e9c
@@ -143,12 +148,18 @@ importers:
       '@logtape/logtape':
         specifier: 'catalog:'
         version: 2.3.0-dev.840
+      '@open-circle/agent-skills':
+        specifier: github:open-circle/agent-skills#21d123742218d3cd748056fad78aa88d7da3dc96
+        version: https://codeload.github.com/open-circle/agent-skills/tar.gz/21d123742218d3cd748056fad78aa88d7da3dc96
       drizzle-orm:
         specifier: 'catalog:'
         version: 1.0.0-beta.22(@electric-sql/pglite@0.5.3)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(pg@8.21.0)(postgres@3.4.9)(valibot@1.4.2(typescript@7.0.2))
       graphql:
         specifier: 'catalog:'
         version: 16.14.2
+      relay-github-root:
+        specifier: github:facebook/relay#52c2e68711a698a9708997b9bdf7532c4d7ecdd6
+        version: https://codeload.github.com/facebook/relay/tar.gz/52c2e68711a698a9708997b9bdf7532c4d7ecdd6
       vitepress:
         specifier: ^1.6.4
         version: 1.6.4(@algolia/client-search@5.59.0)(@types/node@26.0.0)(lightningcss@1.33.0)(postcss@8.5.29)(search-insights@2.17.3)(terser@5.48.0)(typescript@7.0.2)
@@ -674,6 +685,10 @@ packages:
 
   '@cfworker/json-schema@4.1.1':
     resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
+
+  '@chillicream/agent-skills@https://codeload.github.com/ChilliCream/agent-skills/tar.gz/23b4e12f696885fb5a71dacddddec69124207f94':
+    resolution: {gitHosted: true, integrity: sha512-Lk8O7lSO6w5fRCzIq0JBSs0fPYMTF6DU2vt+lDeI4lrO+TSJCwgAhAxP9sQQg6EAU/q+dSoqQQfT38UawX1MPg==, tarball: https://codeload.github.com/ChilliCream/agent-skills/tar.gz/23b4e12f696885fb5a71dacddddec69124207f94}
+    version: 0.0.0
 
   '@corvu/utils@0.4.2':
     resolution: {integrity: sha512-Ox2kYyxy7NoXdKWdHeDEjZxClwzO4SKM8plAaVwmAJPxHMqA0rLOoAsa+hBDwRLpctf+ZRnAd/ykguuJidnaTA==}
@@ -1470,6 +1485,10 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
+
+  '@open-circle/agent-skills@https://codeload.github.com/open-circle/agent-skills/tar.gz/21d123742218d3cd748056fad78aa88d7da3dc96':
+    resolution: {gitHosted: true, integrity: sha512-AjtgmKUVILPRH/SMdR/xaDg679uvjfhUA+A0y30yoV2htICd7qmx3xQ69JiVQLkxIiwbgiJio2WABX4O/N3QTA==, tarball: https://codeload.github.com/open-circle/agent-skills/tar.gz/21d123742218d3cd748056fad78aa88d7da3dc96}
+    version: 0.0.0
 
   '@opentelemetry/api@1.9.1':
     resolution: {integrity: sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q==}
@@ -3999,6 +4018,10 @@ packages:
     resolution: {integrity: sha512-Wqlg3MtHyBlAYByVo24Wy9H3n2bAw991gPmzdo3XfNv+TzhI8zuGogtiae+7NORI7zhghgZaHC7Sp8S8ZPRYEA==}
     hasBin: true
 
+  relay-github-root@https://codeload.github.com/facebook/relay/tar.gz/52c2e68711a698a9708997b9bdf7532c4d7ecdd6:
+    resolution: {gitHosted: true, integrity: sha512-qz29EXFPkPjvylIZsdKoCHhHEFqYkBhxR9Pq95/4d6Xs/wpFwo3vxXiUwNK5vFb4p6NYuO4X+V2s4fm8L4IQiw==, tarball: https://codeload.github.com/facebook/relay/tar.gz/52c2e68711a698a9708997b9bdf7532c4d7ecdd6}
+    version: 21.0.1
+
   relay-runtime@21.0.1:
     resolution: {integrity: sha512-OS+We56sp6gkGVEcce9VCNOeg/sMbxT9unEoerQPgNAICHowSWrXNc6LJxF2OqjypxYF7kaLDSPPiaPii2Pw1g==}
 
@@ -4832,6 +4855,8 @@ snapshots:
 
   '@cfworker/json-schema@4.1.1': {}
 
+  '@chillicream/agent-skills@https://codeload.github.com/ChilliCream/agent-skills/tar.gz/23b4e12f696885fb5a71dacddddec69124207f94': {}
+
   '@corvu/utils@0.4.2(solid-js@1.9.17)':
     dependencies:
       '@floating-ui/dom': 1.8.0
@@ -5490,6 +5515,8 @@ snapshots:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
+
+  '@open-circle/agent-skills@https://codeload.github.com/open-circle/agent-skills/tar.gz/21d123742218d3cd748056fad78aa88d7da3dc96': {}
 
   '@opentelemetry/api@1.9.1': {}
 
@@ -7624,6 +7651,8 @@ snapshots:
       regex-utilities: 2.3.0
 
   relay-compiler@21.0.1: {}
+
+  relay-github-root@https://codeload.github.com/facebook/relay/tar.gz/52c2e68711a698a9708997b9bdf7532c4d7ecdd6: {}
 
   relay-runtime@21.0.1:
     dependencies:

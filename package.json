@@ -8,6 +8,9 @@
     "drizzle-orm": "catalog:",
     "@drfed/graphql": "workspace:*",
     "graphql": "catalog:",
-    "vitepress": "^1.6.4"
+    "vitepress": "^1.6.4",
+    "@open-circle/agent-skills": "github:open-circle/agent-skills#21d123742218d3cd748056fad78aa88d7da3dc96",
+    "@chillicream/agent-skills": "github:ChilliCream/agent-skills#23b4e12f696885fb5a71dacddddec69124207f94",
+    "relay-github-root": "github:facebook/relay#52c2e68711a698a9708997b9bdf7532c4d7ecdd6"
   }
 }

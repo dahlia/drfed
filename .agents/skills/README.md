@@ -1,24 +1,40 @@
-Vendored agent skills
-=====================
+Agent skills
+============
 
-These skills from GitHub are checked in. pnpm links approved dependency skills
-beside them during `mise install`; it does not fetch these snapshots. To update
-a snapshot, review its upstream changes and replace its files manually.
+pnpm installs and links every skill in this directory. The source commits and
+tarball integrity are recorded in *pnpm-lock.yaml*. There are no checked-in
+skill copies. *.claude/skills* points to this directory; pnpm also links the
+same dependency skills into *.crush/skills/*.
 
-| Skill                   | Upstream source                                   |
-| ----------------------- | ------------------------------------------------- |
-| `formisch`              | [open-circle/agent-skills: formisch]              |
-| `graphql-schema-design` | [ChilliCream/agent-skills: graphql-schema-design] |
-| `relay-best-practices`  | [facebook/relay: relay-best-practices]            |
-| `relay-performance`     | [facebook/relay: relay-performance]               |
-| `valibot`               | [open-circle/agent-skills: valibot]               |
+| Git development dependency  | Skills                                      | Source                     |
+| --------------------------- | ------------------------------------------- | -------------------------- |
+| `@open-circle/agent-skills` | `formisch`, `valibot`                       | [open-circle/agent-skills] |
+| `@chillicream/agent-skills` | `graphql-schema-design`                     | [ChilliCream/agent-skills] |
+| `relay-github-root`         | `relay-best-practices`, `relay-performance` | [facebook/relay]           |
+| `@dahlia/sacho`             | `sacho`                                     | [dahlia/sacho]             |
 
-Sacho is installed from `github:dahlia/sacho#0.3.2` as the `@dahlia/sacho`
-development dependency. Its commit and integrity are recorded in
-*pnpm-lock.yaml*; pnpm links its approved skill beside these snapshots.
+The pinned skill contents match the latest upstream versions checked during
+this migration. ChilliCream is pinned to the last change to its GraphQL schema
+skill, before unrelated skills were added to the collection; that skill and
+its references still match the default branch. Sacho's skill also matches its
+default branch while retaining the release tag matching the mise binary.
 
-[open-circle/agent-skills: formisch]: https://github.com/open-circle/agent-skills/tree/HEAD/skills/formisch
-[ChilliCream/agent-skills: graphql-schema-design]: https://github.com/ChilliCream/agent-skills/tree/HEAD/skills/graphql-schema-design
-[facebook/relay: relay-best-practices]: https://github.com/facebook/relay/tree/HEAD/skills/relay-best-practices
-[facebook/relay: relay-performance]: https://github.com/facebook/relay/tree/HEAD/skills/relay-performance
-[open-circle/agent-skills: valibot]: https://github.com/open-circle/agent-skills/tree/HEAD/skills/valibot
+Relay's repository root declares its own development dependencies and a build
+script. *.pnpmfile.mjs* removes dependency edges from `relay-github-root`, since
+only its skills are used here. Its build permission is explicitly denied.
+The application's `relay-runtime`, Relay compiler, and other dependencies keep
+their existing dependency graphs.
+
+Fedify, LogTape, Optique, and Solid Relay skills come from the application
+packages already installed in the workspace and follow those package versions.
+
+To update a Git collection, review the complete upstream *skills/* directory,
+then run `mise exec -- pnpm add -Dw github:owner/repo#<revision>` and
+`mise exec -- pnpm approve`. Approval covers all skills in that source and is
+tied to its resolved commit. Commit *package.json*, *pnpm-lock.yaml*, and the
+updated source approval in *pnpm-workspace.yaml* together.
+
+[open-circle/agent-skills]: https://github.com/open-circle/agent-skills
+[ChilliCream/agent-skills]: https://github.com/ChilliCream/agent-skills
+[facebook/relay]: https://github.com/facebook/relay
+[dahlia/sacho]: https://github.com/dahlia/sacho
