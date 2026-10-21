@@ -6,6 +6,31 @@ allowBuilds:
   "@parcel/watcher": true
   esbuild: true
 
+# Link approved dependency skills for the agents previously served by skills-npm.
+skills:
+  dirs:
+    - .agents/skills
+    - .crush/skills
+
+permissions:
+  "@open-circle/agent-skills@https://codeload.github.com/open-circle/agent-skills/tar.gz/21d123742218d3cd748056fad78aa88d7da3dc96":
+    skills: true
+  "@chillicream/agent-skills@https://codeload.github.com/ChilliCream/agent-skills/tar.gz/23b4e12f696885fb5a71dacddddec69124207f94":
+    skills: true
+  "relay-github-root@https://codeload.github.com/facebook/relay/tar.gz/52c2e68711a698a9708997b9bdf7532c4d7ecdd6":
+    build: false
+    skills: true
+  "@dahlia/sacho@https://codeload.github.com/dahlia/sacho/tar.gz/e8cb82260b34a29685fbe341e9c196d919cf9e9c":
+    skills: true
+  "@fedify/fedify":
+    skills: true
+  "@logtape/logtape":
+    skills: true
+  "@optique/core":
+    skills: true
+  solid-relay:
+    skills: true
+
 catalog:
   "@electric-sql/pglite": ^0.5.3
   "@faker-js/faker": ^10.5.0
@@ -43,7 +68,6 @@ catalog:
   graphql: ^16.14.2
   pg: ^8.21.0
   postgres: ^3.4.9
-  skills-npm: ^1.2.0
   tsdown: ^0.22.14
   typescript: ^7.0.2
   uuid: ^14.0.1

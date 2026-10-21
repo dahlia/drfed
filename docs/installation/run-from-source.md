@@ -8,7 +8,7 @@ frontend together on your own machine, using PGlite for database storage.
 Prerequisites
 -------------
 
-Install Git and [mise] 2026.6.10 or newer. Mise manages Node.js 26, pnpm 11,
+Install Git and [mise] 2026.6.10 or newer. Mise manages Node.js 26, pnpm 12,
 and the other tools required by the project.
 
 [mise]: https://mise.jdx.dev/

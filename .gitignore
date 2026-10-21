@@ -16,8 +16,5 @@ docs/.vitepress/.temp/
 
 index.db
 
-# Agent skills from npm packages (managed by skills-npm)
-**/skills/npm-*
-
 # Disposable verified release bundles (uploaded by CI, never committed)
 /release-artifacts/

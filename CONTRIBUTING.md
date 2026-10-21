@@ -44,7 +44,7 @@ The repository currently assumes:
 
  -  mise 2026.6.10 or newer.
  -  Node.js 26 or newer, managed through mise.
- -  pnpm 11, managed through mise.
+ -  pnpm 12, managed through mise.
  -  mise tasks for checks, formatting, builds, migrations, and development.
  -  Node.js as the only supported runtime.  Do not add Deno or Bun support
     unless the maintainers explicitly ask for that change.
@@ -231,15 +231,30 @@ After tagging, use
 one package.
 
 For changelog work, agents must read the official Sacho skill linked at
-*.agents/skills/npm-sacho-sacho-sacho/SKILL.md*.  Contributors do not need a
+*.agents/skills/pnpm-@dahlia+sacho-sacho/SKILL.md*.  Contributors do not need a
 global agent plugin.  `mise install` installs the
-pinned binary and runs dependency preparation, which links npm-bundled skills
-from both the workspace packages and the root development dependencies.  To
-update Sacho, change the *mise.toml* pin and run
-`mise exec -- pnpm add -Dw --save-exact @sacho/sacho@<version>` with the same
-version.  Run `mise run changelog:setup` again after installing the new binary
-to update the version-specific Git merge-driver path.  Commit the tool pin,
-root manifest, and lockfile together.
+pinned binary and installs dependencies.  pnpm 12.11 or newer links approved
+npm-bundled skills from workspace and root dependencies into *.agents/skills/*
+and *.crush/skills/*.  *.claude/skills* points to *.agents/skills/*.
+Approvals and destination directories are declared in *pnpm-workspace.yaml*.
+Review new dependency skills before adding their `permissions.<package>.skills`
+approval.  Standalone skill collections are Git development dependencies;
+pnpm locks their source commits and links them alongside package-bundled
+skills.  Sources and update instructions are listed in
+*.agents/skills/README.md*.
+
+When updating an existing checkout, remove the old `npm-*` symlinks left by
+skills-npm in agent skill directories once; keep checked-in skill directories.
+
+Sacho's skill comes from the `@dahlia/sacho` GitHub development dependency,
+locked to the release matching the mise binary.  To update Sacho, change the
+*mise.toml* pin and run
+`mise exec -- pnpm add -Dw github:dahlia/sacho#<version>`.  Review the updated
+skill and run `mise exec -- pnpm approve` to approve its new source identity;
+Git dependency approvals are tied to the resolved commit.  Run
+`mise run changelog:setup` again after installing the new binary to update the
+version-specific Git merge-driver path.  Commit the tool pin, root manifest,
+lockfile, and approval together.
 
 
 Automated npm and GitHub releases
