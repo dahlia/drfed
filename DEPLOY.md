@@ -186,12 +186,23 @@ integration.
 2.  `preview` runs from the default branch's workflow file and checks out the
     default branch, never the pull request.  It finds the open pull request
     whose head is the run's commit, requires that run's latest `docs` job to
-    have succeeded, and downloads only the artifact.
+    have succeeded, and downloads only the artifact.  The artifact goes
+    outside the checkout, so that nothing in it can shadow a checked-out file
+    and Wrangler does not see a dirty working tree.
 3.  It runs `mise run docs:deploy` with `DOCS_BRANCH=pr-<n>` and the head
     commit as `DOCS_COMMIT`, so the stable URL is
     `https://pr-<n>.drfed-docs.pages.dev`.  It then updates one marked comment
     from `github-actions[bot]` with the `alias-url` and `deployment-url`
     outputs.
+
+jactionlint flags `workflow_run` as a dangerous trigger.  It is accepted
+deliberately: the job treats the event payload and the artifact as untrusted
+input and checks both before using them.
+
+Runs for the same head branch are serialized, so that an older run cannot
+deploy over a newer one.  The concurrency group starts with the head
+repository's numeric ID, which cannot contain the separator, so forks with
+the same branch name never share a group.
 
 Credentials never reach pull request code.  Previews are a separate origin
 from `canary.drfed.org`, and Cloudflare sends `X-Robots-Tag: noindex` on every
