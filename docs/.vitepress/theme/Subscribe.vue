@@ -52,9 +52,9 @@ import { openSubscriptionConfirmation } from "./buttondown.ts";
         </form>
 
         <p class="fineprint">
-          Occasional updates only; unsubscribe anytime. You can also
+          Occasional updates only; unsubscribe anytime. You can also follow
           <a href="https://hackers.pub/@drfed" rel="me"
-            >follow <span class="handle">@drfed@hackers.pub</span></a
+            ><span class="handle">@drfed@hackers.pub</span></a
           >
           on the fediverse.
         </p>
