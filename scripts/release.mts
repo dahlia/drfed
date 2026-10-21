@@ -843,7 +843,7 @@ async function release(): Promise<void> {
     await uploadAsset(entry, existing, build);
   }
 }
-/** The payload of a docs deployment record, written by `docs-record`. */
+/** The payload of a docs deployment record, written by `docs-intent`. */
 interface DocsRecord {
   version: string;
   channel: string;
@@ -902,21 +902,14 @@ function githubId(value: unknown): number {
   );
   return value;
 }
-function docsRecord(
-  deployment: GitHubDeployment,
+function parseDocsRecord(
+  value: unknown,
   environment: string,
+  message: string,
 ): DocsRecord {
-  // A malformed record fails closed rather than being ignored: skipping it
-  // could let an older build overwrite newer docs. It cannot deadlock the
-  // channel permanently, because posting any non-success status (such as
-  // `inactive`) on that deployment makes it no longer the last success.
-  const message = `Malformed docs deployment ${deployment.id} in ${environment}`;
   let payload: Partial<Record<keyof DocsRecord, unknown>> | null;
   try {
-    payload =
-      typeof deployment.payload === "string"
-        ? JSON.parse(deployment.payload)
-        : deployment.payload;
+    payload = typeof value === "string" ? JSON.parse(value) : value;
   } catch (cause) {
     throw new Error(message, { cause });
   }
@@ -938,11 +931,98 @@ function docsRecord(
   );
   assert.match(runNumber, /^[1-9]\d*$/u, message);
   assert.match(sha, /^[a-f0-9]{40}$/u, message);
-  assert.equal(deployment.sha, sha, message);
   return { version, channel, runNumber, sha };
 }
-async function lastSuccessfulDocsDeployment(
+function docsRecord(
+  deployment: GitHubDeployment,
   environment: string,
+): DocsRecord {
+  // A malformed record fails closed rather than being ignored: skipping it
+  // could let an older build overwrite newer docs. It cannot deadlock the
+  // channel permanently, because posting `inactive` on that deployment makes
+  // every later check skip it.
+  const message = `Malformed docs deployment ${deployment.id} in ${environment}`;
+  const record = parseDocsRecord(deployment.payload, environment, message);
+  assert.equal(deployment.sha, record.sha, message);
+  return record;
+}
+function sameDocsRecord(left: DocsRecord, right: DocsRecord): boolean {
+  return (
+    left.version === right.version &&
+    left.channel === right.channel &&
+    left.runNumber === right.runNumber &&
+    left.sha === right.sha
+  );
+}
+/** The file in every deployed site that names the build it came from. */
+const docsBuildFile = "drfed-docs-build.json";
+function docsSiteUrl(): URL {
+  const value = process.env.DRFED_DOCS_URL;
+  assert.ok(value, "DRFED_DOCS_URL is required to check the deployed docs");
+  const url = new URL(value);
+  if (fixture) {
+    assert.equal(url.protocol, "http:");
+    assert.equal(url.hostname, "127.0.0.1");
+  } else assert.equal(url.protocol, "https:");
+  return url;
+}
+async function servedDocsBuild(
+  environment: string,
+): Promise<DocsRecord | null> {
+  const url = new URL(docsBuildFile, docsSiteUrl());
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        cache: "no-store",
+        redirect: "error",
+        signal: AbortSignal.timeout(10_000),
+        headers: { "Cache-Control": "no-cache" },
+      });
+    } catch (error) {
+      if (attempt === 2) throw error;
+      await delay(fixture ? 1 : 1000 * (attempt + 1));
+      continue;
+    }
+    // A site deployed before builds named themselves has no such file.
+    if (response.status === 404) return null;
+    if (response.ok) {
+      return parseDocsRecord(
+        await response.text(),
+        environment,
+        `Malformed ${url.href}`,
+      );
+    }
+    if (attempt < 2 && (response.status === 429 || response.status >= 500)) {
+      await delay(fixture ? 1 : 1000 * (attempt + 1));
+      continue;
+    }
+    throw new Error(`GET ${url.href}: HTTP ${response.status}`);
+  }
+  throw new Error("Unreachable request state");
+}
+async function postDocsStatus(
+  id: number,
+  build: Version,
+  state: string,
+  environmentUrl?: string,
+): Promise<void> {
+  // Earlier records keep their success state, so marking the newest record
+  // otherwise falls back to the previous deployment instead of to none.
+  const status = (await githubPost(
+    `repos/${repository}/deployments/${id}/statuses`,
+    {
+      state,
+      log_url: `https://github.com/${repository}/actions/runs/${build.runId}`,
+      auto_inactive: false,
+      ...(environmentUrl ? { environment_url: environmentUrl } : {}),
+    },
+  )) as Partial<GitHubDeploymentStatus>;
+  assert.equal(status.state, state);
+}
+async function servedDocsDeployment(
+  environment: string,
+  build: Version,
 ): Promise<DocsRecord | null> {
   // GitHub does not document the order of either listing, so read every
   // deployment and status and order them by their increasing identifiers.
@@ -951,6 +1031,7 @@ async function lastSuccessfulDocsDeployment(
       environment,
     })
   ).toSorted((left, right) => githubId(right.id) - githubId(left.id));
+  let served: DocsRecord | null | undefined;
   for (const deployment of deployments) {
     assert.equal(deployment.environment, environment);
     const statuses = await githubList<GitHubDeploymentStatus>(
@@ -961,11 +1042,26 @@ async function lastSuccessfulDocsDeployment(
         latest === null || githubId(item.id) > latest.id ? item : latest,
       null,
     );
-    // A deployment without a final success (an interrupted record, or one a
-    // maintainer marked otherwise) is not the docs that are being served.
     if (newest?.state === "success") {
       return docsRecord(deployment, environment);
     }
+    if (newest?.state === "inactive") continue;
+    // Any other state is an intent whose upload may or may not have reached
+    // the site, so the site itself settles it.  Jobs for one site run one at
+    // a time, so no upload is still in flight here.
+    const record = docsRecord(deployment, environment);
+    served ??= await servedDocsBuild(environment);
+    if (served !== null && sameDocsRecord(served, record)) {
+      await postDocsStatus(deployment.id, build, "success");
+      console.log(
+        `Docs deployment ${deployment.id} (${record.version}) is being served; recorded it as successful.`,
+      );
+      return record;
+    }
+    await postDocsStatus(deployment.id, build, "inactive");
+    console.log(
+      `Docs deployment ${deployment.id} (${record.version}) is not being served; marked it inactive.`,
+    );
   }
   return null;
 }
@@ -975,7 +1071,7 @@ async function docsCurrent(): Promise<void> {
   // A queued tag run must not deploy after its tag was deleted or moved.
   await tagTarget(build);
   const environment = docsEnvironment(build);
-  const last = await lastSuccessfulDocsDeployment(environment);
+  const last = await servedDocsDeployment(environment, build);
   let current = true;
   if (last !== null) {
     const order =
@@ -1044,9 +1140,13 @@ async function githubPost(path: string, body: unknown): Promise<unknown> {
   }
   throw new Error("Unreachable request state");
 }
-async function docsRecordDeployment(): Promise<void> {
+async function docsIntent(): Promise<void> {
   const build = buildFromEnvironment();
   requireGitHubToken();
+  // The docs:record-intent task declares its argument with `usage`, so mise
+  // passes it as usage_dir instead of appending it to the command.
+  const dist = process.env.usage_dir;
+  assert.ok(dist, "Missing the docs build directory");
   const environment = docsEnvironment(build);
   const payload: DocsRecord = {
     version: build.version,
@@ -1054,13 +1154,15 @@ async function docsRecordDeployment(): Promise<void> {
     runNumber: build.runNumber,
     sha: build.sha,
   };
+  // The site names its build so that an intent left unresolved by a failed
+  // job can be settled against what is actually served.
+  await writeFile(join(resolve(dist), docsBuildFile), JSON.stringify(payload));
   // The commit, not the tag or branch name, is what was deployed; a ref name
   // could be resolved after it has moved. Required contexts are left empty
   // because the workflow has already gated the deployment on its own jobs.
-  // Retrying either POST is safe. A deployment that a failed attempt created
-  // anyway has no success status, so docs-current never reads it. The status
-  // is retried against the same deployment, and a repeated success status
-  // leaves that deployment's newest status a success.
+  // Retrying either POST is safe: a deployment that a failed attempt created
+  // anyway is an intent that nothing uploaded, so the next check marks it
+  // inactive.
   const deployment = (await githubPost(`repos/${repository}/deployments`, {
     ref: build.sha,
     task: "deploy",
@@ -1074,21 +1176,23 @@ async function docsRecordDeployment(): Promise<void> {
   })) as Partial<GitHubDeployment>;
   const id = githubId(deployment.id);
   assert.equal(deployment.sha, build.sha);
-  const environmentUrl = process.env.DRFED_DOCS_URL;
-  // Earlier records keep their success state, so marking the newest record
-  // otherwise falls back to the previous deployment instead of to none.
-  const status = (await githubPost(
-    `repos/${repository}/deployments/${id}/statuses`,
-    {
-      state: "success",
-      log_url: `https://github.com/${repository}/actions/runs/${build.runId}`,
-      auto_inactive: false,
-      ...(environmentUrl ? { environment_url: environmentUrl } : {}),
-    },
-  )) as Partial<GitHubDeploymentStatus>;
-  assert.equal(status.state, "success");
+  await postDocsStatus(id, build, "in_progress");
   console.log(
-    `Recorded ${environment} deployment ${id} for ${build.version} (${build.sha})`,
+    `Recorded the intent to deploy ${build.version} (${build.sha}) to ${environment} as deployment ${id}`,
+  );
+  if (process.env.GITHUB_OUTPUT) {
+    await appendFile(process.env.GITHUB_OUTPUT, `deployment=${id}\n`);
+  }
+}
+async function docsRecordDeployment(): Promise<void> {
+  const build = buildFromEnvironment();
+  requireGitHubToken();
+  const id = githubId(Number(process.env.DOCS_DEPLOYMENT_ID));
+  // A repeated success status leaves that deployment's newest status a
+  // success, so the status is retried against the same deployment.
+  await postDocsStatus(id, build, "success", process.env.DRFED_DOCS_URL);
+  console.log(
+    `Recorded ${docsEnvironment(build)} deployment ${id} for ${build.version} (${build.sha})`,
   );
 }
 if (command === "version") {
@@ -1110,11 +1214,12 @@ else if (command === "verify") {
 } else if (command === "publish") await publish();
 else if (command === "github-release") await release();
 else if (command === "docs-current") await docsCurrent();
+else if (command === "docs-intent") await docsIntent();
 else if (command === "docs-record") await docsRecordDeployment();
 else if (command === "compare") {
   console.log(compare(cliArgs[0]!, cliArgs[1]!));
 } else {
   throw new Error(
-    "Expected version, apply, ensure-unpublished, tag-target, pack, verify, publish, github-release, docs-current, docs-record or compare",
+    "Expected version, apply, ensure-unpublished, tag-target, pack, verify, publish, github-release, docs-current, docs-intent, docs-record or compare",
   );
 }

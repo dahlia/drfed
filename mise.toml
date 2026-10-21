@@ -68,8 +68,13 @@ env = { WRANGLER_SEND_METRICS = "false" }
 run = "node scripts/docs-deploy.mts deploy"
 
 [tasks."docs:verify-current"]
-description = "Report whether this CI build is newer than the last successful docs deployment"
+description = "Report whether this CI build is newer than the docs the site serves"
 run = "node scripts/release.mts docs-current"
+
+[tasks."docs:record-intent"]
+description = "Record the intent to deploy a docs build and name the build in it"
+usage = 'arg "<dir>" help="Built documentation directory"'
+run = "node scripts/release.mts docs-intent"
 
 [tasks."docs:record-deployment"]
 description = "Record a successful docs deployment for later ordering checks"

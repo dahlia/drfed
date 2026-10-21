@@ -89,6 +89,26 @@ const deploymentPages: string[] = [];
 const githubPostFailures: { path: RegExp; status: number }[] = [];
 let githubId = 0;
 let githubStatus = 0;
+// What the deployed docs site names as its build: a record, raw text, or
+// nothing (404).  A nonzero status answers in its place.
+let servedDocs: unknown;
+let servedDocsStatus = 0;
+function handleServedDocs(
+  path: string,
+  response: import("node:http").ServerResponse,
+): boolean {
+  if (path !== "/__site/drfed-docs-build.json") return false;
+  if (servedDocsStatus || servedDocs === undefined) {
+    response.writeHead(servedDocsStatus || 404);
+    response.end();
+    return true;
+  }
+  response.setHeader("content-type", "application/json");
+  response.end(
+    typeof servedDocs === "string" ? servedDocs : JSON.stringify(servedDocs),
+  );
+  return true;
+}
 function seedDeployment(
   environment: string,
   payload: unknown,
@@ -368,6 +388,7 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (handleDeploymentRead(path, requestUrl, response)) return;
+  if (handleServedDocs(path, response)) return;
   if (path === "/__npm") {
     handleNpm(bytes, response);
     return;
@@ -924,7 +945,7 @@ try {
   githubRelease!.assets[0]!.digest = "sha256:conflict";
   await assert.rejects(run(["github-release", "--github-api", registry]));
   assert.equal(githubOperations.length, 50);
-  // Docs deployments are ordered against the last successful docs record.
+  // Docs deployments are ordered against the last build that reached the site.
   const githubOutput = join(temporary, "github-output");
   const devEnv = {
     DRFED_RELEASE_BUILD: JSON.stringify(build),
@@ -935,6 +956,7 @@ try {
   ): Promise<boolean> => {
     await writeFile(githubOutput, "");
     const { stdout } = await run(["docs-current", "--github-api", registry], {
+      DRFED_DOCS_URL: `${registry}__site/`,
       ...overrides,
       GITHUB_OUTPUT: githubOutput,
     });
@@ -962,17 +984,42 @@ try {
     runNumber: "100",
     sha: recordSha,
   });
+  // An intent names the build in the site; the record settles that intent.
+  const docsDist = join(temporary, "docs-dist");
+  await mkdir(docsDist, { recursive: true });
+  const docsIntent = async (overrides: Record<string, string> = {}) => {
+    await writeFile(githubOutput, "");
+    // As mise passes the argument of the docs:record-intent task.
+    await run(["docs-intent", "--github-api", registry], {
+      ...overrides,
+      usage_dir: docsDist,
+      GITHUB_OUTPUT: githubOutput,
+    });
+    const output = await readFile(githubOutput, "utf8");
+    return /^deployment=(?<id>[1-9]\d*)\n$/u.exec(output)!.groups!.id!;
+  };
+  const recordDocs = async (overrides: Record<string, string> = {}) => {
+    const id = await docsIntent(overrides);
+    await run(["docs-record", "--github-api", registry], {
+      DRFED_DOCS_URL: "https://drfed.example/",
+      ...overrides,
+      DOCS_DEPLOYMENT_ID: id,
+    });
+  };
   // No record yet: the first deployment of either site proceeds.
   assert.equal(await docsCurrent(devEnv), true);
   assert.equal(await docsCurrent(), true);
   assert.ok(deploymentPages.every((query) => query.includes("per_page=100")));
-  // Recording creates exactly one deployment of the commit and one success.
-  await run(["docs-record", "--github-api", registry], {
-    DRFED_DOCS_URL: "https://drfed.example/",
-  });
+  // Recording creates exactly one deployment of the commit, an in-progress
+  // status before the upload, and one success after it.
+  await recordDocs();
+  assert.deepEqual(
+    JSON.parse(await readFile(join(docsDist, "drfed-docs-build.json"), "utf8")),
+    { version: "0.1.0", channel: "latest", runNumber: "123", sha },
+  );
   assert.equal(deployments.length, 1);
-  assert.equal(deploymentRequests.length, 2);
-  const [createDeployment, createStatus] = deploymentRequests as {
+  assert.equal(deploymentRequests.length, 3);
+  const [createDeployment, createIntent, createStatus] = deploymentRequests as {
     args: string[];
     input: Record<string, unknown>;
   }[];
@@ -996,9 +1043,15 @@ try {
     production_environment: true,
   });
   assert.equal(
-    createStatus!.args[3],
+    createIntent!.args[3],
     `repos/fedify-dev/drfed/deployments/${deployments[0]!.id}/statuses`,
   );
+  assert.deepEqual(createIntent!.input, {
+    state: "in_progress",
+    log_url: "https://github.com/fedify-dev/drfed/actions/runs/456",
+    auto_inactive: false,
+  });
+  assert.equal(createStatus!.args[3], createIntent!.args[3]);
   assert.deepEqual(createStatus!.input, {
     state: "success",
     log_url: "https://github.com/fedify-dev/drfed/actions/runs/456",
@@ -1007,13 +1060,13 @@ try {
   });
   assert.deepEqual(
     deployments[0]!.statuses.map((item) => item.state),
-    ["success"],
+    ["in_progress", "success"],
   );
   // A rerun of the same version sees its own record and redeploys.
   assert.equal(await docsCurrent(), true);
   // Another environment's records never order this one.
   assert.equal(await docsCurrent(devEnv), true);
-  await run(["docs-record", "--github-api", registry], devEnv);
+  await recordDocs(devEnv);
   assert.equal(deployments.length, 2);
   assert.equal(deployments[1]!.environment, "docs-canary");
   assert.deepEqual(deployments[1]!.payload, devRecord("123"));
@@ -1048,11 +1101,77 @@ try {
   );
   await assert.rejects(docsCurrent(), /Malformed docs deployment/u);
   unparsable.statuses.push({ id: (githubId += 1), state: "inactive" });
-  // A newest status other than success is skipped in favor of older records.
-  deployments.at(-1)!.statuses.push({ id: (githubId += 1), state: "failure" });
-  seedDeployment("docs-release", releaseRecord("0.3.0"), []);
-  seedDeployment("docs-release", releaseRecord("0.3.0"), ["error"]);
+  // An unresolved malformed intent fails closed before the site is read.
+  unparsable.statuses.push({ id: (githubId += 1), state: "failure" });
+  await assert.rejects(docsCurrent(), /Malformed docs deployment/u);
+  unparsable.statuses.push({ id: (githubId += 1), state: "inactive" });
+  // Intents the site does not serve, whatever their newest status other than
+  // success, are marked inactive in favor of older records.
+  const unserved = ([[], ["error"], ["failure"], ["in_progress"]] as const).map(
+    (states) =>
+      seedDeployment("docs-release", releaseRecord("0.3.0"), [...states]),
+  );
+  servedDocs = releaseRecord("0.1.0");
   assert.equal(await docsCurrent(), true);
+  for (const deployment of unserved) {
+    assert.equal(deployment.statuses.at(-1)!.state, "inactive");
+  }
+  // A site that names no build serves none of them either.
+  servedDocs = undefined;
+  const unnamed = seedDeployment("docs-release", releaseRecord("0.3.0"), [
+    "in_progress",
+  ]);
+  assert.equal(await docsCurrent(), true);
+  assert.equal(unnamed.statuses.at(-1)!.state, "inactive");
+  // A newer build that reached the site without its success record blocks an
+  // older one, and is recorded as successful.
+  const unrecorded = seedDeployment("docs-release", releaseRecord("0.2.0"), [
+    "in_progress",
+  ]);
+  servedDocs = releaseRecord("0.2.0");
+  assert.equal(await docsCurrent(), false);
+  assert.deepEqual(
+    unrecorded.statuses.map((item) => item.state),
+    ["in_progress", "success"],
+  );
+  servedDocs = undefined;
+  assert.equal(await docsCurrent(), false);
+  unrecorded.statuses.push({ id: (githubId += 1), state: "inactive" });
+  // The site is matched on the whole record, not on the commit alone.
+  const otherRun = seedDeployment("docs-release", releaseRecord("0.2.0"), [
+    "in_progress",
+  ]);
+  servedDocs = { ...releaseRecord("0.2.0"), runNumber: "101" };
+  assert.equal(await docsCurrent(), true);
+  assert.equal(otherRun.statuses.at(-1)!.state, "inactive");
+  // A site that cannot be read, or names a malformed build, fails closed and
+  // leaves the intent unresolved.
+  const pending = seedDeployment("docs-release", releaseRecord("0.2.0"), [
+    "in_progress",
+  ]);
+  for (const failure of [403, 500]) {
+    servedDocsStatus = failure;
+    await assert.rejects(docsCurrent(), new RegExp(`HTTP ${failure}`, "u"));
+  }
+  servedDocsStatus = 0;
+  for (const malformed of [
+    "not json",
+    { ...releaseRecord("0.2.0"), channel: "dev" },
+    { ...releaseRecord("0.2.0"), sha: "short" },
+  ]) {
+    servedDocs = malformed;
+    await assert.rejects(docsCurrent(), /Malformed http:/u);
+  }
+  assert.deepEqual(
+    pending.statuses.map((item) => item.state),
+    ["in_progress"],
+  );
+  await assert.rejects(
+    docsCurrent({ DRFED_DOCS_URL: "" }),
+    /DRFED_DOCS_URL is required/u,
+  );
+  pending.statuses.push({ id: (githubId += 1), state: "inactive" });
+  servedDocs = undefined;
   // A malformed record fails closed until a maintainer deactivates it.
   const malformed = seedDeployment(
     "docs-release",
@@ -1096,14 +1215,14 @@ try {
   assert.equal(await docsCurrent(devEnv), true);
   seedDeployment("docs-canary", devRecord("124", "d".repeat(40)), ["success"]);
   assert.equal(await docsCurrent(devEnv), false);
-  // Pagination: a newer record behind a full page of unfinished deployments.
+  // Pagination: a newer record behind a full page of superseded deployments.
   deployments.at(-1)!.statuses.push({ id: (githubId += 1), state: "inactive" });
   assert.equal(await docsCurrent(devEnv), true);
   seedDeployment("docs-canary", devRecord("200", "c".repeat(40)), ["success"]);
   for (let index = 0; index < 100; index += 1) {
     seedDeployment("docs-canary", devRecord(String(300 + index)), [
       "success",
-      "failure",
+      "inactive",
     ]);
   }
   // Serve the newest records first on this listing only.
@@ -1121,7 +1240,7 @@ try {
   // A recorded run is what the next check sees.
   deploymentRequests.length = 0;
   const recorded = deployments.length;
-  await run(["docs-record", "--github-api", registry], {
+  await recordDocs({
     ...devEnv,
     GITHUB_RUN_NUMBER: "500",
     GITHUB_RUN_ID: "900",
@@ -1134,7 +1253,7 @@ try {
     }),
   });
   assert.equal(deployments.length, recorded + 1);
-  assert.equal(deploymentRequests.length, 2);
+  assert.equal(deploymentRequests.length, 3);
   assert.equal(await docsCurrent(devEnv), false);
   const devRecordEnv = (runNumber: string) => ({
     ...devEnv,
@@ -1152,9 +1271,7 @@ try {
   for (const failure of [404, 422]) {
     deploymentRequests.length = 0;
     githubPostFailures.push({ path: /\/deployments$/u, status: failure });
-    await assert.rejects(
-      run(["docs-record", "--github-api", registry], devRecordEnv("501")),
-    );
+    await assert.rejects(docsIntent(devRecordEnv("501")));
     assert.equal(githubPostFailures.length, 0);
     assert.equal(deploymentRequests.length, 1);
     assert.equal(deployments.length, recorded + 1);
@@ -1162,13 +1279,13 @@ try {
   // A transient status failure is retried on the same deployment.
   deploymentRequests.length = 0;
   githubPostFailures.push({ path: /\/statuses$/u, status: 503 });
-  await run(["docs-record", "--github-api", registry], devRecordEnv("502"));
+  await recordDocs(devRecordEnv("502"));
   assert.equal(githubPostFailures.length, 0);
   assert.equal(deployments.length, recorded + 2);
   const retried = deployments.at(-1)!;
   assert.deepEqual(
     retried.statuses.map((item) => item.state),
-    ["success"],
+    ["in_progress", "success"],
   );
   assert.deepEqual(
     deploymentRequests.map(
@@ -1177,6 +1294,7 @@ try {
     [
       "repos/fedify-dev/drfed/deployments ok",
       `repos/fedify-dev/drfed/deployments/${retried.id}/statuses 503`,
+      `repos/fedify-dev/drfed/deployments/${retried.id}/statuses ok`,
       `repos/fedify-dev/drfed/deployments/${retried.id}/statuses ok`,
     ],
   );

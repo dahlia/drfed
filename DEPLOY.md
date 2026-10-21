@@ -62,10 +62,20 @@ Rules for the two public sites:
  -  Forks and branches other than `main` never update either public site.
  -  A rerun of an older run does not deploy once a newer version's
     documentation has been deployed.  `mise run docs:verify-current` compares
-    the build with the last successful deployment that
-    `mise run docs:record-deployment` recorded.  Release builds compare by
-    SemVer across the `latest` and `next` channels; canary builds compare by
-    workflow run number.
+    the build with the last deployment that reached the site.  Release builds
+    compare by SemVer across the `latest` and `next` channels; canary builds
+    compare by workflow run number.
+ -  Each deployment is recorded before its upload and settled after it, so a
+    build that reached the site still blocks older builds when its job fails
+    before recording that.  `mise run docs:record-intent <dir>` records an
+    in-progress deployment and writes *drfed-docs-build.json*, which names the
+    build, into the site.  `mise run docs:record-deployment` marks the
+    deployment successful after the upload.  When `docs:verify-current` finds
+    a deployment that is neither successful nor inactive, it reads
+    *drfed-docs-build.json* from the site: if the site names that build, the
+    deployment is marked successful, otherwise inactive.  A site that cannot
+    be read, or names a malformed build, fails the job without changing the
+    records.
  -  Because `latest` and `next` share `drfed.org`, a stable patch released
     while a higher prerelease is deployed (say 0.2.1 after 0.3.0-rc.1) is
     skipped with a warning annotation until a newer version is deployed.
@@ -211,12 +221,12 @@ reach `main`.
 
 ### Recovering the ordering records
 
-Deployment and record are separate steps, not one atomic operation.  If the
-record step fails after the deployment succeeded, the site already shows that
-build; re-run that failed job so the same build records itself.
+A job that fails after recording its intent needs no action: the next
+deployment to the same site settles the intent against the site first.
 
-If a bad or malformed record blocks `mise run docs:verify-current`, list the
-records and mark the offending one inactive:
+If a bad or malformed record, or a site that cannot be read, blocks
+`mise run docs:verify-current`, list the records and mark the offending one
+inactive:
 
 ~~~~ sh
 gh api 'repos/fedify-dev/drfed/deployments?environment=docs-release'
@@ -225,7 +235,8 @@ gh api -X POST repos/fedify-dev/drfed/deployments/<id>/statuses \
 ~~~~
 
 Use `environment=docs-canary` for the canary site.  The previous successful
-record is then used.
+record is then used.  To keep an unresolved deployment that is known to be
+served instead, post `-f state=success` in the same way.
 
 ### DNS
 
