@@ -348,6 +348,9 @@ These assets are extracted from the same verified application tarball that is
 published to npm.  Their manifest digests and tarball contents are checked
 before release uploads; reruns reuse matching assets and upload missing files.
 
+Documentation site deployment and its service setup are described in
+[*DEPLOY.md*](./DEPLOY.md).
+
 
 Source license headers
 ----------------------

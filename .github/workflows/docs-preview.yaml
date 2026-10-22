@@ -1,0 +1,80 @@
+name: docs-preview
+
+# Read "Pull request previews" in DEPLOY.md before changing this workflow.
+on:
+  workflow_run: # jactionlint ignore=dangerous-triggers
+    workflows: [main]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    if: >-
+      github.repository == 'fedify-dev/drfed' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.path == '.github/workflows/main.yaml' &&
+      github.event.workflow_run.conclusion != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    concurrency:
+      group: docs-preview-${{ github.event.workflow_run.head_repository.id }}-${{ github.event.workflow_run.head_branch }}
+      cancel-in-progress: false
+      queue: max
+    env:
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+      HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+      MISE_NO_HOOKS: "1"
+      MISE_AUTO_INSTALL: "false"
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v5.1.2
+        with:
+          cache: false
+          experimental: true
+          install_args: node npm:wrangler@4.149.0
+      - name: Find the open pull request whose head is this commit
+        id: pr
+        run: mise run --no-deps --skip-tools docs:preview-pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Require the docs job of the latest attempt to have succeeded
+        id: built
+        if: steps.pr.outputs.number != ''
+        run: mise run --no-deps --skip-tools docs:preview-built
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/download-artifact@v8.0.2
+        if: steps.built.outputs.built == 'true'
+        with:
+          name: docs-${{ env.RUN_ID }}
+          run-id: ${{ env.RUN_ID }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/docs-dist
+      - id: deploy
+        name: Deploy the documentation preview to Cloudflare Pages
+        if: steps.built.outputs.built == 'true'
+        run: mise run --no-deps --skip-tools docs:deploy "$RUNNER_TEMP/docs-dist"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_PROJECT_NAME: ${{ vars.CLOUDFLARE_PROJECT_NAME }}
+          DOCS_BRANCH: pr-${{ steps.pr.outputs.number }}
+          DOCS_COMMIT: ${{ env.HEAD_SHA }}
+      - name: Post or update the preview comment
+        if: steps.built.outputs.built == 'true'
+        run: mise run --no-deps --skip-tools docs:preview-comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          ALIAS_URL: ${{ steps.deploy.outputs.alias-url }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}

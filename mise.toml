@@ -53,6 +53,45 @@ run = "pnpm exec vitepress dev docs"
 description = "Preview the built VitePress documentation site"
 run = "pnpm exec vitepress preview docs"
 
+[tasks."docs:verify-dist"]
+description = "Refuse a documentation build that Cloudflare Pages would execute as code"
+usage = 'arg "<dir>" help="Built documentation directory"'
+run = "node scripts/docs-deploy.mts verify"
+
+# The deploy jobs in .github/workflows/main.yaml and docs-preview.yaml install
+# this Wrangler version before their secret-bearing steps; keep them in sync.
+[tasks."docs:deploy"]
+description = "Verify a documentation build and deploy it to Cloudflare Pages"
+usage = 'arg "<dir>" help="Built documentation directory"'
+tools = { "npm:wrangler" = "4.149.0" }
+env = { WRANGLER_SEND_METRICS = "false" }
+run = "node scripts/docs-deploy.mts deploy"
+
+[tasks."docs:verify-current"]
+description = "Report whether this CI build is newer than the docs the site serves"
+run = "node scripts/release.mts docs-current"
+
+[tasks."docs:record-intent"]
+description = "Record the intent to deploy a docs build and name the build in it"
+usage = 'arg "<dir>" help="Built documentation directory"'
+run = "node scripts/release.mts docs-intent"
+
+[tasks."docs:record-deployment"]
+description = "Record a successful docs deployment for later ordering checks"
+run = "node scripts/release.mts docs-record"
+
+[tasks."docs:preview-pr"]
+description = "Find the open pull request whose head is the built preview commit"
+run = "node scripts/docs-preview.mts pr"
+
+[tasks."docs:preview-built"]
+description = "Report whether the docs job of the latest attempt of a PR run succeeded"
+run = "node scripts/docs-preview.mts built"
+
+[tasks."docs:preview-comment"]
+description = "Post or update the single docs preview comment on a pull request"
+run = "node scripts/docs-preview.mts comment"
+
 [tasks."build:web"]
 description = "Build SolidStart frontend server"
 depends = [
@@ -89,7 +128,7 @@ run = "node scripts/test-packaging.mts"
 
 [tasks.check]
 description = "Check all"
-depends = ["check:*"]
+depends = ["check:*", "check:*:*"]
 
 [tasks."check:workflows"]
 description = "Check GitHub workflows and local composite actions"
@@ -102,6 +141,10 @@ run = "sacho check"
 [tasks."check:release"]
 description = "Exercise release version, registry, artifact and recovery fixtures"
 run = "node scripts/test-release.mts"
+
+[tasks."check:docs-preview"]
+description = "Exercise docs preview pull request, build and comment fixtures"
+run = "node --test scripts/test-docs-preview.mts"
 
 [tasks."check:types"]
 description = "Check TypeScript types"

@@ -210,3 +210,199 @@ jobs:
           path: release-artifacts
       - name: Create or verify the frozen release and its exact tarball assets
         run: mise run release:github
+
+  docs:
+    timeout-minutes: 15
+    concurrency:
+      group: docs-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
+      queue: max
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v5.1.2
+        with:
+          cache: true
+          experimental: true
+      # Only the builds that the docs-release and docs-canary jobs deploy link
+      # to the other site, and they fail fast without its URL.  Pull requests,
+      # other branches, and pushes to forks or other repositories build
+      # without the link, whatever variables they define.
+      - name: Build the documentation site for its deployment target
+        run: |
+          if [[ "$DEPLOYS" == true && "$GITHUB_REF_TYPE" == tag ]]; then
+            : "${CANARY_DOCS_URL:?The CANARY_DOCS_URL variable is required}"
+            export EXTRA_NAV_TEXT=Canary EXTRA_NAV_LINK="$CANARY_DOCS_URL"
+          elif [[ "$DEPLOYS" == true && "$GITHUB_REF" == refs/heads/main ]]; then
+            : "${RELEASE_DOCS_URL:?The RELEASE_DOCS_URL variable is required}"
+            export EXTRA_NAV_TEXT=Release EXTRA_NAV_LINK="$RELEASE_DOCS_URL"
+          fi
+          mise run build:docs
+        env:
+          DEPLOYS: >-
+            ${{ github.event_name == 'push' &&
+            github.repository == 'fedify-dev/drfed' && !github.event.deleted }}
+          RELEASE_DOCS_URL: ${{ vars.RELEASE_DOCS_URL }}
+          CANARY_DOCS_URL: ${{ vars.CANARY_DOCS_URL }}
+      # The docs-preview workflow deploys this artifact for pull requests.
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: docs-${{ github.run_id }}
+          path: docs/.vitepress/dist
+          if-no-files-found: error
+          retention-days: 14
+          overwrite: true
+
+  docs-release:
+    needs: [version, docs, github-release]
+    if: >-
+      github.event_name == 'push' && github.repository == 'fedify-dev/drfed' &&
+      !github.event.deleted && github.ref_type == 'tag' &&
+      needs.version.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+      deployments: write
+    concurrency:
+      group: docs-release
+      cancel-in-progress: false
+      queue: max
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      DRFED_RELEASE_BUILD: ${{ needs.version.outputs.build }}
+      PAGES_ARTIFACT: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
+      # Nothing but Node.js is installed, and no step may run repository hooks
+      # or install anything else: every task runs with --no-deps and
+      # --skip-tools, so no project dependencies are installed either.
+      MISE_NO_HOOKS: "1"
+      MISE_AUTO_INSTALL: "false"
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v5.1.2
+        with:
+          cache: false
+          experimental: true
+          install_args: node
+      - name: Stop unless this release is newer than the deployed docs
+        id: current
+        run: mise run --no-deps --skip-tools docs:verify-current
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRFED_DOCS_URL: ${{ vars.RELEASE_DOCS_URL }}
+      # Outside the checkout, so that nothing downloaded can shadow its files.
+      - uses: actions/download-artifact@v8.0.2
+        if: steps.current.outputs.current == 'true'
+        with:
+          name: docs-${{ github.run_id }}
+          path: ${{ runner.temp }}/docs-dist
+      - name: Refuse a documentation build that is not plain static files
+        if: steps.current.outputs.current == 'true'
+        run: mise run --no-deps --skip-tools docs:verify-dist "$RUNNER_TEMP/docs-dist"
+      - name: Record the intent to deploy this release
+        id: intent
+        if: steps.current.outputs.current == 'true'
+        run: mise run --no-deps --skip-tools docs:record-intent "$RUNNER_TEMP/docs-dist"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/upload-pages-artifact@v5.0.0
+        if: steps.current.outputs.current == 'true'
+        with:
+          name: ${{ env.PAGES_ARTIFACT }}
+          path: ${{ runner.temp }}/docs-dist
+          retention-days: 1
+      - id: deployment
+        if: steps.current.outputs.current == 'true'
+        uses: actions/deploy-pages@v5.0.1
+        with:
+          artifact_name: ${{ env.PAGES_ARTIFACT }}
+      - name: Record the successful docs deployment
+        if: steps.current.outputs.current == 'true'
+        run: mise run --no-deps --skip-tools docs:record-deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DOCS_DEPLOYMENT_ID: ${{ steps.intent.outputs.deployment }}
+          DRFED_DOCS_URL: ${{ steps.deployment.outputs.page_url }}
+
+  docs-canary:
+    needs: [version, check, test, docs, publish]
+    if: >-
+      github.event_name == 'push' && github.repository == 'fedify-dev/drfed' &&
+      !github.event.deleted && github.ref == 'refs/heads/main' &&
+      needs.version.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      deployments: write
+    concurrency:
+      group: docs-canary
+      cancel-in-progress: false
+      queue: max
+    environment:
+      name: canary-docs
+      url: ${{ vars.CANARY_DOCS_URL }}
+    env:
+      DRFED_RELEASE_BUILD: ${{ needs.version.outputs.build }}
+      # Nothing but Node.js and Wrangler is installed, and no step may run
+      # repository hooks or install anything else: every task runs with
+      # --no-deps and --skip-tools, so no project dependencies are installed
+      # either, and the deployment step finds Wrangler already installed.
+      MISE_NO_HOOKS: "1"
+      MISE_AUTO_INSTALL: "false"
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      # Keep the Wrangler version in sync with the docs:deploy task in
+      # mise.toml.  If they differ, the deployment fails without installing.
+      - uses: jdx/mise-action@v5.1.2
+        with:
+          cache: false
+          experimental: true
+          install_args: node npm:wrangler@4.149.0
+      - name: Stop unless this build is newer than the deployed docs
+        id: current
+        run: mise run --no-deps --skip-tools docs:verify-current
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRFED_DOCS_URL: ${{ vars.CANARY_DOCS_URL }}
+      # Outside the checkout: wrangler warns about, and records, a dirty tree.
+      - uses: actions/download-artifact@v8.0.2
+        if: steps.current.outputs.current == 'true'
+        with:
+          name: docs-${{ github.run_id }}
+          path: ${{ runner.temp }}/docs-dist
+      - name: Record the intent to deploy this build
+        id: intent
+        if: steps.current.outputs.current == 'true'
+        run: mise run --no-deps --skip-tools docs:record-intent "$RUNNER_TEMP/docs-dist"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      # The task refuses anything that Cloudflare would run as code before it
+      # runs wrangler.  Only this step receives the Cloudflare secrets, and it
+      # never receives a GitHub token.
+      - name: Deploy the documentation site to Cloudflare Pages
+        if: steps.current.outputs.current == 'true'
+        run: mise run --no-deps --skip-tools docs:deploy "$RUNNER_TEMP/docs-dist"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_PROJECT_NAME: ${{ vars.CLOUDFLARE_PROJECT_NAME }}
+          DOCS_BRANCH: main
+          DOCS_COMMIT: ${{ github.sha }}
+      - name: Record the successful docs deployment
+        if: steps.current.outputs.current == 'true'
+        run: mise run --no-deps --skip-tools docs:record-deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DOCS_DEPLOYMENT_ID: ${{ steps.intent.outputs.deployment }}
+          DRFED_DOCS_URL: ${{ vars.CANARY_DOCS_URL }}

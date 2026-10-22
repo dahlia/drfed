@@ -72,6 +72,163 @@ let githubRelease:
     }
   | undefined;
 const githubOperations: string[][] = [];
+interface FixtureDeployment {
+  id: number;
+  sha: string;
+  environment: string;
+  payload: unknown;
+  statuses: { id: number; state: string }[];
+}
+// Deployments are served oldest first, the reverse of GitHub's observed order,
+// so that the fixtures prove the ordering does not depend on the listing.
+const deployments: FixtureDeployment[] = [];
+const deploymentRequests: Record<string, unknown>[] = [];
+const deploymentPages: string[] = [];
+// The first queued failure whose path matches answers a `gh api` POST in
+// place of the handler, and is consumed by it.
+const githubPostFailures: { path: RegExp; status: number }[] = [];
+let githubId = 0;
+let githubStatus = 0;
+// What the deployed docs site names as its build: a record, raw text, or
+// nothing (404).  A nonzero status answers in its place.
+let servedDocs: unknown;
+let servedDocsStatus = 0;
+function handleServedDocs(
+  path: string,
+  response: import("node:http").ServerResponse,
+): boolean {
+  if (path !== "/__site/drfed-docs-build.json") return false;
+  if (servedDocsStatus || servedDocs === undefined) {
+    response.writeHead(servedDocsStatus || 404);
+    response.end();
+    return true;
+  }
+  response.setHeader("content-type", "application/json");
+  response.end(
+    typeof servedDocs === "string" ? servedDocs : JSON.stringify(servedDocs),
+  );
+  return true;
+}
+function seedDeployment(
+  environment: string,
+  payload: unknown,
+  states: string[],
+  sha?: string,
+): FixtureDeployment {
+  githubId += 1;
+  const deployment: FixtureDeployment = {
+    id: githubId,
+    sha: sha ?? (payload as { sha?: string } | null)?.sha ?? "0".repeat(40),
+    environment,
+    payload,
+    statuses: [],
+  };
+  for (const state of states) {
+    githubId += 1;
+    deployment.statuses.push({ id: githubId, state });
+  }
+  deployments.push(deployment);
+  return deployment;
+}
+function handleGitHubApi(
+  args: string[],
+  input: Record<string, unknown>,
+): unknown {
+  deploymentRequests.push({ args, input });
+  const statuses =
+    /^repos\/fedify-dev\/drfed\/deployments\/(?<id>\d+)\/statuses$/u.exec(
+      args[3]!,
+    );
+  if (statuses) {
+    const deployment = deployments.find(
+      (item) => item.id === Number(statuses.groups!.id),
+    );
+    if (!deployment) return null;
+    githubId += 1;
+    const created = { id: githubId, state: input.state as string };
+    deployment.statuses.push(created);
+    return created;
+  }
+  if (args[3] !== "repos/fedify-dev/drfed/deployments") return null;
+  githubId += 1;
+  const deployment: FixtureDeployment = {
+    id: githubId,
+    sha: input.ref as string,
+    environment: input.environment as string,
+    payload: input.payload,
+    statuses: [],
+  };
+  deployments.push(deployment);
+  return deployment;
+}
+function respondGitHubApi(
+  args: string[],
+  input: Record<string, unknown>,
+  response: import("node:http").ServerResponse,
+): void {
+  response.setHeader("content-type", "application/json");
+  const index = githubPostFailures.findIndex((item) =>
+    item.path.test(args[3]!),
+  );
+  if (index >= 0) {
+    const failure = githubPostFailures.splice(index, 1)[0]!.status;
+    deploymentRequests.push({ args, input, failure });
+    response.writeHead(failure);
+    response.end('{"message":"Fixture failure"}');
+    return;
+  }
+  const result = handleGitHubApi(args, input);
+  if (result === null) response.writeHead(404);
+  response.end(JSON.stringify(result ?? {}));
+}
+function githubPage<T>(items: T[], url: URL): T[] {
+  const size = Number(url.searchParams.get("per_page") ?? "30");
+  const page = Number(url.searchParams.get("page") ?? "1");
+  return items.slice((page - 1) * size, page * size);
+}
+function handleDeploymentRead(
+  path: string,
+  url: URL,
+  response: import("node:http").ServerResponse,
+): boolean {
+  const prefix = "/repos/fedify-dev/drfed/deployments";
+  if (!path.startsWith(prefix)) return false;
+  response.setHeader("content-type", "application/json");
+  if (githubStatus) {
+    response.writeHead(githubStatus);
+    response.end("{}");
+    return true;
+  }
+  if (path === prefix) {
+    const environment = url.searchParams.get("environment");
+    deploymentPages.push(url.search);
+    const matching = deployments.filter(
+      (item) => environment === null || item.environment === environment,
+    );
+    response.end(
+      JSON.stringify(
+        githubPage(matching, url).map((item) => ({
+          id: item.id,
+          sha: item.sha,
+          environment: item.environment,
+          payload: item.payload,
+        })),
+      ),
+    );
+    return true;
+  }
+  const match = /^\/(?<id>\d+)\/statuses$/u.exec(path.slice(prefix.length));
+  const deployment = deployments.find(
+    (item) => item.id === Number(match?.groups?.id),
+  );
+  if (!deployment) {
+    response.writeHead(404);
+    response.end("{}");
+    return true;
+  }
+  response.end(JSON.stringify(githubPage(deployment.statuses, url)));
+  return true;
+}
 let putDocument:
   | {
       versions: Record<
@@ -192,9 +349,14 @@ const server = createServer(async (request, response) => {
   if (path === "/__gh") {
     const operation = JSON.parse(bytes.toString()) as {
       args: string[];
+      input?: Record<string, unknown>;
       notes?: string;
       asset?: { name: string; size: number; digest: string };
     };
+    if (operation.args[0] === "api") {
+      respondGitHubApi(operation.args, operation.input!, response);
+      return;
+    }
     githubOperations.push(operation.args);
     if (operation.args[1] === "create") {
       githubRelease = {
@@ -225,6 +387,8 @@ const server = createServer(async (request, response) => {
     }
     return;
   }
+  if (handleDeploymentRead(path, requestUrl, response)) return;
+  if (handleServedDocs(path, response)) return;
   if (path === "/__npm") {
     handleNpm(bytes, response);
     return;
@@ -700,7 +864,7 @@ try {
   tags.clear();
   operations.length = 0;
   await run(["publish"]);
-  const ghStub = `#!/usr/bin/env node\nimport {readFileSync} from 'node:fs';import {basename} from 'node:path';import {createHash} from 'node:crypto';const args=process.argv.slice(2);const body={args};if(args[1]==='create')body.notes=readFileSync(args[args.indexOf('--notes-file')+1],'utf8');else{const bytes=readFileSync(args[3]);body.asset={name:basename(args[3]),size:bytes.length,digest:'sha256:'+createHash('sha256').update(bytes).digest('hex')};}const response=await fetch('${registry}__gh',{method:'POST',body:JSON.stringify(body)});if(!response.ok)process.exitCode=1;\n`;
+  const ghStub = `#!/usr/bin/env node\nimport {readFileSync} from 'node:fs';import {basename} from 'node:path';import {createHash} from 'node:crypto';const args=process.argv.slice(2);const body={args};if(args[0]==='api')body.input=JSON.parse(readFileSync(0,'utf8'));else if(args[1]==='create')body.notes=readFileSync(args[args.indexOf('--notes-file')+1],'utf8');else{const bytes=readFileSync(args[3]);body.asset={name:basename(args[3]),size:bytes.length,digest:'sha256:'+createHash('sha256').update(bytes).digest('hex')};}const response=await fetch('${registry}__gh',{method:'POST',body:JSON.stringify(body)});process.stdout.write(await response.text());if(!response.ok){process.stderr.write('gh: Fixture failure (HTTP '+response.status+')\\n');process.exitCode=1;}\n`;
   await writeFile(join(bin, "gh"), ghStub, { mode: 0o755 });
   // GitHub release creation trusts the successful publish job, even when
   // version metadata is not visible through registry reads yet.
@@ -781,6 +945,360 @@ try {
   githubRelease!.assets[0]!.digest = "sha256:conflict";
   await assert.rejects(run(["github-release", "--github-api", registry]));
   assert.equal(githubOperations.length, 50);
+  // Docs deployments are ordered against the last build that reached the site.
+  const githubOutput = join(temporary, "github-output");
+  const devEnv = {
+    DRFED_RELEASE_BUILD: JSON.stringify(build),
+    GITHUB_REF: build.ref,
+  };
+  const docsCurrent = async (
+    overrides: Record<string, string> = {},
+  ): Promise<boolean> => {
+    await writeFile(githubOutput, "");
+    const { stdout } = await run(["docs-current", "--github-api", registry], {
+      DRFED_DOCS_URL: `${registry}__site/`,
+      ...overrides,
+      GITHUB_OUTPUT: githubOutput,
+    });
+    const output = await readFile(githubOutput, "utf8");
+    assert.match(output, /^current=(?:true|false)\n$/u);
+    const current = output === "current=true\n";
+    // Every skip is annotated so that maintainers notice it.
+    const warnings = stdout
+      .split("\n")
+      .filter((line) => line.startsWith("::warning "));
+    assert.equal(warnings.length, current ? 0 : 1);
+    docsWarning = warnings[0];
+    return current;
+  };
+  let docsWarning: string | undefined;
+  const devRecord = (runNumber: string, recordSha = sha) => ({
+    version: `0.1.0-dev.${runNumber}`,
+    channel: "dev",
+    runNumber,
+    sha: recordSha,
+  });
+  const releaseRecord = (version: string, recordSha = sha) => ({
+    version,
+    channel: version.includes("-") ? "next" : "latest",
+    runNumber: "100",
+    sha: recordSha,
+  });
+  // An intent names the build in the site; the record settles that intent.
+  const docsDist = join(temporary, "docs-dist");
+  await mkdir(docsDist, { recursive: true });
+  const docsIntent = async (overrides: Record<string, string> = {}) => {
+    await writeFile(githubOutput, "");
+    // As mise passes the argument of the docs:record-intent task.
+    await run(["docs-intent", "--github-api", registry], {
+      ...overrides,
+      usage_dir: docsDist,
+      GITHUB_OUTPUT: githubOutput,
+    });
+    const output = await readFile(githubOutput, "utf8");
+    return /^deployment=(?<id>[1-9]\d*)\n$/u.exec(output)!.groups!.id!;
+  };
+  const recordDocs = async (overrides: Record<string, string> = {}) => {
+    const id = await docsIntent(overrides);
+    await run(["docs-record", "--github-api", registry], {
+      DRFED_DOCS_URL: "https://drfed.example/",
+      ...overrides,
+      DOCS_DEPLOYMENT_ID: id,
+    });
+  };
+  // No record yet: the first deployment of either site proceeds.
+  assert.equal(await docsCurrent(devEnv), true);
+  assert.equal(await docsCurrent(), true);
+  assert.ok(deploymentPages.every((query) => query.includes("per_page=100")));
+  // Recording creates exactly one deployment of the commit, an in-progress
+  // status before the upload, and one success after it.
+  await recordDocs();
+  assert.deepEqual(
+    JSON.parse(await readFile(join(docsDist, "drfed-docs-build.json"), "utf8")),
+    { version: "0.1.0", channel: "latest", runNumber: "123", sha },
+  );
+  assert.equal(deployments.length, 1);
+  assert.equal(deploymentRequests.length, 3);
+  const [createDeployment, createIntent, createStatus] = deploymentRequests as {
+    args: string[];
+    input: Record<string, unknown>;
+  }[];
+  assert.deepEqual(createDeployment!.args, [
+    "api",
+    "--method",
+    "POST",
+    "repos/fedify-dev/drfed/deployments",
+    "--input",
+    "-",
+  ]);
+  assert.deepEqual(createDeployment!.input, {
+    ref: sha,
+    task: "deploy",
+    auto_merge: false,
+    required_contexts: [],
+    environment: "docs-release",
+    payload: { version: "0.1.0", channel: "latest", runNumber: "123", sha },
+    description: "Documentation 0.1.0",
+    transient_environment: false,
+    production_environment: true,
+  });
+  assert.equal(
+    createIntent!.args[3],
+    `repos/fedify-dev/drfed/deployments/${deployments[0]!.id}/statuses`,
+  );
+  assert.deepEqual(createIntent!.input, {
+    state: "in_progress",
+    log_url: "https://github.com/fedify-dev/drfed/actions/runs/456",
+    auto_inactive: false,
+  });
+  assert.equal(createStatus!.args[3], createIntent!.args[3]);
+  assert.deepEqual(createStatus!.input, {
+    state: "success",
+    log_url: "https://github.com/fedify-dev/drfed/actions/runs/456",
+    auto_inactive: false,
+    environment_url: "https://drfed.example/",
+  });
+  assert.deepEqual(
+    deployments[0]!.statuses.map((item) => item.state),
+    ["in_progress", "success"],
+  );
+  // A rerun of the same version sees its own record and redeploys.
+  assert.equal(await docsCurrent(), true);
+  // Another environment's records never order this one.
+  assert.equal(await docsCurrent(devEnv), true);
+  await recordDocs(devEnv);
+  assert.equal(deployments.length, 2);
+  assert.equal(deployments[1]!.environment, "docs-canary");
+  assert.deepEqual(deployments[1]!.payload, devRecord("123"));
+  assert.equal(await docsCurrent(devEnv), true);
+  // A newer release record skips an older tag without failing the job.
+  seedDeployment("docs-release", releaseRecord("0.2.0"), ["success"]);
+  assert.equal(await docsCurrent(), false);
+  // SemVer orders across channels: a higher prerelease is also newer.
+  deployments.at(-1)!.statuses.push({ id: (githubId += 1), state: "inactive" });
+  seedDeployment("docs-release", releaseRecord("0.2.0-rc.1"), ["success"]);
+  assert.equal(await docsCurrent(), false);
+  assert.equal(
+    docsWarning,
+    `::warning title=Docs deployment skipped::Skipped docs 0.1.0 (run 123) because docs-release already serves 0.2.0-rc.1 (run 100, ${sha}).`,
+  );
+  // GitHub may return the payload as a JSON string; it is parsed the same way.
+  deployments.at(-1)!.statuses.push({ id: (githubId += 1), state: "inactive" });
+  seedDeployment(
+    "docs-release",
+    JSON.stringify(releaseRecord("0.2.0")),
+    ["success"],
+    sha,
+  );
+  assert.equal(await docsCurrent(), false);
+  // A string payload that is not JSON fails closed like any malformed record.
+  deployments.at(-1)!.statuses.push({ id: (githubId += 1), state: "inactive" });
+  const unparsable = seedDeployment(
+    "docs-release",
+    "version=0.2.0",
+    ["success"],
+    sha,
+  );
+  await assert.rejects(docsCurrent(), /Malformed docs deployment/u);
+  unparsable.statuses.push({ id: (githubId += 1), state: "inactive" });
+  // An unresolved malformed intent fails closed before the site is read.
+  unparsable.statuses.push({ id: (githubId += 1), state: "failure" });
+  await assert.rejects(docsCurrent(), /Malformed docs deployment/u);
+  unparsable.statuses.push({ id: (githubId += 1), state: "inactive" });
+  // Intents the site does not serve, whatever their newest status other than
+  // success, are marked inactive in favor of older records.
+  const unserved = ([[], ["error"], ["failure"], ["in_progress"]] as const).map(
+    (states) =>
+      seedDeployment("docs-release", releaseRecord("0.3.0"), [...states]),
+  );
+  servedDocs = releaseRecord("0.1.0");
+  assert.equal(await docsCurrent(), true);
+  for (const deployment of unserved) {
+    assert.equal(deployment.statuses.at(-1)!.state, "inactive");
+  }
+  // A site that names no build serves none of them either.
+  servedDocs = undefined;
+  const unnamed = seedDeployment("docs-release", releaseRecord("0.3.0"), [
+    "in_progress",
+  ]);
+  assert.equal(await docsCurrent(), true);
+  assert.equal(unnamed.statuses.at(-1)!.state, "inactive");
+  // A newer build that reached the site without its success record blocks an
+  // older one, and is recorded as successful.
+  const unrecorded = seedDeployment("docs-release", releaseRecord("0.2.0"), [
+    "in_progress",
+  ]);
+  servedDocs = releaseRecord("0.2.0");
+  assert.equal(await docsCurrent(), false);
+  assert.deepEqual(
+    unrecorded.statuses.map((item) => item.state),
+    ["in_progress", "success"],
+  );
+  servedDocs = undefined;
+  assert.equal(await docsCurrent(), false);
+  unrecorded.statuses.push({ id: (githubId += 1), state: "inactive" });
+  // The site is matched on the whole record, not on the commit alone.
+  const otherRun = seedDeployment("docs-release", releaseRecord("0.2.0"), [
+    "in_progress",
+  ]);
+  servedDocs = { ...releaseRecord("0.2.0"), runNumber: "101" };
+  assert.equal(await docsCurrent(), true);
+  assert.equal(otherRun.statuses.at(-1)!.state, "inactive");
+  // A site that cannot be read, or names a malformed build, fails closed and
+  // leaves the intent unresolved.
+  const pending = seedDeployment("docs-release", releaseRecord("0.2.0"), [
+    "in_progress",
+  ]);
+  for (const failure of [403, 500]) {
+    servedDocsStatus = failure;
+    await assert.rejects(docsCurrent(), new RegExp(`HTTP ${failure}`, "u"));
+  }
+  servedDocsStatus = 0;
+  for (const malformed of [
+    "not json",
+    { ...releaseRecord("0.2.0"), channel: "dev" },
+    { ...releaseRecord("0.2.0"), sha: "short" },
+  ]) {
+    servedDocs = malformed;
+    await assert.rejects(docsCurrent(), /Malformed http:/u);
+  }
+  assert.deepEqual(
+    pending.statuses.map((item) => item.state),
+    ["in_progress"],
+  );
+  await assert.rejects(
+    docsCurrent({ DRFED_DOCS_URL: "" }),
+    /DRFED_DOCS_URL is required/u,
+  );
+  pending.statuses.push({ id: (githubId += 1), state: "inactive" });
+  servedDocs = undefined;
+  // A malformed record fails closed until a maintainer deactivates it.
+  const malformed = seedDeployment(
+    "docs-release",
+    { ...releaseRecord("0.0.1"), version: "v0.0.1" },
+    ["success"],
+  );
+  await assert.rejects(docsCurrent(), /Unsupported version/u);
+  malformed.statuses.push({ id: (githubId += 1), state: "inactive" });
+  seedDeployment(
+    "docs-release",
+    releaseRecord("0.0.9"),
+    ["success"],
+    "f".repeat(40),
+  );
+  await assert.rejects(docsCurrent(), /Malformed docs deployment/u);
+  deployments.at(-1)!.statuses.push({ id: (githubId += 1), state: "inactive" });
+  seedDeployment("docs-release", releaseRecord("0.1.0", "e".repeat(40)), [
+    "success",
+  ]);
+  await assert.rejects(docsCurrent(), /Same docs build from another commit/u);
+  deployments.at(-1)!.statuses.push({ id: (githubId += 1), state: "inactive" });
+  seedDeployment("docs-release", releaseRecord("0.0.9"), ["success"]);
+  assert.equal(await docsCurrent(), true);
+  // API failures are never read as an empty deployment history.
+  for (const failure of [401, 404, 500]) {
+    githubStatus = failure;
+    await assert.rejects(docsCurrent());
+    githubStatus = 0;
+  }
+  // A deleted or moved remote tag fails before anything is deployed.
+  await git("commit", "--allow-empty", "-qm", "Moved docs tag fixture");
+  await git("tag", "-f", "0.1.0");
+  await assert.rejects(docsCurrent(), /Remote tag was deleted or retargeted/u);
+  await git("checkout", "--detach", sha);
+  await git("tag", "-d", "0.1.0");
+  await assert.rejects(docsCurrent(), /Remote tag was deleted or retargeted/u);
+  await git("tag", "0.1.0", sha);
+  assert.equal(await docsCurrent(), true);
+  // Dev runs order by run number as an integer, not by version or string.
+  seedDeployment("docs-canary", devRecord("99"), ["success"]);
+  assert.equal(await docsCurrent(devEnv), true);
+  seedDeployment("docs-canary", devRecord("124", "d".repeat(40)), ["success"]);
+  assert.equal(await docsCurrent(devEnv), false);
+  // Pagination: a newer record behind a full page of superseded deployments.
+  deployments.at(-1)!.statuses.push({ id: (githubId += 1), state: "inactive" });
+  assert.equal(await docsCurrent(devEnv), true);
+  seedDeployment("docs-canary", devRecord("200", "c".repeat(40)), ["success"]);
+  for (let index = 0; index < 100; index += 1) {
+    seedDeployment("docs-canary", devRecord(String(300 + index)), [
+      "success",
+      "inactive",
+    ]);
+  }
+  // Serve the newest records first on this listing only.
+  deployments.reverse();
+  deploymentPages.length = 0;
+  assert.equal(await docsCurrent(devEnv), false);
+  assert.ok(deploymentPages.some((query) => query.includes("page=2")));
+  deployments.reverse();
+  deployments
+    .at(-101)!
+    .statuses.push({ id: (githubId += 1), state: "inactive" });
+  deploymentPages.length = 0;
+  assert.equal(await docsCurrent(devEnv), true);
+  assert.ok(deploymentPages.some((query) => query.includes("page=2")));
+  // A recorded run is what the next check sees.
+  deploymentRequests.length = 0;
+  const recorded = deployments.length;
+  await recordDocs({
+    ...devEnv,
+    GITHUB_RUN_NUMBER: "500",
+    GITHUB_RUN_ID: "900",
+    DRFED_RELEASE_BUILD: JSON.stringify({
+      ...build,
+      version: "0.1.0-dev.500",
+      fullVersion: `0.1.0-dev.500+${sha.slice(0, 8)}`,
+      runNumber: "500",
+      runId: "900",
+    }),
+  });
+  assert.equal(deployments.length, recorded + 1);
+  assert.equal(deploymentRequests.length, 3);
+  assert.equal(await docsCurrent(devEnv), false);
+  const devRecordEnv = (runNumber: string) => ({
+    ...devEnv,
+    GITHUB_RUN_NUMBER: runNumber,
+    GITHUB_RUN_ID: "900",
+    DRFED_RELEASE_BUILD: JSON.stringify({
+      ...build,
+      version: `0.1.0-dev.${runNumber}`,
+      fullVersion: `0.1.0-dev.${runNumber}+${sha.slice(0, 8)}`,
+      runNumber,
+      runId: "900",
+    }),
+  });
+  // A rejected deployment fails at once, without retrying or a status.
+  for (const failure of [404, 422]) {
+    deploymentRequests.length = 0;
+    githubPostFailures.push({ path: /\/deployments$/u, status: failure });
+    await assert.rejects(docsIntent(devRecordEnv("501")));
+    assert.equal(githubPostFailures.length, 0);
+    assert.equal(deploymentRequests.length, 1);
+    assert.equal(deployments.length, recorded + 1);
+  }
+  // A transient status failure is retried on the same deployment.
+  deploymentRequests.length = 0;
+  githubPostFailures.push({ path: /\/statuses$/u, status: 503 });
+  await recordDocs(devRecordEnv("502"));
+  assert.equal(githubPostFailures.length, 0);
+  assert.equal(deployments.length, recorded + 2);
+  const retried = deployments.at(-1)!;
+  assert.deepEqual(
+    retried.statuses.map((item) => item.state),
+    ["in_progress", "success"],
+  );
+  assert.deepEqual(
+    deploymentRequests.map(
+      (item) => `${(item.args as string[])[3]} ${item.failure ?? "ok"}`,
+    ),
+    [
+      "repos/fedify-dev/drfed/deployments ok",
+      `repos/fedify-dev/drfed/deployments/${retried.id}/statuses 503`,
+      `repos/fedify-dev/drfed/deployments/${retried.id}/statuses ok`,
+      `repos/fedify-dev/drfed/deployments/${retried.id}/statuses ok`,
+    ],
+  );
+  assert.equal(await docsCurrent(devEnv), false);
   await git("tag", "-d", "0.1.0");
   await assert.rejects(run(["publish"]));
   for (const name of names) {
@@ -895,7 +1413,7 @@ try {
     "0.1.0-dev.123+abcdef0",
   );
   console.log(
-    "Release fixtures passed: versions, authorization, normalization, exact artifacts, partial recovery, retries, conflicts and late channel promotion.",
+    "Release fixtures passed: versions, authorization, normalization, exact artifacts, partial recovery, retries, conflicts, late channel promotion and docs deployment ordering.",
   );
 } finally {
   await promisify(server.close.bind(server))();

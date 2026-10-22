@@ -14,8 +14,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import type { Theme } from "vitepress";
 import DefaultTheme from "vitepress/theme-without-fonts";
+
+import Layout from "./Layout.vue";
 
 import "./custom.css";
 
-export default DefaultTheme;
+export default { extends: DefaultTheme, Layout } satisfies Theme;

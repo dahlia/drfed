@@ -151,6 +151,9 @@ importers:
       '@open-circle/agent-skills':
         specifier: github:open-circle/agent-skills#21d123742218d3cd748056fad78aa88d7da3dc96
         version: https://codeload.github.com/open-circle/agent-skills/tar.gz/21d123742218d3cd748056fad78aa88d7da3dc96
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.0.0
       drizzle-orm:
         specifier: 'catalog:'
         version: 1.0.0-beta.22(@electric-sql/pglite@0.5.3)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(pg@8.21.0)(postgres@3.4.9)(valibot@1.4.2(typescript@7.0.2))
